@@ -8,9 +8,13 @@ import {
   Settings, 
   Church,
   Calendar,
-  Wallet
+  Wallet,
+  Users,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { formatearMoneda } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   vistaActiva: string;
@@ -18,6 +22,7 @@ interface NavbarProps {
   saldoNeto: number;
   onAbrirCapturaIngreso: (tipoCulto?: 'miercoles_general' | 'domingo_manana') => void;
   onAbrirRegistroGasto: () => void;
+  onAbrirGestionUsuarios?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,7 +31,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   saldoNeto,
   onAbrirCapturaIngreso,
   onAbrirRegistroGasto,
+  onAbrirGestionUsuarios,
 }) => {
+  const { user, logout } = useAuth();
   return (
     <header className="bg-slate-900 text-white shadow-xl sticky top-0 z-40 border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,6 +88,51 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>- Gasto</span>
             </button>
           </div>
+
+          {/* Sección de Usuario Autenticado (Auth.js) */}
+          {user && (
+            <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
+              {/* Información y Rol del Usuario */}
+              <div className="hidden lg:flex flex-col items-end">
+                <span className="text-xs font-semibold text-white tracking-tight">
+                  {user.name}
+                </span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  user.role === 'admin'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : user.role === 'pastor'
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : user.role === 'tesorero'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-slate-700 text-slate-300'
+                }`}>
+                  {user.role}
+                </span>
+              </div>
+
+              {/* Botón Gestión de Usuarios (Para Admin y Pastor) */}
+              {(user.role === 'admin' || user.role === 'pastor') && onAbrirGestionUsuarios && (
+                <button
+                  type="button"
+                  onClick={onAbrirGestionUsuarios}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-xl transition border border-slate-700/60"
+                  title="Gestionar Usuarios de la Iglesia"
+                >
+                  <Users className="w-4 h-4 text-indigo-400" />
+                </button>
+              )}
+
+              {/* Botón Cerrar Sesión */}
+              <button
+                type="button"
+                onClick={logout}
+                className="p-2 text-slate-400 hover:text-rose-400 bg-slate-800/80 hover:bg-rose-500/10 rounded-xl transition border border-slate-700/60"
+                title="Cerrar Sesión (Auth.js)"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Barra de Navegación por Pestañas */}

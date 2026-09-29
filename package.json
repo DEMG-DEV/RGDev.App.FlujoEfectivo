@@ -1,8 +1,7 @@
 {
   "name": "rgdev-app-flujo-efectivo-iglesia",
   "private": true,
-  "version": "1.0.0",
-  "packageManager": "npm@11.16.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,10 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
     "@aws-sdk/client-s3": "^3.1141.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/busboy": "^1.5.4",
     "@types/pg": "^8.23.1",
     "@vercel/node": "^16.0.1",
+    "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",

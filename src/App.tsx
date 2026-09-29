@@ -7,10 +7,15 @@ import { ProyectosPactadosView } from './components/ProyectosPactadosView';
 import { LibroCajaView } from './components/LibroCajaView';
 import { ConfiguracionView } from './components/ConfiguracionView';
 import { ModalEvidencia } from './components/ModalEvidencia';
+import { AuthModal } from './components/AuthModal';
+import { GestionUsuariosModal } from './components/GestionUsuariosModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { storageService } from './services/storageService';
 import { Transaccion, ProyectoPactado, ResumenFinanciero, TipoCulto } from './types';
+import { Church } from 'lucide-react';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, loading } = useAuth();
   const [vistaActiva, setVistaActiva] = useState<string>('dashboard');
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [proyectos, setProyectos] = useState<ProyectoPactado[]>([]);
@@ -28,6 +33,9 @@ export const App: React.FC = () => {
     totalProyectosRecaudado: 0
   });
 
+  // Modal de usuarios
+  const [mostrarModalUsuarios, setMostrarModalUsuarios] = useState<boolean>(false);
+
   // Tipo de culto preseleccionado para la vista de captura
   const [cultoPreseleccionado, setCultoPreseleccionado] = useState<TipoCulto>('domingo_manana');
 
@@ -37,14 +45,12 @@ export const App: React.FC = () => {
 
   // Recargar datos desde el servicio y sincronizar con Aiven PostgreSQL
   const recargarTodo = async () => {
-    // 1. Mostrar estado local inmediato
     const txsLocal = storageService.getTransacciones();
     const projsLocal = storageService.getProyectos();
     setTransacciones(txsLocal);
     setProyectos(projsLocal);
     setResumen(storageService.calcularResumen());
 
-    // 2. Sincronizar remotamente con Aiven
     try {
       const [txsRemotas, projsRemotos] = await Promise.all([
         storageService.cargarTransaccionesRemotas(),
@@ -59,8 +65,10 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    recargarTodo();
-  }, []);
+    if (user) {
+      recargarTodo();
+    }
+  }, [user]);
 
   const handleAbrirCaptura = (tipoCulto?: TipoCulto) => {
     if (tipoCulto) {
@@ -83,9 +91,26 @@ export const App: React.FC = () => {
     setEvidenciaModalNombre(undefined);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center mb-4 animate-pulse">
+          <Church className="w-8 h-8 text-indigo-300" />
+        </div>
+        <p className="text-white font-semibold text-sm">Verificando sesión en Auth.js...</p>
+        <p className="text-slate-400 text-xs mt-1">Conectando a PostgreSQL en Aiven</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       
+      {/* Modal de Login / Registro si no está autenticado */}
+      {!user && (
+        <AuthModal onSuccess={() => recargarTodo()} />
+      )}
+
       {/* Barra de Navegación Superior */}
       <Navbar
         vistaActiva={vistaActiva}
@@ -93,6 +118,7 @@ export const App: React.FC = () => {
         saldoNeto={resumen.saldoNeto}
         onAbrirCapturaIngreso={handleAbrirCaptura}
         onAbrirRegistroGasto={handleAbrirGasto}
+        onAbrirGestionUsuarios={() => setMostrarModalUsuarios(true)}
       />
 
       {/* Contenido Principal según Vista */}
@@ -126,7 +152,7 @@ export const App: React.FC = () => {
 
         {vistaActiva === 'pactos' && (
           <ProyectosPactadosView
-            onAbonarPacto={(proyectoId, pactoId) => {
+            onAbonarPacto={(_proyectoId, _pactoId) => {
               setCultoPreseleccionado('domingo_manana');
               setVistaActiva('ingresos');
             }}
@@ -153,6 +179,13 @@ export const App: React.FC = () => {
         onCerrar={handleCerrarEvidencia}
       />
 
+      {/* Modal de Gestión de Usuarios para Administradores / Pastores */}
+      <GestionUsuariosModal
+        isOpen={mostrarModalUsuarios}
+        onClose={() => setMostrarModalUsuarios(false)}
+        currentUserEmail={user?.email}
+      />
+
       {/* Footer pastoral */}
       <footer className="no-print bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
@@ -160,12 +193,20 @@ export const App: React.FC = () => {
             Sistema de Flujo de Efectivo Eclesiástico • Tesorería y Mayordomía
           </p>
           <p className="text-slate-400">
-            PostgreSQL en Aiven • Cloudflare R2 Bucket • Arquitectura Serverless Jamstack
+            PostgreSQL en Aiven • Cloudflare R2 Bucket • Autenticación Auth.js • Vercel Serverless
           </p>
         </div>
       </footer>
 
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

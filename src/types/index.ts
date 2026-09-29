@@ -96,3 +96,23 @@ export interface CloudflareR2Config {
   secretAccessKey: string;
   publicUrl: string;
 }
+
+export type RolUsuario = 'admin' | 'pastor' | 'tesorero' | 'operador';
+
+export interface Usuario {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: RolUsuario;
+  activo: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: RolUsuario;
+}
+

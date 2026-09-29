@@ -5,6 +5,47 @@
 
 ---
 
+## feat(release): release v1.1.0 - autenticación con Auth.js, gestión interna de usuarios y migración a pnpm
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 09:44:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature / Minor Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.1.0`, adición de `@auth/core`, `bcryptjs`, `@types/bcryptjs`, remoción de restricción `packageManager` |
+| `pnpm-lock.yaml` | Modificado | Regeneración limpia del lockfile para pnpm v11.9.0 con dependencias de Auth.js y esbuild |
+| `schema.sql` | Modificado | Definición de tabla `usuarios` (UUID, email, password_hash, rol, activo, timestamps) con índice `idx_usuarios_email` |
+| `api/auth/[...auth].ts` | Agregado | Handler serverless de Auth.js (`@auth/core`) con `CredentialsProvider`, JWT callbacks, sesión y registro (`/api/auth/register`) |
+| `api/usuarios.ts` | Agregado | Endpoint administrativo para gestión de usuarios (GET, POST con hash bcrypt, PATCH, DELETE) |
+| `src/types/index.ts` | Modificado | Declaración de interfaces `Usuario`, `AuthUser` y tipo `RolUsuario` ('admin', 'pastor', 'tesorero', 'operador') |
+| `src/context/AuthContext.tsx` | Agregado | Proveedor de contexto React para Auth.js: login de credenciales, registro, logout y validación CSRF |
+| `src/components/AuthModal.tsx` | Agregado | Modal de autenticación y bienvenida con selección de roles y soporte para auto-asignación de admin |
+| `src/components/GestionUsuariosModal.tsx` | Agregado | Panel administrativo para dar de alta usuarios de la iglesia, alternar estado activo/inactivo y eliminarlos |
+| `src/components/Navbar.tsx` | Modificado | Integración de badge de usuario activo con rol, acceso a gestión de usuarios y botón de cerrar sesión |
+| `src/App.tsx` | Modificado | Envoltura con `AuthProvider`, bloqueo pastoral por sesión inactiva y orquestación de vistas |
+| `vite.config.ts` | Modificado | Middleware de desarrollo para simular endpoints `/api/auth/*` y `/api/usuarios` en local |
+| `README.md` | Modificado | Documentación de Auth.js, roles ministeriales, variable `AUTH_SECRET` y comandos `pnpm` |
+| `.gitignore` | Modificado | Inclusión de `.pnpm-store` y `*.tsbuildinfo` |
+
+### Detalle Técnico
+
+1. **Autenticación Desacoplada con Auth.js:**  
+   Se integró `@auth/core` adaptado a la arquitectura serverless Jamstack sobre Vercel. Utiliza la estrategia JWT para sesiones seguras y un `CredentialsProvider` que valida directamente contra PostgreSQL en Aiven.
+2. **Cifrado Homogéneo con `bcryptjs`:**  
+   Tanto el registro de usuarios como la creación interna desde el panel administrativo utilizan `bcrypt.hash(password, 10)`. Esto garantiza que los usuarios creados manualmente o por un pastor/admin inicien sesión exactamente de la misma manera que los usuarios auto-registrados.
+3. **Control de Acceso Basado en Roles (RBAC):**  
+   Se definieron cuatro niveles de privilegio: `admin` (superusuario automático para la primera cuenta), `pastor` (revisión e informes pastorales), `tesorero` (administración de caja y egresos) y `operador` (captura continua de sobres).
+4. **Migración Nativa a PNPM:**  
+   Se eliminó la restricción de NPM en `package.json`, se configuró la aprobación de compilaciones de esbuild mediante `pnpm approve-builds` y se generó un `pnpm-lock.yaml` actualizado para CI/CD sin conflictos de dependencias.
+
+---
+
 ## fix: Resolver error de compilación en Vercel estandarizando gestor de paquetes con NPM
 
 | Campo | Detalle |

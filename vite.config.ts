@@ -2,6 +2,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import pg from 'pg';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import bcrypt from 'bcryptjs';
+import { Auth } from '@auth/core';
+import Credentials from '@auth/core/providers/credentials';
 
 function aivenDbDevPlugin(env: Record<string, string>) {
   let pool: pg.Pool | null = null;
@@ -258,6 +261,291 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               }
             } catch (err: any) {
               return res.end(JSON.stringify({ status: 'error', message: err.message, data: [] }));
+            }
+          }
+        }
+
+        // 6. Autenticación con Auth.js (/api/auth/...)
+        if (req.url.startsWith('/api/auth')) {
+          const authConfigDev: any = {
+            basePath: '/api/auth',
+            secret: env.AUTH_SECRET || 'flujo-efectivo-iglesia-authjs-secret-key-32chars',
+            trustHost: true,
+            providers: [
+              Credentials({
+                id: 'credentials',
+                name: 'Credenciales',
+                credentials: {
+                  email: { label: 'Correo', type: 'email' },
+                  password: { label: 'Contraseña', type: 'password' }
+                },
+                async authorize(credentials) {
+                  if (!credentials?.email || !credentials?.password) return null;
+                  const p = getPool();
+                  if (!p) return null;
+                  const client = await p.connect();
+                  try {
+                    const res = await client.query(
+                      'SELECT id, email, password_hash, nombre, rol, activo FROM usuarios WHERE LOWER(email) = LOWER($1)',
+                      [String(credentials.email).trim()]
+                    );
+                    if (res.rows.length === 0) return null;
+                    const user = res.rows[0];
+                    if (!user.activo) return null;
+
+                    const match = await bcrypt.compare(String(credentials.password), user.password_hash);
+                    if (!match) return null;
+
+                    return {
+                      id: user.id,
+                      name: user.nombre,
+                      email: user.email,
+                      role: user.rol,
+                    };
+                  } catch (e) {
+                    console.error('Error authorize dev:', e);
+                    return null;
+                  } finally {
+                    client.release();
+                  }
+                }
+              })
+            ],
+            session: { strategy: 'jwt' },
+            callbacks: {
+              async jwt({ token, user }: any) {
+                if (user) {
+                  token.id = user.id;
+                  token.role = user.role;
+                }
+                return token;
+              },
+              async session({ session, token }: any) {
+                if (session.user && token) {
+                  session.user.id = token.id;
+                  session.user.role = token.role;
+                }
+                return session;
+              }
+            }
+          };
+
+          const fullUrl = new URL(req.url, `http://${req.headers.host || 'localhost:5173'}`);
+
+          // Registro de usuario en dev
+          if (fullUrl.pathname === '/api/auth/register') {
+            res.setHeader('Content-Type', 'application/json');
+            let body = '';
+            req.on('data', (chunk: any) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const { email, password, nombre, rol } = JSON.parse(body || '{}');
+                if (!email || !password || !nombre) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'Nombre, email y contraseña son obligatorios.' }));
+                }
+                if (password.length < 6) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres.' }));
+                }
+
+                const p = getPool();
+                if (!p) throw new Error('Base de datos no conectada');
+                const client = await p.connect();
+                try {
+                  const cleanEmail = String(email).trim().toLowerCase();
+                  const exists = await client.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+                  if (exists.rows.length > 0) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'Ya existe un usuario con este correo electrónico.' }));
+                  }
+
+                  const countRes = await client.query('SELECT COUNT(*)::int as count FROM usuarios');
+                  const isFirst = countRes.rows[0].count === 0;
+                  const rolAsignado = isFirst ? 'admin' : (rol || 'tesorero');
+
+                  const hash = await bcrypt.hash(password, 10);
+                  const result = await client.query(
+                    `INSERT INTO usuarios (email, password_hash, nombre, rol, activo)
+                     VALUES ($1, $2, $3, $4, true)
+                     RETURNING id, email, nombre, rol, activo, created_at;`,
+                    [cleanEmail, hash, String(nombre).trim(), rolAsignado]
+                  );
+
+                  res.statusCode = 201;
+                  return res.end(JSON.stringify({
+                    success: true,
+                    message: isFirst ? 'Usuario Administrador inicial creado con éxito' : 'Usuario registrado exitosamente',
+                    user: result.rows[0]
+                  }));
+                } finally {
+                  client.release();
+                }
+              } catch (e: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: e.message }));
+              }
+            });
+            return;
+          }
+
+          // Otras rutas de Auth.js
+          const chunks: any[] = [];
+          req.on('data', (chunk: any) => chunks.push(chunk));
+          req.on('end', async () => {
+            try {
+              const bodyBuffer = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+              const headers = new Headers();
+              for (const [key, value] of Object.entries(req.headers)) {
+                if (value) {
+                  if (Array.isArray(value)) value.forEach(v => headers.append(key, v));
+                  else headers.set(key, String(value));
+                }
+              }
+
+              const webReq = new Request(fullUrl.toString(), {
+                method: req.method,
+                headers,
+                body: (req.method !== 'GET' && req.method !== 'HEAD') ? bodyBuffer : undefined
+              });
+
+              const response = await Auth(webReq, authConfigDev);
+              res.statusCode = response.status;
+              response.headers.forEach((val, key) => {
+                if (key.toLowerCase() === 'set-cookie') {
+                  const raw = (response.headers as any).getSetCookie ? (response.headers as any).getSetCookie() : [val];
+                  res.setHeader('Set-Cookie', raw);
+                } else {
+                  res.setHeader(key, val);
+                }
+              });
+              const text = await response.text();
+              return res.end(text);
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // 7. Gestión de Usuarios (/api/usuarios)
+        if (req.url.startsWith('/api/usuarios')) {
+          res.setHeader('Content-Type', 'application/json');
+          const p = getPool();
+          if (!p) {
+            res.statusCode = 500;
+            return res.end(JSON.stringify({ error: 'Base de datos no configurada' }));
+          }
+
+          if (req.method === 'GET') {
+            try {
+              const client = await p.connect();
+              try {
+                const result = await client.query('SELECT id, email, nombre, rol, activo, created_at, updated_at FROM usuarios ORDER BY created_at ASC;');
+                return res.end(JSON.stringify({ success: true, data: result.rows }));
+              } finally {
+                client.release();
+              }
+            } catch (e: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: e.message }));
+            }
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (c: any) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const { email, password, nombre, rol = 'tesorero', activo = true } = JSON.parse(body || '{}');
+                if (!email || !password || !nombre) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'Nombre, email y contraseña requeridos.' }));
+                }
+                const client = await p.connect();
+                try {
+                  const cleanEmail = String(email).trim().toLowerCase();
+                  const exists = await client.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+                  if (exists.rows.length > 0) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'Ya existe un usuario con ese correo.' }));
+                  }
+                  const hash = await bcrypt.hash(password, 10);
+                  const result = await client.query(
+                    `INSERT INTO usuarios (email, password_hash, nombre, rol, activo)
+                     VALUES ($1, $2, $3, $4, $5)
+                     RETURNING id, email, nombre, rol, activo, created_at;`,
+                    [cleanEmail, hash, String(nombre).trim(), rol, Boolean(activo)]
+                  );
+                  res.statusCode = 201;
+                  return res.end(JSON.stringify({ success: true, user: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (e: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: e.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'PATCH') {
+            let body = '';
+            req.on('data', (c: any) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const { id, rol, activo, password } = JSON.parse(body || '{}');
+                if (!id) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'ID requerido' }));
+                }
+                const client = await p.connect();
+                try {
+                  if (password) {
+                    const hash = await bcrypt.hash(password, 10);
+                    await client.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]);
+                  }
+                  if (rol !== undefined || activo !== undefined) {
+                    await client.query(
+                      `UPDATE usuarios 
+                       SET rol = COALESCE($1, rol), activo = COALESCE($2, activo), updated_at = CURRENT_TIMESTAMP
+                       WHERE id = $3`,
+                      [rol !== undefined ? rol : null, activo !== undefined ? activo : null, id]
+                    );
+                  }
+                  const updated = await client.query('SELECT id, email, nombre, rol, activo, created_at FROM usuarios WHERE id = $1', [id]);
+                  return res.end(JSON.stringify({ success: true, user: updated.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (e: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: e.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'DELETE') {
+            const urlObj = new URL(req.url, 'http://localhost');
+            const id = urlObj.searchParams.get('id');
+            if (!id) {
+              res.statusCode = 400;
+              return res.end(JSON.stringify({ error: 'ID requerido' }));
+            }
+            try {
+              const client = await p.connect();
+              try {
+                await client.query('DELETE FROM usuarios WHERE id = $1', [id]);
+                return res.end(JSON.stringify({ success: true, message: 'Usuario eliminado' }));
+              } finally {
+                client.release();
+              }
+            } catch (e: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: e.message }));
             }
           }
         }

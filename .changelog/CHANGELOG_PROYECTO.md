@@ -5,6 +5,37 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.1.0: Autenticación con Auth.js, gestión de usuarios con roles y optimización con pnpm
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 09:44:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+
+1. **Sistema de Acceso y Seguridad con Auth.js**: Se incorporó un sistema moderno de inicio de sesión y registro de cuentas para resguardar la información financiera de la iglesia. Cada usuario cuenta con credenciales protegidas y cifradas en la base de datos de PostgreSQL en Aiven.
+2. **Control por Roles Ministeriales**: Se crearon perfiles diferenciados según la labor en la congregación:
+   - **Administrador**: Control total y configuración del sistema.
+   - **Pastor**: Supervisión general, acceso a libros de caja y firma de informes oficiales.
+   - **Tesorero**: Manejo cotidiano del libro de caja, comprobantes de gastos y balance.
+   - **Operador de Culto**: Captura ágil de sobres de ofrendas y diezmos durante los cultos.
+3. **Gestión Interna de Usuarios**: El Pastor o Administrador ahora puede crear usuarios directamente desde el panel de control del sistema (por ejemplo, dar de alta a un nuevo tesorero o diácono). Estos usuarios pueden ingresar de inmediato a través de la misma pantalla de login sin ninguna diferencia.
+4. **Optimización con PNPM**: Se adaptó el proyecto para compilar e instalarse a máxima velocidad utilizando el gestor de paquetes moderno pnpm.
+
+### ¿Qué significa para el proyecto?
+
+- **Mayor Privacidad y Protección de Datos**: La tesorería ya no está expuesta; ahora solo las personas autorizadas por el liderazgo pueden ver o ingresar transacciones.
+- **Trazabilidad y Organización**: Se sabe qué rol desempeña cada colaborador dentro del flujo de efectivo.
+- **Autonomía para el Liderazgo**: Los pastores pueden invitar, suspender o revocar accesos en cualquier momento con un solo clic.
+
+### ¿Qué va a notar el usuario/cliente?
+
+- Al entrar a la aplicación, se presenta una pantalla de bienvenida e inicio de sesión para ingresar correo y contraseña.
+- En la barra superior se muestra el nombre y rol del usuario activo, junto con un botón para cerrar sesión y un acceso exclusivo para gestionar a los miembros del equipo de tesorería.
+
+---
+
 ## ✅ Corrección y optimización del proceso de publicación automática en Vercel
 
 | Campo | Detalle |
