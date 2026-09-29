@@ -5,6 +5,35 @@
 
 ---
 
+## fix: Resolver error de compilación en Vercel estandarizando gestor de paquetes con NPM
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-28 19:12:00 |
+| **Autor** | David Méndez |
+| **Branch** | main |
+| **Tipo** | Bug Fix / CI/CD Deployment |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Declaración explícita de `packageManager: npm@11.16.0` para obligar a Vercel a usar NPM |
+| `pnpm-lock.yaml` | Eliminado | Eliminación del lockfile desactualizado de pnpm que provocaba `ERR_PNPM_OUTDATED_LOCKFILE` en Vercel |
+| `pnpm-workspace.yaml` | Eliminado | Remoción de configuración innecesaria de workspace para unificar gestión en NPM |
+
+### Detalle Técnico
+
+Durante el despliegue automático en Vercel, el pipeline de CI/CD detectó la presencia de `pnpm-lock.yaml` e intentó ejecutar `pnpm install --frozen-lockfile`. Dado que las dependencias agregadas recientemente (`@aws-sdk/client-s3`, `busboy`, `pg`, `@vercel/node`, etc.) se habían gestionado e instalado con `npm` actualizando exclusivamente `package-lock.json`, `pnpm` abortó el build con el error `ERR_PNPM_OUTDATED_LOCKFILE`.
+
+Se resolvieron los siguientes puntos:
+1. Se removieron los archivos residuales de pnpm (`pnpm-lock.yaml` y `pnpm-workspace.yaml`).
+2. Se fijó en `package.json` el motor `"packageManager": "npm@11.16.0"`.
+3. Se verificó la consistencia y actualización completa de `package-lock.json`.
+4. El pipeline de Vercel ahora ejecutará directamente `npm install` sin discrepancias de lockfile.
+
+---
+
 ## feat: Inicialización y puesta en producción del Sistema de Flujo de Efectivo Eclesiástico
 
 | Campo | Detalle |

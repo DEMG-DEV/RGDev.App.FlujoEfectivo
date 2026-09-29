@@ -5,6 +5,28 @@
 
 ---
 
+## ✅ Corrección y optimización del proceso de publicación automática en Vercel
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-28 19:12:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+
+Se corrigió la configuración de instalación de componentes en la plataforma de Vercel. Existía un archivo secundario antiguo que causaba confusión en los servidores de publicación en la nube al momento de compilar el proyecto. Se unificó todo bajo el instalador estándar oficial para que la plataforma pueda publicar las nuevas versiones automáticamente y sin interrupciones.
+
+### ¿Qué significa para el proyecto?
+
+- **Publicación automática sin fallos**: Ahora cada vez que se sube una actualización a GitHub, Vercel compila e instala todo de forma directa y fluida.
+- **Mayor estabilidad en la nube**: Se eliminaron archivos conflictivos redundantes, dejando el repositorio limpio y alineado con los estándares modernos de desarrollo web.
+
+### ¿Qué va a notar el usuario/cliente?
+
+Este cambio es interno y mejora la estructura de publicación en la nube. Permite que la aplicación quede disponible en línea en su dirección web definitiva de forma inmediata.
+
+---
+
 ## ✅ Lanzamiento inicial del sistema de tesorería y flujo de efectivo para la iglesia
 
 | Campo | Detalle |
