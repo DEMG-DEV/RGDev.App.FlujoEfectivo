@@ -198,6 +198,7 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
               <span className="text-3xl font-extrabold text-rose-400">$</span>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 placeholder="0.00"

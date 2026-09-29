@@ -380,6 +380,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
               <span className="text-3xl font-extrabold text-slate-400">$</span>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.50"
                 min="0"
                 placeholder="0.00"
@@ -392,13 +393,13 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
             </div>
 
             {/* Chips de montos rápidos */}
-            <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
               {[50, 100, 200, 500, 1000, 2000].map((val) => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setMonto(val.toString())}
-                  className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-xs font-bold text-slate-700 hover:text-emerald-700 transition-all active:scale-95 shadow-sm"
+                  className="min-h-[38px] min-w-[56px] px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-xs font-bold text-slate-700 hover:text-emerald-700 transition-all active:scale-95 shadow-sm"
                 >
                   +${val}
                 </button>

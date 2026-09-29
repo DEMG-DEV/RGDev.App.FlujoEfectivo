@@ -56,7 +56,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="no-print bg-slate-900/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
+    <>
+      <header className="no-print bg-slate-900/95 backdrop-blur-md text-white sticky top-0 z-40 border-b border-slate-800 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           
@@ -165,30 +166,43 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
         </div>
-
-        {/* Barra de pestañas en dispositivos móviles (< md) */}
-        <nav className="flex md:hidden space-x-1 border-t border-slate-800/80 py-1.5 overflow-x-auto no-scrollbar text-xs font-medium">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const activo = vistaActiva === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setVistaActiva(item.id)}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                  activo
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
       </div>
     </header>
+
+    {/* Barra de Pestañas Inferior Nativa Apple HIG (Mobile Tab Bar) */}
+    <nav 
+      aria-label="Navegación principal en móviles"
+      className="no-print fixed bottom-0 left-0 right-0 z-30 md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(0,0,0,0.2)]"
+    >
+      <div className="flex items-center justify-around h-15 max-w-md mx-auto px-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const activo = vistaActiva === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setVistaActiva(item.id)}
+              aria-label={`Ir a ${item.label}`}
+              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 transition-all ${
+                activo ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <div className={`p-1 rounded-xl transition-all ${
+                activo ? 'bg-blue-500/20 scale-110 shadow-sm' : ''
+              }`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className={`text-[10px] leading-tight truncate mt-0.5 tracking-tight ${
+                activo ? 'font-black text-blue-400' : 'font-semibold text-slate-400'
+              }`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  </>
   );
 };

@@ -5,6 +5,44 @@
 
 ---
 
+## feat(release): release v1.6.0 - navegacion movil apple hig bottom tab bar, a11y integral y micro-feedback reactivo
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 13:35:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.6.0` |
+| `README.md` | Modificado | Actualización de tabla de versiones y nuevas características móviles Apple HIG |
+| `src/components/Navbar.tsx` | Modificado | Implementación de Bottom Tab Bar nativa para móviles (`md:hidden`) en la zona del pulgar con soporte de safe-area y 48px de touch target; cabecera móvil compacta a una sola fila |
+| `src/components/FloatingActionsDock.tsx` | Modificado | Ubicación adaptativa por encima de la barra móvil (`bottom-[calc(4.5rem+env(safe-area-inset-bottom))]`), escala estándar `w-14 h-14` (56x56px) y atributos ARIA completos |
+| `src/App.tsx` | Modificado | Inclusión de relleno inferior defensivo `pb-32 md:pb-8` en el contenedor `<main>` para evitar solapamientos en pantallas móviles |
+| `src/components/LibroCajaView.tsx` | Modificado | Micro-loader (`Loader2`) animado en select de categoría por fila con bloqueo temporal, empty state visual ilustrado con botón de restablecimiento y touch targets ampliados con `aria-label` |
+| `src/components/CapturaIngresosView.tsx` | Modificado | Atributo `inputMode="decimal"` en el input hero y ampliación de chips rápidos a mínimo 38px |
+| `src/components/RegistroGastoView.tsx` | Modificado | Atributo `inputMode="decimal"` en el input hero de importe de egreso |
+
+### Detalle Técnico
+1. **Navegación Móvil de Nivel Nativo iOS (Apple HIG)**:
+   - Se migró la navegación móvil desde el header superior hacia una barra de pestañas fija inferior (`fixed bottom-0 left-0 right-0 z-30 md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 pb-[env(safe-area-inset-bottom)]`).
+   - Se diseñó un contenedor centrado `max-w-md` con distribución equilibrada para 5 destinos (Resumen, Caja, Entradas, Gastos, Pactos) con áreas táctiles mínimas de 48px.
+2. **Geometría de Muelle Flotante (Anti-Collision Floating Dock)**:
+   - En pantallas móviles, el Floating Trigger se eleva dinámicamente (`bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4`), permitiendo coexistencia perfecta con la Tab Bar inferior.
+   - En pantallas medianas y de escritorio (`md:`), regresa a `bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:right-6`.
+3. **Micro-Loader Reactivo por Fila**:
+   - `guardandoCategoriaId` rastrea el ID exacto de la transacción en mutación asíncrona, reemplazando el chevron por un spinner de carga (`Loader2 animate-spin text-blue-600`) exclusivamente en esa celda.
+4. **Resiliencia de Búsqueda y Empty State**:
+   - Se implementó una tarjeta con icono y botón de acción para limpiar filtros cuando no existen coincidencias.
+5. **Teclado Numérico Decimal en Dispositivos Táctiles**:
+   - Se configuró `inputMode="decimal"` en los formularios de captura y gastos para forzar la apertura del teclado numérico con punto decimal en WebKit (iOS) y Chromium (Android).
+
+---
+
 ## feat(release): release v1.5.0 - cambio agil de categorias, dock flotante, confidencialidad de diezmos y auditoria mes a mes
 
 | Campo | Detalle |

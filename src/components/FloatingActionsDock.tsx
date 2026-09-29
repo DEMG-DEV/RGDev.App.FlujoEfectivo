@@ -39,20 +39,26 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
   return (
     <div 
       ref={dockRef} 
-      className="no-print fixed bottom-6 right-6 z-40 flex flex-col items-end select-none"
+      className="no-print fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:right-6 z-40 flex flex-col items-end select-none"
     >
       {/* Botones de acción desplegados */}
       {abierto && (
-        <div className="flex flex-col items-end space-y-2.5 mb-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div 
+          role="menu"
+          aria-label="Acciones rápidas de tesorería"
+          className="flex flex-col items-end space-y-2.5 mb-3 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
           
           {/* 1. Registrar Entrada */}
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setAbierto(false);
               onAbrirCapturaIngreso();
             }}
-            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border border-slate-200/90 hover:border-emerald-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95"
+            aria-label="Registrar nueva entrada de ofrenda o diezmo"
+            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border border-slate-200/90 hover:border-emerald-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
             title="Registrar nueva ofrenda o diezmo"
           >
             <span className="text-xs font-bold whitespace-nowrap">
@@ -66,11 +72,13 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
           {/* 2. Registrar Gasto */}
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setAbierto(false);
               onAbrirRegistroGasto();
             }}
-            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-rose-50 text-slate-800 hover:text-rose-800 border border-slate-200/90 hover:border-rose-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95"
+            aria-label="Registrar egreso o gasto operativo"
+            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-rose-50 text-slate-800 hover:text-rose-800 border border-slate-200/90 hover:border-rose-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
             title="Registrar un egreso o gasto operativo"
           >
             <span className="text-xs font-bold whitespace-nowrap">
@@ -85,11 +93,13 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
           {onAbrirReportePDF && (
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 setAbierto(false);
                 onAbrirReportePDF();
               }}
-              className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-slate-800 hover:text-blue-800 border border-slate-200/90 hover:border-blue-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95"
+              aria-label="Generar e imprimir informe financiero oficial en PDF"
+              className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-slate-800 hover:text-blue-800 border border-slate-200/90 hover:border-blue-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
               title="Generar o imprimir reporte oficial en PDF"
             >
               <span className="text-xs font-bold whitespace-nowrap">
@@ -104,11 +114,14 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
         </div>
       )}
 
-      {/* Botón Principal Flotante (Apple HIG Floating Trigger) */}
+      {/* Botón Principal Flotante (Apple HIG Floating Trigger 56x56) */}
       <button
         type="button"
         onClick={() => setAbierto(!abierto)}
-        className={`w-13 h-13 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-200 active:scale-90 border ${
+        aria-label={abierto ? 'Cerrar menú de acciones rápidas' : 'Abrir menú de acciones rápidas'}
+        aria-expanded={abierto}
+        aria-haspopup="menu"
+        className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-200 active:scale-90 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
           abierto
             ? 'bg-slate-900 text-white border-slate-800 rotate-90 scale-95 shadow-slate-900/40'
             : 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105'

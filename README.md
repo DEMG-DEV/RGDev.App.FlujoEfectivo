@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.6.0** | 2026-09-29 13:35:00 | David Méndez | Producción / Estable |
 | **v1.5.0** | 2026-09-29 13:14:00 | David Méndez | Producción / Estable |
 | **v1.4.1** | 2026-09-29 12:16:00 | David Méndez | Producción / Estable |
 | **v1.4.0** | 2026-09-29 12:10:00 | David Méndez | Producción / Estable |
@@ -17,7 +18,15 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Cambio Rápido de Categorías, Dock Flotante, Confidencialidad en Diezmos y Auditoría Mes a Mes
+### 1. Navegación Móvil Apple HIG (Bottom Tab Bar), A11y Integral y Micro-Feedback Reactivo
+- **Barra de Pestañas Inferior Nativa (iOS Bottom Tab Bar)**: Implementación de la barra de navegación principal fija en la zona del pulgar (`bottom-0`) para móviles con acabado `backdrop-blur-xl bg-slate-900/95` y soporte para safe-area (`pb-[env(safe-area-inset-bottom)]`), permitiendo alternar entre Resumen, Caja General, Entradas, Gastos y Pactos con 1 toque.
+- **Dock Flotante Anticolisión y Touch Target 56x56**: Reubicación adaptativa del botón flotante por encima de la barra móvil (`bottom-[calc(4.5rem+env(safe-area-inset-bottom))]`) y elevación de dimensiones a `w-14 h-14` (56x56px) para un toque ergonómico impecable.
+- **Micro-Loader en Reclasificación Inline**: Indicador visual giratorio (`Loader2`) directo en la fila del Libro de Caja al cambiar de categoría, deshabilitando el selector durante la persistencia en Aiven PostgreSQL para evitar peticiones duplicadas.
+- **Empty State Ilustrado de Búsqueda**: Tarjeta estilizada con botón directo *"Restablecer todos los filtros"* cuando ninguna transacción coincide con los criterios de búsqueda.
+- **Teclado Numérico Decimal Nativo en Móviles**: Integración de `inputMode="decimal"` en los campos principales de captura de ingresos y registro de gastos para desplegar el teclado numérico de iOS/Android con punto decimal.
+- **Accesibilidad y Touch Targets Estándar Apple HIG**: Incorporación de atributos ARIA (`aria-label`, `aria-expanded`, `aria-haspopup="menu"`, roles ARIA) y botones interactivos de fila ampliados a mínimo 36x36px y 44x44px.
+
+### 2. Cambio Rápido de Categorías, Dock Flotante, Confidencialidad en Diezmos y Auditoría Mes a Mes
 - **Persistencia y Cambio Ágil de Categorías**: Selector desplegable inline directo en el Libro de Caja para reclasificar cualquier movimiento con 1 clic, con actualización optimista y persistencia en base de datos Aiven PostgreSQL (soporte para endpoints `PATCH` y `DELETE` en producción y desarrollo local).
 - **Navbar Limpio y Dock de Acciones Flotante**: Reorganización ergonómica del encabezado con reducción de saturación visual; las acciones rápidas de registro e informes se centralizaron en un dock flotante interactivo y accesible.
 - **Modos de Reporte Flexible (Por Mes y Total General)**: Selector rápido que permite alternar entre el desglose de un mes específico o el consolidado histórico general.

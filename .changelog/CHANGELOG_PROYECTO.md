@@ -5,6 +5,27 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.6.0: Experiencia móvil nativa estilo Apple, barra inferior accesible y mayor agilidad interactiva
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 13:35:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Navegación Móvil Nativa al Alcance del Pulgar (iOS Bottom Tab Bar)**: Se rediseñó la experiencia en teléfonos inteligentes implementando una barra de navegación fija en la parte inferior de la pantalla, con el mismo estilo y fluidez que las aplicaciones de Apple para iPhone. Ahora es posible cambiar de vista con una sola mano entre Resumen, Caja General, Entradas, Gastos y Pactos.
+2. **Botón Flotante Inteligente sin Bloqueos**: El botón flotante de acciones rápidas (+ Entrada, - Gasto, PDF) ahora se acomoda automáticamente por encima de la barra inferior en teléfonos, evitando tapar datos, tablas o botones en pantallas móviles.
+3. **Indicador Visual de Carga al Cambiar Categorías**: Al reclasificar un movimiento en el Libro de Caja, el icono de flecha se convierte al instante en un pequeño círculo giratorio que confirma que el cambio se está guardando en la base de datos, evitando que se presione dos veces por accidente.
+4. **Pantalla de Búsqueda Amigable sin Registros**: Si al filtrar o buscar fechas no hay movimientos, el sistema muestra una tarjeta explicativa atractiva con un botón directo para "Restablecer todos los filtros".
+5. **Teclado Numérico Automático con Decimales en Teléfonos**: Al capturar ofrendas, diezmos o gastos en un teléfono móvil, el teclado numérico de iOS y Android se despliega de inmediato con punto decimal, agilizando el tecleo de importes.
+6. **Botones de Toque Más Cómodos y Accesibles**: Se incrementó el tamaño de los botones de edición y eliminación para que sean fáciles y precisos de presionar con los dedos en cualquier pantalla táctil.
+
+### ¿Qué significa para el proyecto?
+- **Comodidad extrema para tesoreros en culto**: El conteo y la captura de sobres desde un teléfono inteligente ahora es tan rápido y natural como usar una app nativa de iOS.
+- **Cero confusiones visuales**: La interfaz siempre indica con claridad cuándo se está guardando un cambio y ofrece botones de rescate inmediato al filtrar información.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.5.0: Cambio ágil de categorías, dock flotante ergonómico, confidencialidad en diezmos y reporte mes a mes
 
 | Campo | Detalle |

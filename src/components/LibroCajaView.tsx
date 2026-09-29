@@ -21,7 +21,8 @@ import {
   Pencil,
   Tag,
   Check,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { Transaccion } from '../types';
 import { storageService } from '../services/storageService';
@@ -93,6 +94,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('');
   const [categoriaPersonalizada, setCategoriaPersonalizada] = useState<string>('');
   const [guardandoCategoria, setGuardandoCategoria] = useState<boolean>(false);
+  const [guardandoCategoriaId, setGuardandoCategoriaId] = useState<string | null>(null);
   const [notificacionExito, setNotificacionExito] = useState<string | null>(null);
 
   const handleAbrirEdicionCategoria = (t: Transaccion) => {
@@ -108,9 +110,11 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
     // Actualización inmediata en el objeto en memoria
     t.categoria = catFinal;
 
+    setGuardandoCategoriaId(t.id);
     setGuardandoCategoria(true);
     await storageService.actualizarCategoriaTransaccion(t.id, catFinal);
     setGuardandoCategoria(false);
+    setGuardandoCategoriaId(null);
 
     setNotificacionExito(`Categoría cambiada a "${catFinal}"`);
     setTimeout(() => setNotificacionExito(null), 3000);
@@ -866,8 +870,34 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             <tbody className="divide-y divide-slate-100">
               {transaccionesFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
-                    No se encontraron movimientos con los filtros seleccionados.
+                  <td colSpan={9} className="py-12 px-4 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <Filter className="w-6 h-6 stroke-[1.5]" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800">No se encontraron movimientos</h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          No hay registros que coincidan con los filtros de búsqueda o fechas aplicadas.
+                        </p>
+                      </div>
+                      {(busqueda || filtroTipo !== 'todos' || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || fechaDesde || fechaHasta) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBusqueda('');
+                            setFiltroTipo('todos');
+                            setFiltroCulto('todos');
+                            setFiltroSubtipo('todos');
+                            setFechaDesde('');
+                            setFechaHasta('');
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors border border-blue-200 shadow-sm"
+                        >
+                          Restablecer todos los filtros
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -911,6 +941,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                                   ? t.categoria
                                   : '__custom_actual__'
                               }
+                              disabled={guardandoCategoriaId === t.id}
+                              aria-label={`Seleccionar categoría de ${t.concepto}`}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === '__custom__') {
@@ -919,7 +951,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                                   handleCambioDirectoCategoria(t, val);
                                 }
                               }}
-                              className="font-bold text-slate-900 text-xs bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg py-1 pl-2 pr-6 cursor-pointer transition-all shadow-sm appearance-none truncate max-w-full"
+                              className={`font-bold text-slate-900 text-xs bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg py-1 pl-2 pr-6 cursor-pointer transition-all shadow-sm appearance-none truncate max-w-full ${
+                                guardandoCategoriaId === t.id ? 'opacity-60 cursor-wait' : ''
+                              }`}
                               title="Haz clic para cambiar de categoría inmediatamente"
                             >
                               {!(t.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).includes(t.categoria) && (
@@ -932,16 +966,21 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                               </optgroup>
                               <option value="__custom__">✏️ Otra categoría personalizada...</option>
                             </select>
-                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1.5 pointer-events-none" />
+                            {guardandoCategoriaId === t.id ? (
+                              <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin absolute right-1.5 pointer-events-none" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1.5 pointer-events-none" />
+                            )}
                           </div>
 
                           <button
                             type="button"
                             onClick={() => handleAbrirEdicionCategoria(t)}
-                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors flex-shrink-0"
+                            aria-label={`Abrir panel completo de categorías para ${t.concepto}`}
+                            className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
                             title="Abrir panel completo de categorías"
                           >
-                            <Pencil className="w-3 h-3" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         <span className="text-xs text-slate-600 block mt-1">{t.concepto}</span>
@@ -968,7 +1007,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                           <button
                             type="button"
                             onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
-                            className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors"
+                            aria-label={`Ver comprobante de ${t.concepto}`}
+                            className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors min-h-[32px]"
                           >
                             <Eye className="w-3.5 h-3.5 text-sky-600" />
                             <span>Ver</span>
@@ -1000,7 +1040,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAbrirEdicionCategoria(t)}
-                            className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            aria-label={`Editar categoría de ${t.concepto}`}
+                            className="text-slate-400 hover:text-blue-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-blue-50 transition-colors"
                             title="Cambiar categoría de forma sencilla"
                           >
                             <Pencil className="w-4 h-4" />
@@ -1008,7 +1049,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                           <button
                             type="button"
                             onClick={() => handleEliminar(t.id, t.concepto)}
-                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+                            aria-label={`Eliminar movimiento ${t.concepto}`}
+                            className="text-slate-400 hover:text-rose-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-rose-50 transition-colors"
                             title="Eliminar movimiento"
                           >
                             <Trash2 className="w-4 h-4" />
