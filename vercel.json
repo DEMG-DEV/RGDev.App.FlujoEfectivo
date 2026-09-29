@@ -4,11 +4,23 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/auth/(.*)",
+      "destination": "/api/auth/[...auth]?auth=$1"
+    },
+    {
+      "source": "/api/auth",
+      "destination": "/api/auth/[...auth]"
+    },
+    {
+      "source": "/api/evidencia/(.*)",
+      "destination": "/api/evidencia/[...key]?key=$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
   ]

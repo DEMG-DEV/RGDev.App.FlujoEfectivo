@@ -74,7 +74,28 @@ export const authConfig: any = {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const protocol = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
-  const fullUrl = new URL(req.url!, `${protocol}://${host}`);
+
+  let targetPath = '/api/auth';
+  if (req.query?.auth) {
+    const authSegs = Array.isArray(req.query.auth) ? req.query.auth.join('/') : req.query.auth;
+    targetPath = `/api/auth/${authSegs}`;
+  } else if (req.url) {
+    const parsed = new URL(req.url, 'http://localhost');
+    if (parsed.pathname.includes('[...auth]')) {
+      targetPath = parsed.pathname.replace('/[...auth]', '');
+    } else {
+      targetPath = parsed.pathname;
+    }
+  }
+
+  const fullUrl = new URL(targetPath, `${protocol}://${host}`);
+  if (req.url && req.url.includes('?')) {
+    const searchParams = new URL(req.url, 'http://localhost').searchParams;
+    searchParams.delete('auth');
+    searchParams.forEach((val, key) => {
+      fullUrl.searchParams.set(key, val);
+    });
+  }
 
   // Endpoint de Registro de Usuarios (/api/auth/register)
   if (fullUrl.pathname === '/api/auth/register' || fullUrl.pathname.endsWith('/register')) {

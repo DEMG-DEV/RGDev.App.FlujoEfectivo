@@ -29,6 +29,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getCsrfToken = async (): Promise<string> => {
     try {
       const res = await fetch('/api/auth/csrf');
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok || !ct.includes('application/json')) return '';
       const data = await res.json();
       return data?.csrfToken || '';
     } catch {
@@ -40,7 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSession = async (): Promise<AuthUser | null> => {
     try {
       const res = await fetch('/api/auth/session');
-      if (!res.ok) {
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok || !ct.includes('application/json')) {
         setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
         return null;
@@ -95,7 +98,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!res.ok && res.status !== 302) {
-        return { success: false, error: 'Credenciales inválidas o usuario inactivo.' };
+        let msg = 'Credenciales inválidas o usuario inactivo.';
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          try {
+            const errData = await res.json();
+            if (errData?.error) msg = errData.error;
+          } catch {}
+        }
+        return { success: false, error: msg };
       }
 
       // Validar sesión recién emitida
@@ -121,6 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: pass, nombre, rol })
       });
+
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        return { success: false, error: 'Error del servidor al registrar. Verifique su conexión.' };
+      }
 
       const data = await res.json();
       if (!res.ok) {
