@@ -362,6 +362,17 @@ function aivenDbDevPlugin(env: Record<string, string>) {
 
                   const countRes = await client.query('SELECT COUNT(*)::int as count FROM usuarios');
                   const isFirst = countRes.rows[0].count === 0;
+
+                  if (!isFirst) {
+                    const cfgRes = await client.query("SELECT valor FROM configuracion_sistema WHERE clave = 'registro_habilitado'");
+                    if (cfgRes.rows.length > 0 && cfgRes.rows[0].valor === 'false') {
+                      res.statusCode = 403;
+                      return res.end(JSON.stringify({
+                        error: 'El registro público de usuarios ha sido deshabilitado por el administrador. Solicita tus credenciales al pastor o administrador.'
+                      }));
+                    }
+                  }
+
                   const rolAsignado = isFirst ? 'admin' : (rol || 'tesorero');
 
                   const hash = await bcrypt.hash(password, 10);
@@ -496,17 +507,36 @@ function aivenDbDevPlugin(env: Record<string, string>) {
             req.on('data', (c: any) => { body += c; });
             req.on('end', async () => {
               try {
-                const { id, rol, activo, password } = JSON.parse(body || '{}');
+                const { id, nombre, email, rol, activo, password } = JSON.parse(body || '{}');
                 if (!id) {
                   res.statusCode = 400;
                   return res.end(JSON.stringify({ error: 'ID requerido' }));
                 }
                 const client = await p.connect();
                 try {
-                  if (password) {
-                    const hash = await bcrypt.hash(password, 10);
-                    await client.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, id]);
+                  if (email) {
+                    const cleanEmail = String(email).trim().toLowerCase();
+                    const check = await client.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1) AND id != $2', [cleanEmail, id]);
+                    if (check.rows.length > 0) {
+                      res.statusCode = 400;
+                      return res.end(JSON.stringify({ error: 'Ya existe otro usuario registrado con ese correo.' }));
+                    }
+                    await client.query('UPDATE usuarios SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [cleanEmail, id]);
                   }
+
+                  if (nombre) {
+                    await client.query('UPDATE usuarios SET nombre = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [String(nombre).trim(), id]);
+                  }
+
+                  if (password) {
+                    if (password.length < 6) {
+                      res.statusCode = 400;
+                      return res.end(JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres.' }));
+                    }
+                    const hash = await bcrypt.hash(password, 10);
+                    await client.query('UPDATE usuarios SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hash, id]);
+                  }
+
                   if (rol !== undefined || activo !== undefined) {
                     await client.query(
                       `UPDATE usuarios 
@@ -515,8 +545,8 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                       [rol !== undefined ? rol : null, activo !== undefined ? activo : null, id]
                     );
                   }
-                  const updated = await client.query('SELECT id, email, nombre, rol, activo, created_at FROM usuarios WHERE id = $1', [id]);
-                  return res.end(JSON.stringify({ success: true, user: updated.rows[0] }));
+                  const updated = await client.query('SELECT id, email, nombre, rol, activo, created_at, updated_at FROM usuarios WHERE id = $1', [id]);
+                  return res.end(JSON.stringify({ success: true, user: updated.rows[0], message: 'Usuario actualizado exitosamente' }));
                 } finally {
                   client.release();
                 }
@@ -547,6 +577,65 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               res.statusCode = 500;
               return res.end(JSON.stringify({ error: e.message }));
             }
+          }
+        }
+
+        // 8. Configuración del Sistema (/api/configuracion)
+        if (req.url.startsWith('/api/configuracion')) {
+          res.setHeader('Content-Type', 'application/json');
+          const p = getPool();
+          if (!p) {
+            res.statusCode = 500;
+            return res.end(JSON.stringify({ error: 'Base de datos no conectada' }));
+          }
+
+          if (req.method === 'GET') {
+            try {
+              const client = await p.connect();
+              try {
+                const configRes = await client.query("SELECT valor FROM configuracion_sistema WHERE clave = 'registro_habilitado'");
+                const countRes = await client.query('SELECT count(*)::int as count FROM usuarios');
+                const total = countRes.rows[0]?.count || 0;
+                const habilitadoEnDb = configRes.rows[0]?.valor !== 'false';
+                const habilitado = total === 0 ? true : habilitadoEnDb;
+                return res.end(JSON.stringify({
+                  success: true,
+                  registro_habilitado: habilitado,
+                  total_usuarios: total
+                }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
+            }
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (c: any) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const { clave = 'registro_habilitado', valor } = JSON.parse(body || '{}');
+                const valorStr = String(valor);
+                const client = await p.connect();
+                try {
+                  await client.query(`
+                    INSERT INTO configuracion_sistema (clave, valor, updated_at)
+                    VALUES ($1, $2, CURRENT_TIMESTAMP)
+                    ON CONFLICT (clave) DO UPDATE SET valor = $2, updated_at = CURRENT_TIMESTAMP;
+                  `, [clave, valorStr]);
+                  return res.end(JSON.stringify({ success: true, clave, valor: valorStr === 'true' }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
           }
         }
 

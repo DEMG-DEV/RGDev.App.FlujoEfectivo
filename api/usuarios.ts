@@ -71,16 +71,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // 3. ACTUALIZAR ESTADO O ROL
+  // 3. ACTUALIZAR INFORMACIÓN DEL USUARIO (NOMBRE, CORREO, ROL, ESTADO, CONTRASEÑA)
   if (req.method === 'PATCH') {
     try {
-      const { id, rol, activo, password } = req.body;
+      const { id, nombre, email, rol, activo, password } = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       if (!id) {
         return res.status(400).json({ error: 'ID de usuario requerido.' });
       }
 
       const client = await pool.connect();
       try {
+        if (email) {
+          const cleanEmail = String(email).trim().toLowerCase();
+          const check = await client.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1) AND id != $2', [cleanEmail, id]);
+          if (check.rows.length > 0) {
+            return res.status(400).json({ error: 'Ya existe otro usuario registrado con ese correo electrónico.' });
+          }
+          await client.query('UPDATE usuarios SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [cleanEmail, id]);
+        }
+
+        if (nombre) {
+          await client.query('UPDATE usuarios SET nombre = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [String(nombre).trim(), id]);
+        }
+
         if (password) {
           if (password.length < 6) {
             return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
@@ -109,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           [id]
         );
 
-        return res.status(200).json({ success: true, user: updated.rows[0] });
+        return res.status(200).json({ success: true, user: updated.rows[0], message: 'Usuario actualizado exitosamente' });
       } finally {
         client.release();
       }

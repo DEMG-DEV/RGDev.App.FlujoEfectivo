@@ -12,7 +12,9 @@ import {
   User, 
   UserCheck, 
   UserX,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  Save
 } from 'lucide-react';
 import { Usuario, RolUsuario } from '../types';
 
@@ -40,6 +42,120 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
   const [nuevoRol, setNuevoRol] = useState<RolUsuario>('tesorero');
   const [guardando, setGuardando] = useState(false);
 
+  // Estado para edición de usuario existente
+  const [usuarioAEditar, setUsuarioAEditar] = useState<Usuario | null>(null);
+  const [editNombre, setEditNombre] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRol, setEditRol] = useState<RolUsuario>('tesorero');
+  const [editActivo, setEditActivo] = useState(true);
+  const [editPassword, setEditPassword] = useState('');
+  const [actualizandoUsuario, setActualizandoUsuario] = useState(false);
+
+  const handleIniciarEdicion = (u: Usuario) => {
+    setUsuarioAEditar(u);
+    setEditNombre(u.nombre);
+    setEditEmail(u.email);
+    setEditRol(u.rol);
+    setEditActivo(u.activo);
+    setEditPassword('');
+    setMostrarFormulario(false);
+    setError(null);
+    setMensajeExito(null);
+  };
+
+  const handleGuardarEdicion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuarioAEditar) return;
+    setActualizandoUsuario(true);
+    setError(null);
+    setMensajeExito(null);
+
+    try {
+      const payload: any = {
+        id: usuarioAEditar.id,
+        nombre: editNombre.trim(),
+        email: editEmail.trim().toLowerCase(),
+        rol: editRol,
+        activo: editActivo
+      };
+
+      if (editPassword) {
+        if (editPassword.length < 6) {
+          setError('La nueva contraseña debe tener al menos 6 caracteres.');
+          setActualizandoUsuario(false);
+          return;
+        }
+        payload.password = editPassword;
+      }
+
+      const res = await fetch('/api/usuarios', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMensajeExito(`¡Usuario "${editNombre}" actualizado exitosamente!`);
+        setUsuarioAEditar(null);
+        cargarUsuarios();
+      } else {
+        setError(data.error || 'No se pudo actualizar el usuario.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error inesperado al actualizar usuario.');
+    } finally {
+      setActualizandoUsuario(false);
+    }
+  };
+
+  // Control para habilitar / deshabilitar registro público
+  const [registroHabilitado, setRegistroHabilitado] = useState<boolean>(true);
+  const [actualizandoConfig, setActualizandoConfig] = useState<boolean>(false);
+
+  const cargarConfiguracion = async () => {
+    try {
+      const res = await fetch('/api/configuracion');
+      if (res.ok) {
+        const data = await res.json();
+        setRegistroHabilitado(data.registro_habilitado);
+      }
+    } catch (e) {
+      console.warn('Error cargando configuración:', e);
+    }
+  };
+
+  const handleToggleRegistro = async () => {
+    setActualizandoConfig(true);
+    setError(null);
+    try {
+      const nuevoValor = !registroHabilitado;
+      const res = await fetch('/api/configuracion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clave: 'registro_habilitado',
+          valor: String(nuevoValor)
+        })
+      });
+
+      if (res.ok) {
+        setRegistroHabilitado(nuevoValor);
+        setMensajeExito(
+          nuevoValor
+            ? 'Registro público de cuentas HABILITADO. Ahora cualquiera puede crear su cuenta desde la pantalla de login.'
+            : 'Registro público de cuentas DESHABILITADO. Solo administradores pueden crear usuarios desde este panel.'
+        );
+      } else {
+        setError('No se pudo actualizar el estado de registro.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error de conexión.');
+    } finally {
+      setActualizandoConfig(false);
+    }
+  };
+
   const cargarUsuarios = async () => {
     setLoading(true);
     setError(null);
@@ -61,6 +177,7 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       cargarUsuarios();
+      cargarConfiguracion();
     }
   }, [isOpen]);
 
@@ -193,6 +310,54 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
             </div>
           </div>
 
+          {/* Tarjeta de Control: Habilitar / Deshabilitar Registro Público */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between shadow-sm">
+            <div className="flex items-start space-x-3.5 pr-4">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                registroHabilitado 
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                  : 'bg-rose-100 text-rose-700 border border-rose-200'
+              }`}>
+                {registroHabilitado ? <UserCheck className="w-5 h-5" /> : <UserX className="w-5 h-5" />}
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h4 className="text-xs font-bold text-slate-800">
+                    Registro Público de Usuarios (Pantalla de Login)
+                  </h4>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    registroHabilitado 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                      : 'bg-rose-100 text-rose-800 border border-rose-300'
+                  }`}>
+                    {registroHabilitado ? 'Habilitado' : 'Deshabilitado'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  {registroHabilitado
+                    ? 'Cualquier persona que acceda al enlace puede auto-registrarse desde la vista de login.'
+                    : 'La opción de crear cuenta está desactivada en el login. Solo los administradores pueden registrar usuarios desde este panel.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={actualizandoConfig}
+              onClick={handleToggleRegistro}
+              className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                registroHabilitado ? 'bg-emerald-600' : 'bg-slate-300'
+              }`}
+              title={registroHabilitado ? 'Click para deshabilitar registro público' : 'Click para habilitar registro público'}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  registroHabilitado ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Botón para desplegar formulario de creación */}
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-slate-800 flex items-center space-x-2">
@@ -315,6 +480,121 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
             </form>
           )}
 
+          {/* Formulario de Edición de Usuario */}
+          {usuarioAEditar && (
+            <form onSubmit={handleGuardarEdicion} className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-4 animate-in fade-in duration-150 shadow-sm">
+              <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+                <h5 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center space-x-1.5">
+                  <Pencil className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Editar Usuario: {usuarioAEditar.nombre}</span>
+                </h5>
+                <button
+                  type="button"
+                  onClick={() => setUsuarioAEditar(null)}
+                  className="text-amber-700 hover:text-amber-900 p-1 rounded-lg hover:bg-amber-100 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo</label>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={editNombre}
+                      onChange={(e) => setEditNombre(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      required
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Rol Asignado</label>
+                  <div className="relative">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <select
+                      value={editRol}
+                      onChange={(e) => setEditRol(e.target.value as RolUsuario)}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    >
+                      <option value="tesorero">Tesorero / Caja</option>
+                      <option value="pastor">Pastor / Liderazgo</option>
+                      <option value="admin">Administrador del Sistema</option>
+                      <option value="operador">Operador de Culto</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Estado de Cuenta</label>
+                  <div className="relative">
+                    <select
+                      value={editActivo ? 'true' : 'false'}
+                      onChange={(e) => setEditActivo(e.target.value === 'true')}
+                      className="w-full pl-3 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    >
+                      <option value="true">Activo (Habilitado para ingresar)</option>
+                      <option value="false">Inactivo (Acceso suspendido)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Cambiar Contraseña <span className="text-[10px] text-slate-400 font-normal">(Opcional: dejar en blanco si no deseas cambiarla)</span>
+                  </label>
+                  <div className="relative">
+                    <Key className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="password"
+                      minLength={6}
+                      placeholder="Escribe una nueva contraseña solo si deseas cambiarla (mínimo 6 caracteres)"
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-amber-200/60">
+                <button
+                  type="button"
+                  onClick={() => setUsuarioAEditar(null)}
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={actualizandoUsuario}
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition disabled:opacity-50 flex items-center space-x-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{actualizandoUsuario ? 'Guardando...' : 'Guardar Cambios'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* Tabla de Usuarios */}
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
@@ -387,16 +667,26 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
                           </button>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {!isSelf && (
+                          <div className="flex items-center justify-end space-x-1">
                             <button
                               type="button"
-                              onClick={() => handleEliminar(u.id, u.nombre)}
-                              className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition"
-                              title="Eliminar usuario"
+                              onClick={() => handleIniciarEdicion(u)}
+                              className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition"
+                              title="Editar información de usuario"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </button>
-                          )}
+                            {!isSelf && (
+                              <button
+                                type="button"
+                                onClick={() => handleEliminar(u.id, u.nombre)}
+                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
+                                title="Eliminar usuario"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

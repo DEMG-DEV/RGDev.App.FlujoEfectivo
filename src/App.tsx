@@ -7,7 +7,7 @@ import { ProyectosPactadosView } from './components/ProyectosPactadosView';
 import { LibroCajaView } from './components/LibroCajaView';
 import { ConfiguracionView } from './components/ConfiguracionView';
 import { ModalEvidencia } from './components/ModalEvidencia';
-import { AuthModal } from './components/AuthModal';
+import { AuthView } from './components/AuthView';
 import { GestionUsuariosModal } from './components/GestionUsuariosModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { storageService } from './services/storageService';
@@ -103,14 +103,14 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Vista completamente separada si no hay usuario autenticado (sin renderizar el sistema debajo)
+  if (!user) {
+    return <AuthView onSuccess={() => recargarTodo()} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       
-      {/* Modal de Login / Registro si no está autenticado */}
-      {!user && (
-        <AuthModal onSuccess={() => recargarTodo()} />
-      )}
-
       {/* Barra de Navegación Superior */}
       <Navbar
         vistaActiva={vistaActiva}

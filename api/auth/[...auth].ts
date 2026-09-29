@@ -107,6 +107,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Si es el primer usuario, se le otorga rol 'admin'
         const countRes = await client.query('SELECT COUNT(*)::int as count FROM usuarios');
         const totalUsers = countRes.rows[0].count;
+
+        // Validar si el registro público está deshabilitado
+        if (totalUsers > 0) {
+          const configRes = await client.query("SELECT valor FROM configuracion_sistema WHERE clave = 'registro_habilitado'");
+          if (configRes.rows.length > 0 && configRes.rows[0].valor === 'false') {
+            return res.status(403).json({
+              error: 'El registro público de usuarios ha sido deshabilitado por el administrador. Solicita tus credenciales al pastor o administrador.'
+            });
+          }
+        }
+
         const rolAsignado = totalUsers === 0 ? 'admin' : (rol || 'tesorero');
 
         const salt = await bcrypt.genSalt(10);
