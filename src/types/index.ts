@@ -38,6 +38,7 @@ export interface ProyectoPactado {
   fecha_fin?: string;
   total_recaudado: number;
   total_pactado: number;
+  total_gastado?: number;
   activo: boolean;
   color_acento?: string;
 }
@@ -77,24 +78,6 @@ export interface ResumenFinanciero {
   totalOtrosIngresos: number;
   totalProyectosMeta: number;
   totalProyectosRecaudado: number;
-}
-
-export interface AivenConfig {
-  host: string;
-  port: number;
-  user: string;
-  password?: string;
-  database: string;
-  ssl: boolean;
-  connectionString?: string;
-}
-
-export interface CloudflareR2Config {
-  accountId: string;
-  bucketName: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  publicUrl: string;
 }
 
 export type RolUsuario = 'admin' | 'pastor' | 'tesorero' | 'operador';

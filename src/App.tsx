@@ -5,13 +5,13 @@ import { CapturaIngresosView } from './components/CapturaIngresosView';
 import { RegistroGastoView } from './components/RegistroGastoView';
 import { ProyectosPactadosView } from './components/ProyectosPactadosView';
 import { LibroCajaView } from './components/LibroCajaView';
-import { ConfiguracionView } from './components/ConfiguracionView';
 import { ModalEvidencia } from './components/ModalEvidencia';
 import { AuthView } from './components/AuthView';
 import { GestionUsuariosModal } from './components/GestionUsuariosModal';
+import { ReporteFinancieroModal } from './components/ReporteFinancieroModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { storageService } from './services/storageService';
-import { Transaccion, ProyectoPactado, ResumenFinanciero, TipoCulto } from './types';
+import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, TipoCulto, SubtipoIngreso } from './types';
 import { Church } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -19,6 +19,7 @@ const AppContent: React.FC = () => {
   const [vistaActiva, setVistaActiva] = useState<string>('dashboard');
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [proyectos, setProyectos] = useState<ProyectoPactado[]>([]);
+  const [pactos, setPactos] = useState<PactoMiembro[]>([]);
   const [resumen, setResumen] = useState<ResumenFinanciero>({
     totalIngresos: 0,
     totalGastos: 0,
@@ -36,8 +37,14 @@ const AppContent: React.FC = () => {
   // Modal de usuarios
   const [mostrarModalUsuarios, setMostrarModalUsuarios] = useState<boolean>(false);
 
+  // Modal de Reporte Financiero PDF Oficial
+  const [mostrarModalReporte, setMostrarModalReporte] = useState<boolean>(false);
+
   // Tipo de culto preseleccionado para la vista de captura
   const [cultoPreseleccionado, setCultoPreseleccionado] = useState<TipoCulto>('domingo_manana');
+  const [subtipoPreseleccionado, setSubtipoPreseleccionado] = useState<SubtipoIngreso | undefined>();
+  const [proyectoPreseleccionadoId, setProyectoPreseleccionadoId] = useState<string | undefined>();
+  const [pactoPreseleccionadoId, setPactoPreseleccionadoId] = useState<string | undefined>();
 
   // Modal de evidencia Lightbox
   const [evidenciaModalUrl, setEvidenciaModalUrl] = useState<string | null>(null);
@@ -47,17 +54,21 @@ const AppContent: React.FC = () => {
   const recargarTodo = async () => {
     const txsLocal = storageService.getTransacciones();
     const projsLocal = storageService.getProyectos();
+    const pctsLocal = storageService.getPactos();
     setTransacciones(txsLocal);
     setProyectos(projsLocal);
+    setPactos(pctsLocal);
     setResumen(storageService.calcularResumen());
 
     try {
-      const [txsRemotas, projsRemotos] = await Promise.all([
+      const [txsRemotas, projsRemotos, pctsRemotos] = await Promise.all([
         storageService.cargarTransaccionesRemotas(),
-        storageService.cargarProyectosRemotos()
+        storageService.cargarProyectosRemotos(),
+        storageService.cargarPactosRemotos()
       ]);
       setTransacciones(txsRemotas);
       setProyectos(projsRemotos);
+      setPactos(pctsRemotos);
       setResumen(storageService.calcularResumen());
     } catch (e) {
       console.warn('Sincronización remota pendiente:', e);
@@ -74,6 +85,9 @@ const AppContent: React.FC = () => {
     if (tipoCulto) {
       setCultoPreseleccionado(tipoCulto);
     }
+    setSubtipoPreseleccionado('ofrenda');
+    setProyectoPreseleccionadoId(undefined);
+    setPactoPreseleccionadoId(undefined);
     setVistaActiva('ingresos');
   };
 
@@ -109,7 +123,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F5F5F7] flex flex-col font-sans">
       
       {/* Barra de Navegación Superior */}
       <Navbar
@@ -119,6 +133,7 @@ const AppContent: React.FC = () => {
         onAbrirCapturaIngreso={handleAbrirCaptura}
         onAbrirRegistroGasto={handleAbrirGasto}
         onAbrirGestionUsuarios={() => setMostrarModalUsuarios(true)}
+        onAbrirReportePDF={() => setMostrarModalReporte(true)}
       />
 
       {/* Contenido Principal según Vista */}
@@ -133,12 +148,16 @@ const AppContent: React.FC = () => {
             onIrAPactos={() => setVistaActiva('pactos')}
             onIrALibroCaja={() => setVistaActiva('libro_caja')}
             onVerEvidencia={handleVerEvidencia}
+            onAbrirReportePDF={() => setMostrarModalReporte(true)}
           />
         )}
 
         {vistaActiva === 'ingresos' && (
           <CapturaIngresosView
             tipoCultoInicial={cultoPreseleccionado}
+            subtipoInicial={subtipoPreseleccionado}
+            proyectoIdInicial={proyectoPreseleccionadoId}
+            pactoIdInicial={pactoPreseleccionadoId}
             onIngresoGuardado={recargarTodo}
           />
         )}
@@ -152,10 +171,14 @@ const AppContent: React.FC = () => {
 
         {vistaActiva === 'pactos' && (
           <ProyectosPactadosView
-            onAbonarPacto={(_proyectoId, _pactoId) => {
+            onAbonarPacto={(proyectoId, pactoId) => {
               setCultoPreseleccionado('domingo_manana');
+              setSubtipoPreseleccionado('pacto');
+              setProyectoPreseleccionadoId(proyectoId);
+              setPactoPreseleccionadoId(pactoId);
               setVistaActiva('ingresos');
             }}
+            onProyectoFinalizado={recargarTodo}
           />
         )}
 
@@ -164,11 +187,8 @@ const AppContent: React.FC = () => {
             transacciones={transacciones}
             onTransaccionEliminada={recargarTodo}
             onVerEvidencia={handleVerEvidencia}
+            onAbrirReportePDF={() => setMostrarModalReporte(true)}
           />
-        )}
-
-        {vistaActiva === 'configuracion' && (
-          <ConfiguracionView />
         )}
       </main>
 
@@ -186,8 +206,17 @@ const AppContent: React.FC = () => {
         currentUserEmail={user?.email}
       />
 
+      {/* Modal de Reporte Financiero PDF Oficial */}
+      <ReporteFinancieroModal
+        isOpen={mostrarModalReporte}
+        onClose={() => setMostrarModalReporte(false)}
+        transacciones={transacciones}
+        proyectos={proyectos}
+        pactos={pactos}
+      />
+
       {/* Footer pastoral */}
-      <footer className="no-print bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      <footer className="no-print bg-white/80 backdrop-blur-md border-t border-black/[0.06] py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
           <p className="font-semibold text-slate-700">
             Sistema de Flujo de Efectivo Eclesiástico • Tesorería y Mayordomía

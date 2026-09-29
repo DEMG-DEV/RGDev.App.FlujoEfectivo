@@ -5,6 +5,35 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.2.0: Reportes financieros oficiales en PDF, rediseño estilo Apple, control de gastos en proyectos y traspaso de remanentes a ofrenda
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 11:25:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+
+1. **Reporte Financiero Oficial en PDF Imprimible**: Se creó un generador de reportes formales de tesorería listo para imprimir o guardar en PDF tamaño Carta. Presenta con claridad qué dinero ingresa y cuándo (cultos de miércoles, domingos mañana y noche, ofrendas, diezmos), en qué se gasta y cuándo (con estado de comprobantes en Cloudflare R2), y el estado detallado de los proyectos de fe con la lista de hermanos pactantes, sus cuotas cubiertas, adeudos y firmas de supervisión pastoral y fiscal.
+2. **Mecanismo de Cierre de Proyectos y Traspaso de Restos a la Ofrenda**: Si un proyecto o campaña concluye y no se gastó el 100% de lo pactado, ahora los administradores pueden finalizar el proyecto y transferir el dinero sobrante a la ofrenda general con el motivo oficial *"Resto del proyecto: [Nombre]"*. El dinero queda debidamente registrado sin desfasar el balance general ni duplicar fondos.
+3. **Asignación Directa de Gastos a Proyectos**: Al registrar una compra o pago, ahora se puede indicar a qué proyecto pactado corresponde para saber en todo momento cuánto dinero se ha invertido y cuánto saldo real queda disponible.
+4. **Rediseño Completo Inspirado en Estándares de Apple (HIG)**: Se modernizó toda la interfaz para que sea más limpia, intuitiva y rápida. La barra superior ahora es minimalista (~48px), la captura de montos cuenta con atajos de un toque (+50, +100, +200, +500, +1000, +2000), y las tablas financieras cuentan con alineación numérica perfecta.
+5. **Mayor Seguridad y Limpieza**: Se retiraron las pantallas públicas de configuración de bases de datos y almacenamiento en la nube, garantizando que las credenciales permanezcan seguras en el servidor.
+
+### ¿Qué significa para el proyecto?
+
+- **Rendición de Cuentas Impecable**: Los pastores y líderes pueden presentar balances impresos profesionales en asambleas generales, comités ministeriales y auditorías en cualquier momento.
+- **Total Claridad Contable**: Cada peso que entra por proyectos tiene un destino transparente; los fondos no utilizados regresan formalmente a la tesorería general con un registro auditable.
+- **Facilidad y Rapidez de Uso**: Los tesoreros pueden capturar diezmos y ofrendas más rápido y con menos esfuerzo durante los cultos.
+
+### ¿Qué va a notar el usuario/cliente?
+
+- Un botón de **PDF** en la barra superior, en el libro de caja y en el panel principal para generar e imprimir el balance financiero oficial.
+- En la sección de proyectos pactados, un botón para "Finalizar Proyecto / Mover Resto" que calcula automáticamente el remanente no gastado y genera el movimiento de traspaso.
+- Una barra superior mucho más delgada y elegante, con navegación por pestañas suaves y visualización del saldo en tiempo real.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.1.0: Autenticación con Auth.js, gestión de usuarios con roles y optimización con pnpm
 
 | Campo | Detalle |

@@ -179,7 +179,16 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               if (!p) return res.end(JSON.stringify({ status: 'connected', data: [] }));
               const client = await p.connect();
               try {
-                const result = await client.query('SELECT * FROM transacciones ORDER BY fecha DESC LIMIT 100;');
+                const query = `
+                  SELECT 
+                    t.*,
+                    p.nombre as proyecto_nombre
+                  FROM transacciones t
+                  LEFT JOIN proyectos_pactados p ON t.proyecto_id = p.id
+                  ORDER BY t.fecha DESC, t.created_at DESC 
+                  LIMIT 200;
+                `;
+                const result = await client.query(query);
                 return res.end(JSON.stringify({
                   status: 'connected',
                   data: result.rows
@@ -206,6 +215,22 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                 if (!p) throw new Error('Base de datos no configurada');
                 const client = await p.connect();
                 try {
+                  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                  const sanitizeDevUUID = (val: any) => (val && typeof val === 'string' && uuidRegex.test(val.trim())) ? val.trim() : null;
+
+                  const proyectoId = sanitizeDevUUID(data.proyecto_id);
+                  let pactoId = sanitizeDevUUID(data.pacto_id);
+
+                  if (!pactoId && proyectoId && data.miembro_nombre) {
+                    const matchPacto = await client.query(
+                      'SELECT id FROM pactos_miembros WHERE proyecto_id = $1 AND LOWER(TRIM(miembro_nombre)) = LOWER(TRIM($2)) LIMIT 1;',
+                      [proyectoId, data.miembro_nombre]
+                    );
+                    if (matchPacto.rows.length > 0) {
+                      pactoId = matchPacto.rows[0].id;
+                    }
+                  }
+
                   const query = `
                     INSERT INTO transacciones (
                       tipo, subtipo, categoria, monto, fecha, dia_semana, 
@@ -218,21 +243,30 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                     data.tipo,
                     data.subtipo || null,
                     data.categoria,
-                    data.monto,
+                    parseFloat(data.monto),
                     data.fecha,
                     data.dia_semana,
                     data.tipo_culto || 'no_aplica',
                     data.concepto,
                     data.miembro_nombre || null,
-                    data.proyecto_id || null,
-                    data.pacto_id || null,
+                    proyectoId,
+                    pactoId,
                     data.metodo_pago || 'efectivo',
                     data.evidencia_url || null,
                     data.evidencia_nombre || null
                   ];
                   const result = await client.query(query, values);
+                  const row = result.rows[0];
+
+                  if (row.proyecto_id) {
+                    const pRes = await client.query('SELECT nombre FROM proyectos_pactados WHERE id = $1;', [row.proyecto_id]);
+                    if (pRes.rows.length > 0) {
+                      row.proyecto_nombre = pRes.rows[0].nombre;
+                    }
+                  }
+
                   res.statusCode = 201;
-                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                  return res.end(JSON.stringify({ success: true, data: row }));
                 } finally {
                   client.release();
                 }
@@ -254,13 +288,274 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               if (!p) return res.end(JSON.stringify({ status: 'connected', data: [] }));
               const client = await p.connect();
               try {
-                const result = await client.query('SELECT * FROM proyectos_pactados WHERE activo = true ORDER BY fecha_inicio DESC;');
+                const query = `
+                  SELECT 
+                    p.*,
+                    COALESCE((SELECT SUM(monto_total_pactado) FROM pactos_miembros WHERE proyecto_id = p.id), 0) as total_pactado,
+                    COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'ingreso'), 0) as total_recaudado
+                  FROM proyectos_pactados p
+                  WHERE p.activo = true
+                  ORDER BY p.fecha_inicio DESC;
+                `;
+                const result = await client.query(query);
                 return res.end(JSON.stringify({ status: 'connected', data: result.rows }));
               } finally {
                 client.release();
               }
             } catch (err: any) {
               return res.end(JSON.stringify({ status: 'error', message: err.message, data: [] }));
+            }
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                const p = getPool();
+                if (!p) return res.end(JSON.stringify({ success: true, data }));
+                const client = await p.connect();
+                try {
+                  const query = `
+                    INSERT INTO proyectos_pactados (
+                      nombre, descripcion, meta_total, valor_semanal_sugerido, fecha_inicio, color_acento, activo
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING *;
+                  `;
+                  const values = [
+                    data.nombre,
+                    data.descripcion || '',
+                    data.meta_total,
+                    data.valor_semanal_sugerido || 0,
+                    data.fecha_inicio || new Date().toISOString().slice(0, 10),
+                    data.color_acento || '#4f46e5',
+                    data.activo !== false
+                  ];
+                  const result = await client.query(query, values);
+                  res.statusCode = 201;
+                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+        }
+
+        // 5.1. Pactos en Aiven PostgreSQL (/api/pactos)
+        if (req.url.startsWith('/api/pactos')) {
+          res.setHeader('Content-Type', 'application/json');
+          const p = getPool();
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const sanitizeDevUUID = (val: any) => (val && typeof val === 'string' && uuidRegex.test(val.trim())) ? val.trim() : null;
+
+          if (req.method === 'GET') {
+            try {
+              if (!p) return res.end(JSON.stringify({ status: 'connected', data: [] }));
+              const client = await p.connect();
+              try {
+                const parsedUrl = new URL(req.url, 'http://localhost');
+                const proyectoId = sanitizeDevUUID(parsedUrl.searchParams.get('proyecto_id'));
+
+                let query = `
+                  SELECT 
+                    pm.id,
+                    pm.proyecto_id,
+                    p.nombre as proyecto_nombre,
+                    pm.miembro_nombre,
+                    pm.miembro_telefono,
+                    pm.monto_total_pactado,
+                    pm.cuota_semanal,
+                    pm.fecha_inicio,
+                    pm.estado,
+                    pm.created_at,
+                    COALESCE(SUM(t.monto), 0) as total_aportado
+                  FROM pactos_miembros pm
+                  JOIN proyectos_pactados p ON pm.proyecto_id = p.id
+                  LEFT JOIN transacciones t ON (t.pacto_id = pm.id AND t.tipo = 'ingreso')
+                `;
+                const values: any[] = [];
+                if (proyectoId) {
+                  query += ` WHERE pm.proyecto_id = $1 `;
+                  values.push(proyectoId);
+                }
+                query += ` GROUP BY pm.id, p.nombre ORDER BY pm.created_at ASC; `;
+
+                const result = await client.query(query, values);
+                const data = result.rows.map(row => {
+                  const montoTotal = parseFloat(row.monto_total_pactado) || 0;
+                  const cuotaSemanal = parseFloat(row.cuota_semanal) || 0;
+                  const totalAportado = parseFloat(row.total_aportado) || 0;
+                  const saldoPendiente = Math.max(0, montoTotal - totalAportado);
+                  const semanasEstimadas = cuotaSemanal > 0 ? Math.ceil(montoTotal / cuotaSemanal) : 0;
+                  const semanasPagadas = cuotaSemanal > 0 ? Math.floor(totalAportado / cuotaSemanal) : 0;
+                  const estado = saldoPendiente <= 0 ? 'completado' : (row.estado || 'al_dia');
+
+                  return {
+                    id: row.id,
+                    proyecto_id: row.proyecto_id,
+                    proyecto_nombre: row.proyecto_nombre,
+                    miembro_nombre: row.miembro_nombre,
+                    miembro_telefono: row.miembro_telefono || '',
+                    monto_total_pactado: montoTotal,
+                    cuota_semanal: cuotaSemanal,
+                    total_aportado: totalAportado,
+                    saldo_pendiente: saldoPendiente,
+                    fecha_inicio: row.fecha_inicio ? String(row.fecha_inicio).slice(0, 10) : new Date().toISOString().slice(0, 10),
+                    semanas_estimadas: semanasEstimadas,
+                    semanas_pagadas: semanasPagadas,
+                    estado
+                  };
+                });
+
+                return res.end(JSON.stringify({ status: 'connected', data }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              return res.end(JSON.stringify({ status: 'error', message: err.message, data: [] }));
+            }
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                if (!p) return res.end(JSON.stringify({ success: true, data }));
+                const client = await p.connect();
+                try {
+                  const id = sanitizeDevUUID(data.id);
+                  const proyectoId = sanitizeDevUUID(data.proyecto_id);
+                  if (!proyectoId) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'UUID de proyecto inválido' }));
+                  }
+
+                  let query = '';
+                  let values: any[] = [];
+                  if (id) {
+                    query = `
+                      INSERT INTO pactos_miembros (
+                        id, proyecto_id, miembro_nombre, miembro_telefono, monto_total_pactado, cuota_semanal, fecha_inicio, estado
+                      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                      ON CONFLICT (id) DO UPDATE SET
+                        miembro_nombre = EXCLUDED.miembro_nombre,
+                        miembro_telefono = EXCLUDED.miembro_telefono,
+                        monto_total_pactado = EXCLUDED.monto_total_pactado,
+                        cuota_semanal = EXCLUDED.cuota_semanal
+                      RETURNING *;
+                    `;
+                    values = [
+                      id,
+                      proyectoId,
+                      data.miembro_nombre,
+                      data.miembro_telefono || null,
+                      parseFloat(data.monto_total_pactado),
+                      parseFloat(data.cuota_semanal),
+                      data.fecha_inicio || new Date().toISOString().slice(0, 10),
+                      data.estado || 'al_dia'
+                    ];
+                  } else {
+                    query = `
+                      INSERT INTO pactos_miembros (
+                        proyecto_id, miembro_nombre, miembro_telefono, monto_total_pactado, cuota_semanal, fecha_inicio, estado
+                      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                      RETURNING *;
+                    `;
+                    values = [
+                      proyectoId,
+                      data.miembro_nombre,
+                      data.miembro_telefono || null,
+                      parseFloat(data.monto_total_pactado),
+                      parseFloat(data.cuota_semanal),
+                      data.fecha_inicio || new Date().toISOString().slice(0, 10),
+                      data.estado || 'al_dia'
+                    ];
+                  }
+                  const result = await client.query(query, values);
+                  res.statusCode = 201;
+                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'PATCH' || req.method === 'PUT') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                const pactoId = sanitizeDevUUID(data.id);
+                if (!p || !pactoId) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'ID de pacto inválido' }));
+                }
+                const client = await p.connect();
+                try {
+                  const query = `
+                    UPDATE pactos_miembros
+                    SET 
+                      miembro_nombre = COALESCE($2, miembro_nombre),
+                      miembro_telefono = COALESCE($3, miembro_telefono),
+                      monto_total_pactado = COALESCE($4, monto_total_pactado),
+                      cuota_semanal = COALESCE($5, cuota_semanal),
+                      estado = COALESCE($6, estado)
+                    WHERE id = $1
+                    RETURNING *;
+                  `;
+                  const values = [
+                    pactoId,
+                    data.miembro_nombre !== undefined ? data.miembro_nombre : null,
+                    data.miembro_telefono !== undefined ? data.miembro_telefono : null,
+                    data.monto_total_pactado !== undefined ? parseFloat(data.monto_total_pactado) : null,
+                    data.cuota_semanal !== undefined ? parseFloat(data.cuota_semanal) : null,
+                    data.estado !== undefined ? data.estado : null
+                  ];
+                  const result = await client.query(query, values);
+                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'DELETE') {
+            try {
+              const parsedUrl = new URL(req.url, 'http://localhost');
+              const pactoId = sanitizeDevUUID(parsedUrl.searchParams.get('id'));
+              if (!p || !pactoId) {
+                res.statusCode = 400;
+                return res.end(JSON.stringify({ error: 'ID inválido' }));
+              }
+              const client = await p.connect();
+              try {
+                const result = await client.query('DELETE FROM pactos_miembros WHERE id = $1 RETURNING *;', [pactoId]);
+                return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
             }
           }
         }

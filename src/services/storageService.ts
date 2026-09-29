@@ -1,6 +1,6 @@
 // Servicio central de almacenamiento y gestión de datos de tesorería eclesiástica
 // Conectado directamente a Aiven PostgreSQL y Cloudflare R2
-import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, MiembroFrecuente } from '../types';
+import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, MiembroFrecuente, TipoCulto, MetodoPago } from '../types';
 import { identificarDiaSemana } from '../utils/dateUtils';
 
 const STORAGE_KEYS = {
@@ -8,8 +8,6 @@ const STORAGE_KEYS = {
   PROYECTOS: 'iglesia_flujo_proyectos_v2',
   PACTOS: 'iglesia_flujo_pactos_v2',
   MIEMBROS: 'iglesia_flujo_miembros_v2',
-  AIVEN_CONFIG: 'iglesia_flujo_aiven_config',
-  R2_CONFIG: 'iglesia_flujo_r2_config',
 };
 
 // Limpieza de residuos seed antiguos en navegador
@@ -70,12 +68,13 @@ export const storageService = {
     return this.getTransacciones();
   },
 
-  guardarTransaccion(transaccion: Omit<Transaccion, 'id' | 'created_at' | 'dia_semana'>): Transaccion {
+  async guardarTransaccion(transaccion: Omit<Transaccion, 'id' | 'created_at' | 'dia_semana'>): Promise<Transaccion> {
     const lista = this.getTransacciones();
     const dia_semana = identificarDiaSemana(transaccion.fecha);
+    const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'tx-' + Date.now();
     const nueva: Transaccion = {
       ...transaccion,
-      id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      id: tempId,
       dia_semana,
       created_at: new Date().toISOString()
     };
@@ -83,14 +82,7 @@ export const storageService = {
     lista.unshift(nueva);
     localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
 
-    // Sincronizar asíncronamente con la API de Aiven PostgreSQL
-    fetch('/api/movimientos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(nueva),
-    }).catch(err => console.warn('Error al sincronizar con Aiven:', err));
-
-    // Si es aporte a proyecto pactado, actualizar totales del proyecto y pacto
+    // Si es aporte a proyecto pactado, actualizar totales del proyecto y pacto localmente de inmediato
     if (transaccion.tipo === 'ingreso' && transaccion.subtipo === 'pacto' && transaccion.proyecto_id) {
       this.actualizarAportePacto(transaccion.proyecto_id, transaccion.pacto_id, transaccion.monto);
     }
@@ -98,6 +90,32 @@ export const storageService = {
     // Si incluye nombre de miembro, guardarlo como frecuente
     if (transaccion.miembro_nombre) {
       this.registrarMiembroFrecuente(transaccion.miembro_nombre);
+    }
+
+    // Sincronizar con PostgreSQL y esperar respuesta para garantizar persistencia
+    try {
+      const res = await fetch('/api/movimientos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nueva),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id) {
+          nueva.id = json.data.id;
+          if (json.data.proyecto_nombre) {
+            nueva.proyecto_nombre = json.data.proyecto_nombre;
+          }
+          const txs = this.getTransacciones();
+          const idx = txs.findIndex(t => t.id === tempId);
+          if (idx >= 0) {
+            txs[idx] = nueva;
+            localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(txs));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error al sincronizar transacción con Aiven:', err);
     }
 
     return nueva;
@@ -150,6 +168,7 @@ export const storageService = {
             fecha_fin: p.fecha_fin ? String(p.fecha_fin).slice(0, 10) : undefined,
             total_recaudado: parseFloat(p.total_recaudado) || 0,
             total_pactado: parseFloat(p.total_pactado) || 0,
+            total_gastado: parseFloat(p.total_gastado) || 0,
             activo: p.activo !== false,
             color_acento: p.color_acento || '#4f46e5'
           }));
@@ -165,11 +184,13 @@ export const storageService = {
 
   guardarProyecto(proyecto: Omit<ProyectoPactado, 'id' | 'total_recaudado' | 'total_pactado'>): ProyectoPactado {
     const lista = this.getProyectos();
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'proj-' + Date.now();
     const nuevo: ProyectoPactado = {
       ...proyecto,
-      id: 'proj-' + Date.now(),
+      id,
       total_recaudado: 0,
-      total_pactado: 0
+      total_pactado: 0,
+      total_gastado: 0
     };
     lista.unshift(nuevo);
     localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(lista));
@@ -179,9 +200,114 @@ export const storageService = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nuevo)
+    }).then(async res => {
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id && json.data.id !== id) {
+          const projs = this.getProyectos();
+          const idx = projs.findIndex(p => p.id === id);
+          if (idx >= 0) {
+            projs[idx].id = json.data.id;
+            localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(projs));
+          }
+        }
+      }
     }).catch(err => console.warn('Error al guardar proyecto en Aiven:', err));
 
     return nuevo;
+  },
+
+  async editarProyecto(id: string, datos: Partial<ProyectoPactado>): Promise<ProyectoPactado | null> {
+    const proyectos = this.getProyectos();
+    const idx = proyectos.findIndex(p => p.id === id);
+    if (idx < 0) return null;
+
+    const actualizado: ProyectoPactado = {
+      ...proyectos[idx],
+      ...datos,
+      id
+    };
+    proyectos[idx] = actualizado;
+    localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+
+    try {
+      const res = await fetch('/api/proyectos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...datos })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          proyectos[idx] = {
+            ...actualizado,
+            ...json.data,
+            total_recaudado: parseFloat(json.data.total_recaudado) || actualizado.total_recaudado,
+            total_pactado: parseFloat(json.data.total_pactado) || actualizado.total_pactado,
+            total_gastado: parseFloat(json.data.total_gastado) || (actualizado.total_gastado || 0)
+          };
+          localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+        }
+      }
+    } catch (err) {
+      console.warn('Error al actualizar proyecto en PostgreSQL:', err);
+    }
+
+    return proyectos[idx];
+  },
+
+  async liquidarYMoverRestoProyecto(params: {
+    proyectoId: string;
+    montoResto: number;
+    fecha?: string;
+    tipoCulto?: TipoCulto;
+    metodoPago?: MetodoPago;
+    cerrarProyecto?: boolean;
+  }): Promise<{ transaccionIngreso: Transaccion; transaccionGasto?: Transaccion }> {
+    const proyectos = this.getProyectos();
+    const proyecto = proyectos.find(p => p.id === params.proyectoId);
+    if (!proyecto) {
+      throw new Error('Proyecto no encontrado');
+    }
+
+    const fechaFinal = params.fecha || new Date().toISOString().slice(0, 10);
+    const metodo = params.metodoPago || 'efectivo';
+    const culto = params.tipoCulto || 'domingo_manana';
+
+    // 1. Crear gasto de liquidación del proyecto para balancear sus fondos
+    const transaccionGasto = await this.guardarTransaccion({
+      tipo: 'gasto',
+      categoria: 'Liquidación / Remanente de Proyecto',
+      monto: params.montoResto,
+      fecha: fechaFinal,
+      tipo_culto: 'no_aplica',
+      concepto: `Liquidación de resto no gastado: ${proyecto.nombre}`,
+      proyecto_id: proyecto.id,
+      proyecto_nombre: proyecto.nombre,
+      metodo_pago: metodo
+    });
+
+    // 2. Crear entrada en Ofrenda General con el motivo exacto "resto del proyecto"
+    const transaccionIngreso = await this.guardarTransaccion({
+      tipo: 'ingreso',
+      subtipo: 'ofrenda',
+      categoria: 'Ofrenda General',
+      monto: params.montoResto,
+      fecha: fechaFinal,
+      tipo_culto: culto,
+      concepto: `Resto del proyecto: ${proyecto.nombre}`,
+      metodo_pago: metodo
+    });
+
+    // 3. Si se solicita cerrar/finalizar el proyecto
+    if (params.cerrarProyecto !== false) {
+      await this.editarProyecto(proyecto.id, {
+        activo: false,
+        fecha_fin: fechaFinal
+      });
+    }
+
+    return { transaccionIngreso, transaccionGasto };
   },
 
   // Pactos por Miembro
@@ -197,11 +323,36 @@ export const storageService = {
     }
   },
 
+  async cargarPactosRemotos(proyectoId?: string): Promise<PactoMiembro[]> {
+    try {
+      const url = proyectoId ? `/api/pactos?proyecto_id=${encodeURIComponent(proyectoId)}` : '/api/pactos';
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const pactos: PactoMiembro[] = json.data;
+          if (!proyectoId) {
+            localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(pactos));
+          } else {
+            const actuales = this.getPactos().filter(p => p.proyecto_id !== proyectoId);
+            actuales.push(...pactos);
+            localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(actuales));
+          }
+          return pactos;
+        }
+      }
+    } catch (e) {
+      console.warn('Operando pactos localmente:', e);
+    }
+    return this.getPactos();
+  },
+
   guardarPacto(pacto: Omit<PactoMiembro, 'id' | 'total_aportado' | 'saldo_pendiente' | 'semanas_pagadas' | 'estado'>): PactoMiembro {
     const lista = this.getPactos();
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'pacto-' + Date.now();
     const nuevo: PactoMiembro = {
       ...pacto,
-      id: 'pacto-' + Date.now(),
+      id,
       total_aportado: 0,
       saldo_pendiente: pacto.monto_total_pactado,
       semanas_pagadas: 0,
@@ -220,7 +371,108 @@ export const storageService = {
 
     this.registrarMiembroFrecuente(pacto.miembro_nombre, pacto.miembro_telefono);
 
+    // Sincronizar inmediatamente con PostgreSQL en Aiven / Vercel
+    fetch('/api/pactos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevo)
+    }).then(async res => {
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id && json.data.id !== id) {
+          nuevo.id = json.data.id;
+          const pactos = this.getPactos();
+          const idx = pactos.findIndex(p => p.id === id);
+          if (idx >= 0) {
+            pactos[idx].id = json.data.id;
+            localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(pactos));
+          }
+        }
+      }
+    }).catch(err => console.warn('Error al guardar pacto en PostgreSQL:', err));
+
     return nuevo;
+  },
+
+  async editarPacto(id: string, datos: Partial<PactoMiembro>): Promise<PactoMiembro | null> {
+    const pactos = this.getPactos();
+    const idx = pactos.findIndex(p => p.id === id);
+    if (idx < 0) return null;
+
+    const anterior = pactos[idx];
+    const montoAnterior = anterior.monto_total_pactado;
+
+    const actualizado: PactoMiembro = {
+      ...anterior,
+      ...datos,
+      id
+    };
+
+    actualizado.saldo_pendiente = Math.max(0, actualizado.monto_total_pactado - actualizado.total_aportado);
+    if (actualizado.cuota_semanal > 0) {
+      actualizado.semanas_estimadas = Math.ceil(actualizado.monto_total_pactado / actualizado.cuota_semanal);
+      actualizado.semanas_pagadas = Math.floor(actualizado.total_aportado / actualizado.cuota_semanal);
+    }
+    actualizado.estado = actualizado.saldo_pendiente <= 0 ? 'completado' : (datos.estado || actualizado.estado);
+
+    pactos[idx] = actualizado;
+    localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(pactos));
+
+    if (datos.monto_total_pactado !== undefined && datos.monto_total_pactado !== montoAnterior) {
+      const dif = datos.monto_total_pactado - montoAnterior;
+      const proyectos = this.getProyectos();
+      const projIdx = proyectos.findIndex(p => p.id === actualizado.proyecto_id);
+      if (projIdx >= 0) {
+        proyectos[projIdx].total_pactado += dif;
+        localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+      }
+    }
+
+    if (actualizado.miembro_nombre) {
+      this.registrarMiembroFrecuente(actualizado.miembro_nombre, actualizado.miembro_telefono);
+    }
+
+    try {
+      await fetch('/api/pactos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          miembro_nombre: actualizado.miembro_nombre,
+          miembro_telefono: actualizado.miembro_telefono,
+          monto_total_pactado: actualizado.monto_total_pactado,
+          cuota_semanal: actualizado.cuota_semanal,
+          estado: actualizado.estado
+        })
+      });
+    } catch (err) {
+      console.warn('Error al editar pacto en PostgreSQL:', err);
+    }
+
+    return actualizado;
+  },
+
+  async eliminarPacto(id: string): Promise<boolean> {
+    const pactos = this.getPactos();
+    const pacto = pactos.find(p => p.id === id);
+    if (!pacto) return false;
+
+    const filtrados = pactos.filter(p => p.id !== id);
+    localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(filtrados));
+
+    const proyectos = this.getProyectos();
+    const projIdx = proyectos.findIndex(p => p.id === pacto.proyecto_id);
+    if (projIdx >= 0) {
+      proyectos[projIdx].total_pactado = Math.max(0, proyectos[projIdx].total_pactado - pacto.monto_total_pactado);
+      localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+    }
+
+    try {
+      await fetch(`/api/pactos?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (err) {
+      console.warn('Error al eliminar pacto en PostgreSQL:', err);
+    }
+    return true;
   },
 
   actualizarAportePacto(proyectoId: string, pactoId?: string, monto: number = 0): void {

@@ -5,68 +5,121 @@ import {
   HeartHandshake, 
   Landmark, 
   CheckCircle2, 
-  Zap, 
-  User, 
   DollarSign, 
+  User, 
   Sparkles,
-  ArrowRight,
-  PlusCircle,
-  Receipt
+  Zap,
+  ArrowDownLeft,
+  ChevronRight
 } from 'lucide-react';
 import { SubtipoIngreso, TipoCulto, MetodoPago, ProyectoPactado, PactoMiembro, MiembroFrecuente } from '../types';
 import { storageService } from '../services/storageService';
-import { getUltimoDiaSemana, getFechaHoy, formatearMoneda, formatearFechaLarga } from '../utils/dateUtils';
+import { getFechaHoy, getUltimoDiaSemana, formatearMoneda, formatearFechaLarga } from '../utils/dateUtils';
 
 interface CapturaIngresosProps {
-  onIngresoGuardado?: () => void;
   tipoCultoInicial?: TipoCulto;
+  subtipoInicial?: SubtipoIngreso;
+  proyectoIdInicial?: string;
+  pactoIdInicial?: string;
+  onIngresoGuardado?: () => void;
 }
 
-export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({ 
-  onIngresoGuardado,
-  tipoCultoInicial = 'domingo_manana'
+export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
+  tipoCultoInicial = 'domingo_manana',
+  subtipoInicial = 'ofrenda',
+  proyectoIdInicial,
+  pactoIdInicial,
+  onIngresoGuardado
 }) => {
-  // Estado del formulario
-  const [subtipo, setSubtipo] = useState<SubtipoIngreso>('ofrenda');
   const [tipoCulto, setTipoCulto] = useState<TipoCulto>(tipoCultoInicial);
+  const [subtipo, setSubtipo] = useState<SubtipoIngreso>(subtipoInicial);
+  
+  // Establecer fecha por defecto según el tipo de culto inicial
   const [fecha, setFecha] = useState<string>(() => {
-    if (tipoCultoInicial === 'miercoles_general') return getUltimoDiaSemana(3);
+    if (tipoCultoInicial === 'miercoles_general') {
+      return getUltimoDiaSemana(3); // Miércoles
+    }
     return getUltimoDiaSemana(0); // Domingo
   });
   
   const [monto, setMonto] = useState<string>('');
-  const [categoria, setCategoria] = useState<string>('Ofrenda General');
-  const [concepto, setConcepto] = useState<string>('Ofrenda Culto Domingo Mañana');
+  const [categoria, setCategoria] = useState<string>(subtipoInicial === 'pacto' ? 'Aporte a Proyecto Pactado' : (subtipoInicial === 'diezmo' ? 'Diezmo General' : 'Ofrenda General'));
+  const [concepto, setConcepto] = useState<string>(subtipoInicial === 'pacto' ? 'Aporte a Proyecto Pactado' : 'Ofrenda Culto Domingo Mañana');
   const [miembroNombre, setMiembroNombre] = useState<string>('');
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
 
   // Para Proyectos Pactados
-  const [proyectos, setProyectos] = useState<ProyectoPactado[]>([]);
-  const [proyectoSeleccionadoId, setProyectoSeleccionadoId] = useState<string>('');
-  const [pactos, setPactos] = useState<PactoMiembro[]>([]);
-  const [pactoSeleccionadoId, setPactoSeleccionadoId] = useState<string>('');
+  const [proyectos, setProyectos] = useState<ProyectoPactado[]>(() => storageService.getProyectos());
+  const [proyectoSeleccionadoId, setProyectoSeleccionadoId] = useState<string>(proyectoIdInicial || '');
+  const [pactos, setPactos] = useState<PactoMiembro[]>(() => storageService.getPactos());
+  const [pactoSeleccionadoId, setPactoSeleccionadoId] = useState<string>(pactoIdInicial || '');
 
   // Miembros frecuentes para autocompletado
-  const [miembrosFrecuentes, setMiembrosFrecuentes] = useState<MiembroFrecuente[]>([]);
+  const [miembrosFrecuentes, setMiembrosFrecuentes] = useState<MiembroFrecuente[]>(() => storageService.getMiembros());
 
   // Modo continuo de captura (Ideal para contar sobres)
   const [modoSobresContinuo, setModoSobresContinuo] = useState<boolean>(true);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales y sincronizar con PostgreSQL
   useEffect(() => {
-    cargarDatos();
-  }, []);
+    let montado = true;
+    const sincronizar = async () => {
+      cargarDatosLocales();
+      try {
+        const [projs, pcts] = await Promise.all([
+          storageService.cargarProyectosRemotos(),
+          storageService.cargarPactosRemotos()
+        ]);
+        if (montado) {
+          const activos = projs.filter(p => p.activo);
+          setProyectos(activos);
+          setPactos(pcts);
 
-  const cargarDatos = () => {
+          if (proyectoIdInicial) {
+            setProyectoSeleccionadoId(proyectoIdInicial);
+          } else if (activos.length > 0 && !proyectoSeleccionadoId) {
+            setProyectoSeleccionadoId(activos[0].id);
+          }
+
+          if (pactoIdInicial) {
+            const p = pcts.find(item => item.id === pactoIdInicial);
+            if (p) {
+              setPactoSeleccionadoId(p.id);
+              setMiembroNombre(p.miembro_nombre);
+              setMonto(String(p.cuota_semanal));
+              setConcepto(`Cuota semanal: ${p.proyecto_nombre}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error sincronizando en CapturaIngresos:', e);
+      }
+    };
+    sincronizar();
+    return () => { montado = false; };
+  }, [proyectoIdInicial, pactoIdInicial]);
+
+  const cargarDatosLocales = () => {
     const projs = storageService.getProyectos().filter(p => p.activo);
     setProyectos(projs);
-    if (projs.length > 0 && !proyectoSeleccionadoId) {
+    if (proyectoIdInicial) {
+      setProyectoSeleccionadoId(proyectoIdInicial);
+    } else if (projs.length > 0 && !proyectoSeleccionadoId) {
       setProyectoSeleccionadoId(projs[0].id);
     }
 
     const pcts = storageService.getPactos();
     setPactos(pcts);
+    if (pactoIdInicial) {
+      const p = pcts.find(item => item.id === pactoIdInicial);
+      if (p) {
+        setPactoSeleccionadoId(p.id);
+        setMiembroNombre(p.miembro_nombre);
+        setMonto(String(p.cuota_semanal));
+        setConcepto(`Cuota semanal: ${p.proyecto_nombre}`);
+      }
+    }
 
     const ms = storageService.getMiembros();
     setMiembrosFrecuentes(ms);
@@ -84,7 +137,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
       const fechaMiercoles = getUltimoDiaSemana(3);
       setFecha(fechaMiercoles);
       if (subtipo === 'ofrenda') {
-        setConcepto('Ofrenda Culto de Oración y Doctrina Miércoles');
+        setConcepto('Ofrenda Culto Miércoles');
       }
     } else if (tipo === 'domingo_manana') {
       const fechaDomingo = getUltimoDiaSemana(0);
@@ -96,7 +149,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
       const fechaDomingo = getUltimoDiaSemana(0);
       setFecha(fechaDomingo);
       if (subtipo === 'ofrenda') {
-        setConcepto('Ofrenda Culto Domingo Tarde / Noche');
+        setConcepto('Ofrenda Culto Domingo Tarde');
       }
     }
   };
@@ -134,7 +187,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
   };
 
   // Guardar entrada
-  const handleGuardar = (e: React.FormEvent) => {
+  const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
     const montoNumerico = parseFloat(monto);
     if (isNaN(montoNumerico) || montoNumerico <= 0) {
@@ -152,7 +205,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
       return;
     }
 
-    storageService.guardarTransaccion({
+    await storageService.guardarTransaccion({
       tipo: 'ingreso',
       subtipo,
       categoria,
@@ -163,7 +216,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
       miembro_nombre: miembroNombre.trim() || undefined,
       proyecto_id: subtipo === 'pacto' ? proyectoSeleccionadoId : undefined,
       proyecto_nombre: subtipo === 'pacto' ? proyectoActivo?.nombre : undefined,
-      pacto_id: subtipo === 'pacto' ? pactoSeleccionadoId : undefined,
+      pacto_id: subtipo === 'pacto' ? (pactoSeleccionadoId || undefined) : undefined,
       metodo_pago: metodoPago
     });
 
@@ -172,7 +225,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
     setTimeout(() => setMensajeExito(null), 3500);
 
     // Recargar datos internos
-    cargarDatos();
+    cargarDatosLocales();
     onIngresoGuardado?.();
 
     // Limpiar para el siguiente sobre si está en modo continuo
@@ -194,171 +247,188 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
   const totalRecaudadoEnCulto = transaccionesDelCulto.reduce((acc, t) => acc + t.monto, 0);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       
-      {/* Banner Superior con Botones de Selección Rápida para Miércoles y Domingo */}
-      <div className="bg-gradient-to-r from-slate-900 via-church-900 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-slate-800">
+      {/* 1. SELECCIÓN DE CULTO ESTILO APPLE HIG */}
+      <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-6 sm:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center space-x-2 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <div className="flex items-center space-x-2 text-emerald-600 text-[11px] font-bold uppercase tracking-wider mb-1">
               <Zap className="w-3.5 h-3.5" />
-              <span>Captura de Cultos Oficiales</span>
+              <span>Servicio Eclesiástico</span>
             </div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Captura Rápida de Entradas</h2>
-            <p className="text-slate-300 text-sm mt-1">
-              Selecciona el día de culto y registra ofrendas, diezmos o aportes de pacto.
+            <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+              Captura de Entradas
+            </h2>
+            <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+              {formatearFechaLarga(fecha)}
             </p>
           </div>
 
-          {/* Selector Rápido de Días de Servicio */}
-          <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700">
+          {/* Segmented Control de Culto */}
+          <div className="apple-segmented-group self-start sm:self-auto">
             <button
               type="button"
               onClick={() => seleccionarCultoRapido('miercoles_general')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                tipoCulto === 'miercoles_general'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${
+                tipoCulto === 'miercoles_general' ? 'apple-segmented-active text-amber-900' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Culto Miércoles</span>
+              Miércoles
             </button>
-
             <button
               type="button"
               onClick={() => seleccionarCultoRapido('domingo_manana')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                tipoCulto === 'domingo_manana'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${
+                tipoCulto === 'domingo_manana' ? 'apple-segmented-active text-emerald-900' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Domingo Mañana</span>
+              Domingo Mañana
             </button>
-
             <button
               type="button"
               onClick={() => seleccionarCultoRapido('domingo_tarde')}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                tipoCulto === 'domingo_tarde'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${
+                tipoCulto === 'domingo_tarde' ? 'apple-segmented-active text-emerald-900' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Domingo Noche</span>
+              Domingo Noche
             </button>
           </div>
         </div>
 
-        {/* Barra de estado del culto actual */}
-        <div className="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2 text-slate-300">
-            <span className="font-semibold text-white">Servicio seleccionado:</span>
-            <span className="bg-slate-800 px-2.5 py-1 rounded-md text-amber-300 font-medium">
-              {formatearFechaLarga(fecha)}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="text-slate-300">
-              Sobres/Entradas registradas hoy: <span className="text-white font-bold">{transaccionesDelCulto.length}</span>
-            </div>
-            <div className="text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/60 px-3 py-1 rounded-lg">
-              Total Culto: {formatearMoneda(totalRecaudadoEnCulto)}
-            </div>
-          </div>
+        {/* Resumen del Culto Actual */}
+        <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-slate-500 font-medium">
+            Entradas del día: <strong>{transaccionesDelCulto.length}</strong> registradas
+          </span>
+          <span className="text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg">
+            Total en este culto: {formatearMoneda(totalRecaudadoEnCulto)}
+          </span>
         </div>
       </div>
 
       {/* Alerta de Éxito al Registrar */}
       {mensajeExito && (
-        <div className="bg-emerald-50 border-2 border-emerald-500 text-emerald-900 px-4 py-3 rounded-xl flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center space-x-3">
+        <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center space-x-2.5">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-            <span className="font-semibold text-sm">{mensajeExito}</span>
+            <span className="font-bold text-xs sm:text-sm">{mensajeExito}</span>
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-1 rounded">
-            Guardado
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+            Registrado
           </span>
         </div>
       )}
 
-      {/* Contenedor Principal del Formulario */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* 2. CONTENEDOR PRINCIPAL DEL FORMULARIO APPLE HIG */}
+      <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
         
-        {/* Pestañas de Selección de Subtipo de Entrada */}
-        <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50/70 p-2 gap-2">
-          
-          <button
-            type="button"
-            onClick={() => cambiarSubtipo('ofrenda')}
-            className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-              subtipo === 'ofrenda'
-                ? 'bg-white text-emerald-700 shadow-md border border-emerald-200'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Coins className="w-5 h-5 text-emerald-600" />
-            <span>1. Ofrenda</span>
-          </button>
+        {/* Pestañas de Subtipo Apple Segmented Control */}
+        <div className="p-3 bg-[#F9F9FB] border-b border-slate-200/80">
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/60 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => cambiarSubtipo('ofrenda')}
+              className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                subtipo === 'ofrenda'
+                  ? 'bg-white text-emerald-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Coins className="w-4 h-4 text-emerald-600" />
+              <span>1. Ofrenda</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => cambiarSubtipo('diezmo')}
-            className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-              subtipo === 'diezmo'
-                ? 'bg-white text-indigo-700 shadow-md border border-indigo-200'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <HeartHandshake className="w-5 h-5 text-indigo-600" />
-            <span>2. Diezmo</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => cambiarSubtipo('diezmo')}
+              className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                subtipo === 'diezmo'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <HeartHandshake className="w-4 h-4 text-indigo-600" />
+              <span>2. Diezmo</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => cambiarSubtipo('pacto')}
-            className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
-              subtipo === 'pacto'
-                ? 'bg-white text-amber-700 shadow-md border border-amber-200'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Landmark className="w-5 h-5 text-amber-600" />
-            <span>3. Proyecto Pactado</span>
-          </button>
-
+            <button
+              type="button"
+              onClick={() => cambiarSubtipo('pacto')}
+              className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                subtipo === 'pacto'
+                  ? 'bg-white text-amber-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Landmark className="w-4 h-4 text-amber-600" />
+              <span>3. Proyecto Pactado</span>
+            </button>
+          </div>
         </div>
 
         {/* Formulario */}
         <form onSubmit={handleGuardar} className="p-6 sm:p-8 space-y-6">
           
-          {/* Fecha y Método de Pago */}
+          {/* HERO AMOUNT INPUT (ESTILO APPLE PAY) */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-6 text-center space-y-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Importe de la Entrada ($ MXN)
+            </span>
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-3xl font-extrabold text-slate-400">$</span>
+              <input
+                type="number"
+                step="0.50"
+                min="0"
+                placeholder="0.00"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                autoFocus
+                required
+                className="w-56 text-center text-4xl sm:text-5xl font-black text-slate-950 bg-transparent border-b-2 border-slate-300 focus:border-emerald-500 focus:outline-none tabular-nums placeholder-slate-300"
+              />
+            </div>
+
+            {/* Chips de montos rápidos */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
+              {[50, 100, 200, 500, 1000, 2000].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setMonto(val.toString())}
+                  className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-xs font-bold text-slate-700 hover:text-emerald-700 transition-all active:scale-95 shadow-sm"
+                >
+                  +${val}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Fecha y Método de Entrega */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Fecha del Culto
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Fecha del Movimiento
               </label>
               <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-church-500 focus:border-church-500 text-sm font-medium text-slate-800 bg-white"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Método de Entrega
               </label>
               <select
                 value={metodoPago}
                 onChange={(e) => setMetodoPago(e.target.value as MetodoPago)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-church-500 focus:border-church-500 text-sm font-medium text-slate-800 bg-white"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               >
                 <option value="efectivo">Efectivo (Sobre / Canasta)</option>
                 <option value="transferencia">Transferencia Bancaria / SPEI</option>
@@ -370,11 +440,11 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
           {/* CASO 1: OFRENDA */}
           {subtipo === 'ofrenda' && (
-            <div className="space-y-4 bg-emerald-50/50 p-5 rounded-xl border border-emerald-100">
-              <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                Tipo o Categoría de Ofrenda
+            <div className="bg-emerald-50/50 border border-emerald-200/70 p-4 sm:p-5 rounded-2xl space-y-3">
+              <label className="block text-[11px] font-bold text-emerald-900 uppercase tracking-wider">
+                Categoría de Ofrenda
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   'Ofrenda General',
                   'Ofrenda Misionera',
@@ -390,10 +460,10 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
                       setCategoria(cat);
                       setConcepto(`${cat} - ${tipoCulto === 'miercoles_general' ? 'Miércoles' : 'Domingo'}`);
                     }}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold text-left transition-all border ${
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold text-left transition-all border ${
                       categoria === cat
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
                     }`}
                   >
                     {cat}
@@ -405,21 +475,21 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
           {/* CASO 2: DIEZMO */}
           {subtipo === 'diezmo' && (
-            <div className="space-y-4 bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
+            <div className="bg-indigo-50/50 border border-indigo-200/70 p-4 sm:p-5 rounded-2xl space-y-3">
               <div>
-                <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Nombre del Miembro / Fiel Diezmante *</span>
-                  <span className="text-[11px] font-normal text-slate-500">O escribe "Anónimo"</span>
+                <label className="block text-[11px] font-bold text-indigo-950 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Nombre del Hermano / Diezmante *</span>
+                  <span className="text-[10px] font-normal text-slate-500">O escribe "Anónimo"</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
-                    placeholder="Ej. Familia Morales, Hno. Carlos Mendoza..."
+                    placeholder="Ej. Hno. Carlos Mendoza, Familia Morales..."
                     value={miembroNombre}
                     onChange={(e) => setMiembroNombre(e.target.value)}
                     required
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium text-slate-800 bg-white"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -427,8 +497,8 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
               {/* Sugerencias Rápidas de Miembros Frecuentes */}
               {miembrosFrecuentes.length > 0 && (
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
-                    Selección Rápida de Hermanos Frecuentes:
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    Miembros Frecuentes:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {miembrosFrecuentes.slice(0, 6).map((m) => (
@@ -436,7 +506,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
                         key={m.id}
                         type="button"
                         onClick={() => setMiembroNombre(m.nombre)}
-                        className="text-xs bg-white hover:bg-indigo-50 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors font-medium"
+                        className="text-xs bg-white hover:bg-indigo-50 text-indigo-900 border border-indigo-200 px-2.5 py-1 rounded-xl transition-colors font-medium shadow-sm"
                       >
                         {m.nombre}
                       </button>
@@ -449,11 +519,11 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
           {/* CASO 3: PROYECTO PACTADO */}
           {subtipo === 'pacto' && (
-            <div className="space-y-5 bg-amber-50/50 p-5 rounded-xl border border-amber-200">
+            <div className="bg-amber-50/50 border border-amber-200/70 p-4 sm:p-5 rounded-2xl space-y-4">
               
               {/* Selección del Proyecto Activo */}
               <div>
-                <label className="block text-xs font-bold text-amber-900 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-bold text-amber-950 uppercase tracking-wider mb-1">
                   Proyecto Pactado de la Iglesia *
                 </label>
                 <select
@@ -463,7 +533,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
                     setPactoSeleccionadoId('');
                   }}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-semibold text-slate-800 bg-white"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   {proyectos.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -473,146 +543,103 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
                 </select>
               </div>
 
-              {/* Selección o Búsqueda del Pactante (Hermano/Familia) */}
+              {/* Selección de Hermano Pactante */}
               <div>
-                <label className="block text-xs font-bold text-amber-900 uppercase tracking-wider mb-1.5">
-                  Seleccionar Hermano / Familia con Pacto Registrado
+                <label className="block text-[11px] font-bold text-amber-950 uppercase tracking-wider mb-1">
+                  Hermano / Familia con Pacto Registrado
                 </label>
                 <select
                   value={pactoSeleccionadoId}
                   onChange={(e) => seleccionarPacto(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm font-medium text-slate-800 bg-white"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="">-- Seleccionar de la lista de pactantes o escribir abajo --</option>
                   {pactosDelProyecto.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.miembro_nombre} - Pacto Total: {formatearMoneda(p.monto_total_pactado)} | Cuota: {formatearMoneda(p.cuota_semanal)}/sem | Resta: {formatearMoneda(p.saldo_pendiente)}
+                      {p.miembro_nombre} - Pacto: {formatearMoneda(p.monto_total_pactado)} | Cuota: {formatearMoneda(p.cuota_semanal)}/sem | Resta: {formatearMoneda(p.saldo_pendiente)}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* O bien ingresar nombre manual */}
               {!pactoSeleccionadoId && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    O escribe el Nombre del Hermano / Familia que aporta:
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    O escribe el Nombre del Hermano Aportante:
                   </label>
                   <input
                     type="text"
                     placeholder="Ej. Familia González"
                     value={miembroNombre}
                     onChange={(e) => setMiembroNombre(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
                   />
                 </div>
               )}
 
               {/* Ficha en vivo del Pactante Seleccionado */}
               {pactoActivo && (
-                <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm space-y-2 text-xs">
+                <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-sm space-y-2 text-xs">
                   <div className="flex items-center justify-between font-bold text-slate-900">
-                    <span className="text-sm text-amber-800">{pactoActivo.miembro_nombre}</span>
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">
-                      {pactoActivo.semanas_pagadas} semanas pagadas
+                    <span className="text-xs sm:text-sm text-amber-900">{pactoActivo.miembro_nombre}</span>
+                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {pactoActivo.semanas_pagadas} semanas cubiertas
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center text-[11px]">
                     <div className="bg-slate-50 p-2 rounded-lg">
-                      <span className="text-slate-500 block">Monto Pactado:</span>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Pactado</span>
                       <span className="font-bold text-slate-800">{formatearMoneda(pactoActivo.monto_total_pactado)}</span>
                     </div>
                     <div className="bg-emerald-50 p-2 rounded-lg">
-                      <span className="text-emerald-700 block">Total Aportado:</span>
+                      <span className="text-emerald-700 block text-[10px] uppercase font-bold">Aportado</span>
                       <span className="font-bold text-emerald-800">{formatearMoneda(pactoActivo.total_aportado)}</span>
                     </div>
                     <div className="bg-amber-50 p-2 rounded-lg">
-                      <span className="text-amber-800 block">Saldo Restante:</span>
+                      <span className="text-amber-800 block text-[10px] uppercase font-bold">Saldo</span>
                       <span className="font-bold text-amber-900">{formatearMoneda(pactoActivo.saldo_pendiente)}</span>
                     </div>
                   </div>
-
-                  <p className="text-slate-500 text-[11px] pt-1">
-                    💡 Cuota semanal acordada: <strong className="text-slate-800">{formatearMoneda(pactoActivo.cuota_semanal)}</strong>. Al ingresar este monto se abonará automáticamente al saldo del pacto.
-                  </p>
                 </div>
               )}
             </div>
           )}
 
-          {/* MONTO Y CONCEPTO */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                <span>Monto a Ingresar ($ MXN) *</span>
-                <span className="text-emerald-600 font-bold">Importe del Sobre</span>
-              </label>
-              <div className="relative">
-                <DollarSign className="w-5 h-5 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="number"
-                  step="0.50"
-                  min="0"
-                  placeholder="0.00"
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
-                  autoFocus
-                  required
-                  className="w-full pl-10 pr-3.5 py-3 rounded-xl border-2 border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 text-xl font-bold text-slate-900 bg-white"
-                />
-              </div>
-
-              {/* Botones de montos rápidos típicos de sobres */}
-              <div className="flex items-center gap-1.5 mt-2">
-                {[50, 100, 200, 500, 1000, 2000].map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setMonto(val.toString())}
-                    className="text-xs bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 font-semibold px-2 py-1 rounded-md transition-colors"
-                  >
-                    +${val}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Concepto / Nota adicional
-              </label>
-              <input
-                type="text"
-                value={concepto}
-                onChange={(e) => setConcepto(e.target.value)}
-                placeholder="Descripción del ingreso..."
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-church-500 focus:border-church-500 text-sm font-medium text-slate-800 bg-white"
-              />
-            </div>
+          {/* Concepto / Nota adicional */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Concepto / Nota adicional
+            </label>
+            <input
+              type="text"
+              value={concepto}
+              onChange={(e) => setConcepto(e.target.value)}
+              placeholder="Descripción del ingreso..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            />
           </div>
 
           {/* Opciones y Botón de Envío */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-            
-            <label className="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer select-none">
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <label className="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={modoSobresContinuo}
                 onChange={(e) => setModoSobresContinuo(e.target.checked)}
                 className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
               />
-              <span className="font-semibold text-xs text-slate-600">
-                ⚡ Modo continuo: Mantener fecha y culto para seguir capturando sobres rápidamente
+              <span className="font-semibold">
+                Modo continuo de sobres (mantener fecha para captura rápida)
               </span>
             </label>
 
             <button
               type="submit"
-              className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-base rounded-xl shadow-lg shadow-emerald-700/30 transition-all flex items-center justify-center space-x-2"
+              className="w-full sm:w-auto px-7 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center space-x-2"
             >
-              <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-              <span>Registrar Entrada (Guardar)</span>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Registrar Entrada</span>
             </button>
           </div>
 

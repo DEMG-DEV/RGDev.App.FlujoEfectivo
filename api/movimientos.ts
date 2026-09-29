@@ -1,6 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDbPool } from './db.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function sanitizeUUID(val: any): string | null {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  return UUID_REGEX.test(trimmed) ? trimmed : null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pool = getDbPool();
 
@@ -8,7 +16,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const client = await pool.connect();
       try {
-        const result = await client.query('SELECT * FROM transacciones ORDER BY fecha DESC LIMIT 200;');
+        const query = `
+          SELECT 
+            t.*,
+            p.nombre as proyecto_nombre
+          FROM transacciones t
+          LEFT JOIN proyectos_pactados p ON t.proyecto_id = p.id
+          ORDER BY t.fecha DESC, t.created_at DESC 
+          LIMIT 200;
+        `;
+        const result = await client.query(query);
         return res.status(200).json({
           status: 'connected',
           data: result.rows
@@ -30,6 +47,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const data = req.body;
       const client = await pool.connect();
       try {
+        const proyectoId = sanitizeUUID(data.proyecto_id);
+        let pactoId = sanitizeUUID(data.pacto_id);
+
+        // Si no se proporcionó pacto_id pero sí proyecto y miembro, buscar el pacto registrado
+        if (!pactoId && proyectoId && data.miembro_nombre) {
+          const matchPacto = await client.query(
+            'SELECT id FROM pactos_miembros WHERE proyecto_id = $1 AND LOWER(TRIM(miembro_nombre)) = LOWER(TRIM($2)) LIMIT 1;',
+            [proyectoId, data.miembro_nombre]
+          );
+          if (matchPacto.rows.length > 0) {
+            pactoId = matchPacto.rows[0].id;
+          }
+        }
+
         const query = `
           INSERT INTO transacciones (
             tipo, subtipo, categoria, monto, fecha, dia_semana, 
@@ -42,20 +73,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           data.tipo,
           data.subtipo || null,
           data.categoria,
-          data.monto,
+          parseFloat(data.monto),
           data.fecha,
           data.dia_semana,
           data.tipo_culto || 'no_aplica',
           data.concepto,
           data.miembro_nombre || null,
-          data.proyecto_id || null,
-          data.pacto_id || null,
+          proyectoId,
+          pactoId,
           data.metodo_pago || 'efectivo',
           data.evidencia_url || null,
           data.evidencia_nombre || null
         ];
         const result = await client.query(query, values);
-        return res.status(201).json({ success: true, data: result.rows[0] });
+        const row = result.rows[0];
+
+        if (row.proyecto_id) {
+          const pRes = await client.query('SELECT nombre FROM proyectos_pactados WHERE id = $1;', [row.proyecto_id]);
+          if (pRes.rows.length > 0) {
+            row.proyecto_nombre = pRes.rows[0].nombre;
+          }
+        }
+
+        return res.status(201).json({ success: true, data: row });
       } finally {
         client.release();
       }

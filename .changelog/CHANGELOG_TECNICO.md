@@ -5,6 +5,55 @@
 
 ---
 
+## feat(release): release v1.2.0 - reporte pdf oficial, rediseño apple hig, asignación de gastos y liquidación de proyectos a ofrenda
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 11:25:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature / Minor Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.2.0` |
+| `src/components/ReporteFinancieroModal.tsx` | Agregado | Generador de reporte financiero pastoral en PDF vectorial imprimible (`@media print`) en formato Carta con desglose de ingresos por culto, gastos operativos con comprobante R2, proyectos pactados con desglose individual de hermanos y bloque oficial de firmas ministeriales |
+| `src/components/ModalFinalizarProyecto.tsx` | Agregado | Modal para liquidación formal de proyectos con balance remanente y transferencia contable neutral a la Ofrenda General con motivo "Resto del proyecto: [Nombre]" |
+| `src/components/Navbar.tsx` | Modificado | Rediseño ultra-slim Apple HIG (~48px), segmented navigation pills, balance en vivo, badge de usuario y botón de acceso rápido para generar reporte PDF |
+| `src/components/DashboardView.tsx` | Modificado | Rediseño con tarjetas Inset Grouped, cifras numéricas tabulares (`tabular-nums`), comparativa Miércoles vs. Domingo y acceso a reporte pastoral |
+| `src/components/CapturaIngresosView.tsx` | Modificado | Input monetario Hero con chips de incremento rápido (+50, +100, +200, +500, +1000, +2000), controles segmentados de culto y modo continuo optimizado |
+| `src/components/RegistroGastoView.tsx` | Modificado | Formulario Apple HIG con selector de asignación presupuestaria a proyectos y dropzone estilizado para comprobantes en Cloudflare R2 |
+| `src/components/LibroCajaView.tsx` | Modificado | Barra de herramientas estilo macOS con filtrado reactivo de cultos/fechas y botón oficial para exportar/imprimir reporte pastoral |
+| `src/components/ProyectosPactadosView.tsx` | Modificado | Pestañas de filtrado (Activos / Finalizados / Todos), balance no ejercido en tiempo real y botón de liquidación/finalización con traspaso de fondos |
+| `src/components/ModalEvidencia.tsx` | Modificado | Modal Apple HIG con esquinas redondeadas continuas (`rounded-3xl`) y visor de comprobantes fotográficos o PDF |
+| `src/components/ConfiguracionView.tsx` | Eliminado | Remoción de interfaz de configuración de claves de base de datos y R2 en frontend para elevar la seguridad y delegar a variables de entorno |
+| `src/services/storageService.ts` | Modificado | Integración de `liquidarYMoverRestoProyecto()` con doble asiento contable (gasto de liquidación + ingreso en ofrenda general) y recarga sincronizada |
+| `src/types/index.ts` | Modificado | Agregado de campos `total_gastado` y `fecha_fin` en la interfaz `ProyectoPactado` y soporte en transacciones |
+| `api/proyectos.ts` | Modificado | Subconsulta SQL para calcular `total_gastado` en vivo, adición automática de columna `fecha_fin` si no existe, y soporte de método PATCH para cierre o actualización de proyectos |
+| `api/movimientos.ts` | Modificado | Soporte optimizado para transacciones vinculadas a proyectos |
+| `api/pactos.ts` | Agregado | Endpoint serverless para lectura, registro y persistencia de pactos de miembros |
+| `src/index.css` | Modificado | Reglas de estilo para impresión `@media print` (ocultamiento de elementos de interfaz, ajuste a página Carta, no división de filas de tabla y layout oficial) |
+| `vite.config.ts` | Modificado | Limpieza y optimización del bundler |
+
+### Detalle Técnico
+
+1. **Motor de Reportes Vectoriales Nativos en PDF (`ReporteFinancieroModal.tsx`):**  
+   Implementación de plantilla imprimible de alta fidelidad que se apoya en `@media print` del navegador, evitando librerías binarias pesadas y asegurando nitidez tipográfica en cualquier resolución o impresora. Incluye control de saltos de página con `break-inside: avoid` en filas y bloques de rúbrica.
+2. **Contabilidad Neutral en Liquidación de Proyectos (`storageService.ts` & `ModalFinalizarProyecto.tsx`):**  
+   Para evitar duplicación o desfasaje en el libro de caja general, la finalización de proyectos no consumidos en su totalidad ejecuta una partida doble:
+   - Registro de egreso / liquidación imputado al proyecto por el saldo restante ($R$), lo que reduce los fondos asignados al proyecto a $0.00.
+   - Registro de ingreso simultáneo en la tesorería general como Ofrenda con concepto `"Resto del proyecto: " + nombre`.
+   - Marcado de proyecto como inactivo (`activo = false`) y sellado con `fecha_fin`.
+   El balance neto de caja de la congregación permanece exactamente idéntico mientras los fondos se reclasifican con total transparencia.
+3. **Rediseño UI/UX Apple Human Interface Guidelines:**  
+   Se estandarizó la interfaz con tarjetas *Inset Grouped*, bordes suaves, desenfoques en barra superior (`backdrop-blur`), selectores segmentados con fondo activo sutil y `tabular-nums` para que columnas monetarias mantengan perfecta alineación vertical.
+4. **Seguridad y Limpieza Arquitectónica:**  
+   Se eliminó la vista de configuración client-side que permitía ingresar cadenas de conexión a PostgreSQL y credenciales de Cloudflare R2 en el navegador. La autenticación a recursos sensibles se canaliza exclusivamente por variables de entorno serverless.
+
+---
+
 ## feat(release): release v1.1.0 - autenticación con Auth.js, gestión interna de usuarios y migración a pnpm
 
 | Campo | Detalle |

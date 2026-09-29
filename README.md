@@ -6,22 +6,43 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.2.0** | 2026-09-29 11:25:00 | David Méndez | Producción / Estable |
 | **v1.1.0** | 2026-09-29 09:44:00 | David Méndez | Producción / Estable |
 
 ---
 
 ## 🌟 Características Principales
 
-### 1. Autenticación Segura y Control de Usuarios (Auth.js)
+### 1. Reporte Financiero Oficial en PDF Vectorial (Impresión de Alta Fidelidad)
+- **Generador de Estados de Cuenta Oficiales**: Generación directa de reportes impresos o descargables en PDF en tamaño Carta (*Letter*) mediante CSS `@media print` vectorizado sin dependencias externas.
+- **Secciones Detalladas**:
+  - **Entradas Detalladas**: Fecha, culto correspondiente, clasificación, tipo de aporte, ofrendante / miembro, concepto y monto.
+  - **Egresos y Gastos Operativos**: Fecha, categoría eclesiástica, concepto/beneficiario, estado de comprobante fiscal en Cloudflare R2 y monto.
+  - **Proyectos Pactados y Cumplimiento de Pactantes**: Metas generales, recaudación acumulada, saldo no ejecutado y desglose individual por hermano (cuota acordada, semanas aportadas, deuda restante y porcentaje de avance).
+  - **Firmas Ministeriales Oficiales**: Bloque de validación con rúbricas para Pastor Principal, Tesorero General y Comité de Auditoría / Revisor Fiscal.
+- **Filtros Flexibles de Período**: Selección rápida por Mes Actual, Mes Anterior, Año en Curso, Rango Personalizado o Histórico Completo, con exportación complementaria a CSV.
+
+### 2. Gestión de Proyectos, Gastos y Remanente a Ofrenda
+- **Asignación de Gastos a Proyectos**: Permite asociar cualquier compra o desembolso directamente a un proyecto de fe activo para llevar el balance en tiempo real entre lo recaudado y lo gastado.
+- **Mecanismo de Liquidación y Traspaso de Sobrante**: Cuando una meta o construcción concluye sin agotar el 100% de los fondos pactados, el sistema permite cerrar el proyecto y transferir el remanente no utilizado a la **Ofrenda General** con el concepto oficial *"Resto del proyecto: [Nombre del Proyecto]"*. Esto preserva la cuadratura contable exacta con balance neto neutral ($0.00 de discrepancia).
+- **Control de Estado de Proyectos**: Pestañas para visualizar proyectos activos, proyectos finalizados o el histórico completo, con posibilidad de reapertura si es necesario.
+
+### 3. Rediseño de Experiencia de Usuario Apple HIG (Human Interface Guidelines)
+- **Barra Superior Minimalista**: Reducción de altura a una sola línea ultra-compacta (~48px) con selectores segmentados, indicador de balance en vivo, badge de usuario y accesos de alta frecuencia.
+- **Finanzas Inset Grouped**: Tablero principal y libro de caja con tarjetas redondeadas continuas, tipografía con números tabulares (`tabular-nums`) para alineación contable perfecta y comparativas visuales entre cultos de Miércoles y Domingo.
+- **Captura Ágil Apple Pay Style**: Campo de monto hero de gran formato con botones rápidos para sumas frecuentes (+$50, +$100, +$200, +$500, +$1000, +$2000) y selección ágil de cultos.
+- **Depuración de Seguridad**: Eliminación de interfaces de configuración de credenciales en el cliente; ahora las llaves de base de datos y Cloudflare R2 se administran de manera estricta y segura vía variables de entorno.
+
+### 4. Autenticación Segura y Control de Usuarios (Auth.js)
 - **Autenticación con Auth.js (`@auth/core`)**: Integración robusta basada en credenciales (email + contraseña) con sesiones seguras vía JWT / Cookies HTTP-Only.
 - **Roles Eclesiásticos**:
-  - 👑 **Administrador (`admin`)**: Acceso total al sistema, configuración y gestión de usuarios. El primer usuario registrado es promovido automáticamente a Super Admin.
+  - 👑 **Administrador (`admin`)**: Acceso total al sistema y gestión de usuarios. El primer usuario registrado es promovido automáticamente a Super Admin.
   - ✝️ **Pastor (`pastor`)**: Acceso a libros de caja, reportes pastorales oficiales y visión ejecutiva.
   - 💼 **Tesorero (`tesorero`)**: Registro continuo de ofrendas, diezmos, pactos y gastos con comprobantes.
   - 📋 **Operador (`operador`)**: Captura ágil de cultos y sobres en tiempo real.
-- **Gestión Interna de Usuarios**: Los pastores y administradores pueden crear, activar/desactivar o eliminar usuarios directamente desde el sistema con contraseñas encriptadas mediante `bcrypt`.
+- **Gestión Interna de Usuarios**: Los pastores y administradores pueden crear, activar/desactivar o editar información de usuarios directamente desde el sistema con contraseñas encriptadas mediante `bcrypt`.
 
-### 2. Captura Rápida de Entradas (Ingresos)
+### 5. Captura Rápida de Entradas (Ingresos)
 - **Atajos para Días Clave de Culto**:
   - 🟡 **Culto de Miércoles** (Reunión de oración y doctrina).
   - 🟢 **Culto de Domingo - Mañana** (Servicio matutino).
@@ -33,25 +54,17 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
   - **Diezmos**: Registro rápido con autocompletado de miembros frecuentes.
   - **Aportes a Proyectos Pactados**: Vinculación directa con el pacto del hermano, con cálculo en vivo de cuotas semanales cubiertas y saldo restante.
 
-### 3. Proyectos Pactados con Valor Semanal
-- Registro de proyectos de fe (ej. *Construcción de Templo*, *Nuevo Sistema de Audio*, *Terreno Anexo*).
-- Cada hermano o familia pacta:
-  - **Monto Total Pactado** (Meta individual).
-  - **Cuota Semanal Acordada** (Aporte periódico pactado).
-- Seguimiento visual de cumplimiento y semanas pagadas.
-
-### 4. Registro de Gastos y Salidas con Evidencia en Cloudflare R2
-- Selección de la fecha exacta del gasto.
-- Categorías eclesiásticas configuradas.
-- Concepto y proveedor beneficiario.
+### 6. Registro de Gastos y Salidas con Evidencia en Cloudflare R2
+- Selección de la fecha exacta del gasto y categoría eclesiástica.
+- Concepto, proveedor beneficiario y asignación presupuestaria a proyecto (opcional).
 - **Subida de Evidencia al Bucket `gospel` de Cloudflare R2**:
   - Admite fotos de recibos/tickets tomadas con el teléfono y archivos PDF.
   - Compresión automática previa en el navegador para optimizar la carga.
   - Almacenamiento seguro en Cloudflare R2 con visor Lightbox integrado.
 
-### 5. Libro de Caja y Reportes Pastorales
+### 7. Libro de Caja y Reportes Pastorales
 - Historial completo con filtros por fecha, tipo (+/-), día de culto (Miércoles / Domingo) y buscador textual.
-- **Informe Pastoral Imprimible**: Diseño limpio listo para imprimir en PDF con membrete oficial y espacio de firmas para el Pastor Principal y el Tesorero.
+- **Informe Pastoral Imprimible en PDF**: Formato listo para imprimir con firmas oficiales de supervisión.
 - **Exportación a CSV**: Para abrir en Microsoft Excel o Google Sheets.
 
 ---
