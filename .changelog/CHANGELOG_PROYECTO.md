@@ -5,6 +5,36 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.3.0: Saldos por mes, saldo acumulado por movimiento y separación de Caja General
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 11:54:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+
+1. **Saldos y Balances por Mes**: Se añadió un módulo de auditoría mensual en la vista de Caja General. Permite consultar para cada mes (septiembre, agosto, etc.) con cuánto dinero inició el mes, cuánto ingresó por ofrendas y diezmos, cuánto se gastó, el flujo neto del período y el saldo acumulado al cierre.
+2. **Saldo en Cada Movimiento**: Cada transacción del libro diario ahora muestra la columna **Saldo en Caja**, reflejando con exactitud cuánto dinero había en la cuenta tras registrar esa entrada o salida, similar a un estado de cuenta bancario.
+3. **Separación de Caja General y Proyectos**: Se renombró la sección a **Libro de Caja General** y se configuró para no mezclar los fondos de proyectos pactados con el dinero operativo cotidiano de la iglesia, garantizando que el balance diario refleje la liquidez real.
+4. **Desglose Independiente de Ofrendas, Diezmos y Proyectos en el Resumen**: En la pantalla principal ahora se aprecian tarjetas independientes para cada concepto, junto con una barra visual de distribución proporcional y porcentajes en los cultos de Miércoles vs Domingo.
+5. **Exportación Adaptativa a CSV**: Permite descargar tanto el detalle diario de movimientos con sus saldos como la tabla consolidada de saldos mensuales.
+
+### ¿Qué significa para el proyecto?
+
+- **Control Financiero Mes a Mes**: Los pastores y líderes de mayordomía pueden ver en segundos cómo cerró cada mes sin necesidad de calcular manualmente aperturas y cierres.
+- **Cuentas Claras y Transparentes**: El dinero de los proyectos especiales se administra en su propio fondo sin desbalancear la tesorería operativa.
+- **Trazabilidad Inmediata**: Cualquier auditor o tesorero puede comprobar el impacto directo de cada movimiento en el saldo de la caja.
+
+### ¿Qué va a notar el usuario/cliente?
+
+- En la barra superior, la pestaña ahora se titula **Caja General**.
+- En la parte superior de la vista de caja se encuentra un carrusel de tarjetas mensuales con saldos al cierre que permiten filtrar cualquier mes con un solo clic.
+- Un control para alternar entre la vista de **Movimientos** y la **Tabla de Saldos por Mes**.
+- La nueva columna **Saldo en Caja** en la tabla contable.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.2.0: Reportes financieros oficiales en PDF, rediseño estilo Apple, control de gastos en proyectos y traspaso de remanentes a ofrenda
 
 | Campo | Detalle |

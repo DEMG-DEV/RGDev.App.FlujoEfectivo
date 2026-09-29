@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.3.0** | 2026-09-29 11:54:00 | David Méndez | Producción / Estable |
 | **v1.2.0** | 2026-09-29 11:25:00 | David Méndez | Producción / Estable |
 | **v1.1.0** | 2026-09-29 09:44:00 | David Méndez | Producción / Estable |
 
@@ -13,7 +14,19 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Reporte Financiero Oficial en PDF Vectorial (Impresión de Alta Fidelidad)
+### 1. Libro de Caja General y Saldos por Mes (Auditoría Integral)
+- **Saldos por Mes y Cierres Contables**: Módulo de auditoría periódica que calcula con rigor cronológico para cada mes: **Saldo Inicial**, **Entradas (+)**, **Gastos (-)**, **Flujo Neto (+/-)** y **Saldo al Cierre**.
+- **Carrusel / Grid de Meses**: Tarjetas interactivas estilo Apple Inset Grouped para cada período mensual con desglose y filtrado instantáneo con un solo clic.
+- **Saldo Acumulado en Cada Movimiento**: Columna **Saldo en Caja** directamente en la tabla contable, que refleja el balance disponible después de cada ingreso o egreso histórico.
+- **Separación Contable Operativa**: El Libro de Caja General opera por defecto en modo *"Solo Caja General"*, excluyendo fondos comprometidos de proyectos pactados para representar fielmente la liquidez operativa diaria (con opción de alternar a consolidado).
+- **Exportación Adaptativa a CSV**: Descarga el detalle diario con saldos individuales o la sábana consolidada de auditoría mensual.
+
+### 2. Desglose Independiente de Ofrendas, Diezmos y Proyectos
+- **Tarjetas Separadas en el Resumen General**: Visualización nítida y diferenciada de **Fondo en Caja / Bancos**, **Ofrendas**, **Diezmos**, **Proyectos Pactados** y **Total Egresos**, eliminando ambigüedades.
+- **Barra de Distribución Proporcional**: Gráfico segmentado en tiempo real con porcentajes y montos acumulados por tipo de aporte.
+- **Desglose en Comparativa de Cultos**: Detalle exacto de cuánto ingresó por ofrendas, diezmos y proyectos en los cultos de Miércoles vs. Domingo.
+
+### 3. Reporte Financiero Oficial en PDF Vectorial (Impresión de Alta Fidelidad)
 - **Generador de Estados de Cuenta Oficiales**: Generación directa de reportes impresos o descargables en PDF en tamaño Carta (*Letter*) mediante CSS `@media print` vectorizado sin dependencias externas.
 - **Secciones Detalladas**:
   - **Entradas Detalladas**: Fecha, culto correspondiente, clasificación, tipo de aporte, ofrendante / miembro, concepto y monto.

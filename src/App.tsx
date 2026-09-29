@@ -81,11 +81,11 @@ const AppContent: React.FC = () => {
     }
   }, [user]);
 
-  const handleAbrirCaptura = (tipoCulto?: TipoCulto) => {
+  const handleAbrirCaptura = (tipoCulto?: TipoCulto, subtipo?: SubtipoIngreso) => {
     if (tipoCulto) {
       setCultoPreseleccionado(tipoCulto);
     }
-    setSubtipoPreseleccionado('ofrenda');
+    setSubtipoPreseleccionado(subtipo || 'ofrenda');
     setProyectoPreseleccionadoId(undefined);
     setPactoPreseleccionadoId(undefined);
     setVistaActiva('ingresos');

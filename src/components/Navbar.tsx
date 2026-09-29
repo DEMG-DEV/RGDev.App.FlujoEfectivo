@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'ingresos', label: 'Entradas', icon: ArrowDownLeft, color: 'text-emerald-400' },
     { id: 'gastos', label: 'Gastos', icon: ArrowUpRight, color: 'text-rose-400' },
     { id: 'pactos', label: 'Pactos', icon: Landmark, color: 'text-indigo-400' },
-    { id: 'libro_caja', label: 'Libro de Caja', icon: Receipt, color: 'text-amber-400' },
+    { id: 'libro_caja', label: 'Caja General', icon: Receipt, color: 'text-amber-400' },
   ];
 
   return (

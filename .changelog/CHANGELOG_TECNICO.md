@@ -5,6 +5,39 @@
 
 ---
 
+## feat(release): release v1.3.0 - saldos mensuales, saldo por movimiento y separacion de caja general
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 11:54:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature / Minor Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.3.0` |
+| `src/components/LibroCajaView.tsx` | Modificado | Módulo de saldos mensuales (saldo inicial, entradas, gastos, flujo neto y cierre), carrusel interactivo de tarjetas por mes, selector de modo (Movimientos vs Tabla Mensual), columna Saldo en Caja acumulado en cada transacción, exclusión por defecto de proyectos pactados y exportación CSV adaptativa |
+| `src/components/DashboardView.tsx` | Modificado | Separación explícita de Ofrendas, Diezmos y Proyectos en tarjetas independientes, barra visual de distribución proporcional de entradas y desglose de las tres categorías en la comparativa de Miércoles vs Domingo |
+| `src/components/Navbar.tsx` | Modificado | Actualización de la etiqueta de navegación a "Caja General" |
+| `src/App.tsx` | Modificado | Soporte de preselección de subtipos ('ofrenda' / 'diezmo') al navegar desde las tarjetas del Dashboard |
+| `README.md` | Modificado | Documentación de saldos mensuales, running balance y segregación de fondos en Caja General |
+
+### Detalle Técnico
+
+1. **Algoritmo Cronológico de Saldo Acumulado por Movimiento:**  
+   Se calcula el running balance de cada transacción ordenando cronológicamente el histórico de movimientos base de Caja General (`fecha ASC`, `created_at ASC`). Cada entrada suma al saldo acumulado y cada salida resta, almacenando el resultado en un mapa indexado por ID (`mapaSaldos`). Al renderizarse en orden descendente, cada fila expone su saldo contable exacto en ese punto temporal.
+2. **Motor de Saldos y Cierres Mensuales:**  
+   Se computa un acumulador temporal por clave mensual (`YYYY-MM`). Para cada período se determina el saldo de apertura (`saldoInicial`), el total de entradas y egresos operativos, el flujo neto del mes (`flujoNeto`) y el saldo al cierre (`saldoFinal`), sirviendo tanto al carrusel de tarjetas interactivas como a la tabla formal de auditoría mensual.
+3. **Segregación Contable de Caja General vs Proyectos:**  
+   Para evitar distorsiones en la liquidez operativa diaria de la iglesia, se filtran de forma predeterminada los aportes a proyectos pactados (`subtipo: 'pacto'`) y los egresos de liquidación, permitiendo alternar mediante un control segmentado al modo consolidado si se requiere.
+4. **Navegación e Interacción Dinámica:**  
+   Al seleccionar cualquier tarjeta mensual se activa un filtro temporal que acota la vista diaria a los límites de ese mes (`fechaDesde` y `fechaHasta`), con opción de limpieza rápida y exportación CSV contextualizada según el modo activo.
+
+---
+
 ## feat(release): release v1.2.0 - reporte pdf oficial, rediseño apple hig, asignación de gastos y liquidación de proyectos a ofrenda
 
 | Campo | Detalle |
