@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.4.0** | 2026-09-29 12:10:00 | David Méndez | Producción / Estable |
 | **v1.3.0** | 2026-09-29 11:54:00 | David Méndez | Producción / Estable |
 | **v1.2.0** | 2026-09-29 11:25:00 | David Méndez | Producción / Estable |
 | **v1.1.0** | 2026-09-29 09:44:00 | David Méndez | Producción / Estable |
@@ -14,7 +15,14 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Libro de Caja General y Saldos por Mes (Auditoría Integral)
+### 1. Sincronización Contable, Reportes PDF Formateados y Visibilidad de Credenciales
+- **Sincronización Total de Saldos**: Armonización exacta del balance contable entre el **Libro de Caja General**, el tablero principal (**Fondo en Caja General**) y el distintivo del **Navbar** (`CAJA`), deduciendo gastos únicamente de entradas operativas e independizando los fondos de proyectos pactados.
+- **Cuadratura Matemática Miércoles vs Domingo**: Regla estricta de exclusión mutua que elimina duplicidades cruzadas en la comparativa de cultos, asegurando que la sumatoria de aportes coincida al 100% con los totales registrados.
+- **Reportes PDF de Alta Fidelidad Vectorial**: Aislamiento total del informe ministerial en impresión (`@media print`), iniciando en la primera página sin elementos web residuales, con membrete oficial indestructible a dos columnas fijas y sin corte horizontal en tablas.
+- **Impresión Directa y Membrete en Libro de Caja**: Botón de impresión rápida con encabezado institucional formal, totales consolidados y bloque de tres firmas oficiales (Pastor Principal, Tesorero General y Comité de Auditoría).
+- **Visibilidad de Contraseña (Eye Toggle)**: Botón con icono interactivo (`Eye` / `EyeOff`) en el acceso al sistema con navegación por teclado accesible.
+
+### 2. Libro de Caja General y Saldos por Mes (Auditoría Integral)
 - **Saldos por Mes y Cierres Contables**: Módulo de auditoría periódica que calcula con rigor cronológico para cada mes: **Saldo Inicial**, **Entradas (+)**, **Gastos (-)**, **Flujo Neto (+/-)** y **Saldo al Cierre**.
 - **Carrusel / Grid de Meses**: Tarjetas interactivas estilo Apple Inset Grouped para cada período mensual con desglose y filtrado instantáneo con un solo clic.
 - **Saldo Acumulado en Cada Movimiento**: Columna **Saldo en Caja** directamente en la tabla contable, que refleja el balance disponible después de cada ingreso o egreso histórico.

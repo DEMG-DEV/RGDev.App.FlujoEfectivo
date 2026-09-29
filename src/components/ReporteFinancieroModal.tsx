@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, 
   Printer, 
@@ -35,6 +35,16 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
   proyectos,
   pactos
 }) => {
+  // Asegurar que cuando el modal de reporte esté abierto, la app de fondo se oculte completamente al imprimir
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('reporte-modal-activo');
+      return () => {
+        document.body.classList.remove('reporte-modal-activo');
+      };
+    }
+  }, [isOpen]);
+
   // Filtros de fecha
   const [periodo, setPeriodo] = useState<RangoPeriodo>('este_mes');
   const [fechaDesde, setFechaDesde] = useState<string>(() => {
@@ -198,7 +208,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static print:inset-auto">
+    <div id="modal-reporte-financiero" className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static print:inset-auto">
       
       {/* Ventana Modal / Contenedor de Hoja */}
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-5xl overflow-hidden flex flex-col max-h-[94vh] print:max-h-none print:h-auto print:shadow-none print:border-none print:rounded-none">
@@ -342,10 +352,10 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
         <div id="reporte-imprimible" className="flex-1 overflow-y-auto p-6 sm:p-10 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible">
           
           {/* 1. ENCABEZADO INSTITUCIONAL / MEMBRETE DE HONOR */}
-          <div className="border-b-2 border-slate-900 pb-5 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="border-b-2 border-slate-900 pb-5 mb-6 print-break-inside-avoid break-inside-avoid">
+            <div id="reporte-membrete-tabla" className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-start justify-between gap-4">
               
-              <div className="flex items-start space-x-3.5">
+              <div id="reporte-membrete-col-izq" className="flex items-start space-x-3.5">
                 <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
                   <Landmark className="w-6 h-6 text-amber-400" />
                 </div>
@@ -363,7 +373,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
               </div>
 
               {/* Caja de Folio y Fecha */}
-              <div className="text-left sm:text-right bg-slate-50 border border-slate-200 rounded-xl p-3 sm:min-w-[220px]">
+              <div id="reporte-membrete-col-der" className="text-left sm:text-right bg-slate-50 border border-slate-200 rounded-xl p-3 sm:min-w-[220px]">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Documento Oficial
                 </div>
@@ -382,7 +392,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
           </div>
 
           {/* 2. RESUMEN EJECUTIVO (4 TARJETAS ESTILO APPLE HIG FINANCES) */}
-          <div className="mb-8">
+          <div className="mb-8 print-break-inside-avoid break-inside-avoid">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center space-x-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
               <span>Resumen Ejecutivo de Tesorería</span>
@@ -451,8 +461,8 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
 
           {/* 3. SECCIÓN 1: DETALLE DE ENTRADAS (¿QUÉ INGRESA Y CUÁNDO?) */}
           {incluirIngresos && (
-            <div className="mb-8 print-break-inside-avoid">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300">
+            <div className="mb-8">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300 print-break-inside-avoid break-inside-avoid">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
                   <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">
@@ -542,8 +552,8 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
 
           {/* 4. SECCIÓN 2: DETALLE DE GASTOS (¿EN QUÉ SALE Y CUÁNDO?) */}
           {incluirGastos && (
-            <div className="mb-8 print-break-inside-avoid">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300">
+            <div className="mb-8">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300 print-break-inside-avoid break-inside-avoid">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 rounded-full bg-rose-500" />
                   <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">
@@ -622,8 +632,8 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
 
           {/* 5. SECCIÓN 3: ESTADO DE PROYECTOS PACTADOS */}
           {incluirProyectos && (
-            <div className="mb-8 print-break-inside-avoid">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300">
+            <div className="mb-8">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300 print-break-inside-avoid break-inside-avoid">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 rounded-full bg-indigo-500" />
                   <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">
@@ -636,7 +646,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
               </div>
 
               {/* Proyectos Resumen */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 print-break-inside-avoid break-inside-avoid">
                 {proyectos.map(p => {
                   const pct = Math.min(100, Math.round((p.total_recaudado / (p.meta_total || 1)) * 100));
                   const saldoRestante = Math.max(0, p.meta_total - p.total_recaudado);

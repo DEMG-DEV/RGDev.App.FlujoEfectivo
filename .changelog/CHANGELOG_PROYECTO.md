@@ -5,6 +5,27 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.4.0: Sincronización de saldos en resumen, reporte oficial en PDF de alta fidelidad y visualización de contraseña
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 12:10:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Sincronización Total de Saldos Contables**: El balance mostrado en la pantalla principal (Resumen General) y en el distintivo superior ("CAJA") ahora coincide de forma idéntica con el Libro de Caja General (-$662.00), deduciendo los gastos únicamente de las entradas corrientes (ofrendas y diezmos) y manteniendo los proyectos pactados como un fondo separado.
+2. **Corrección Matemática en Cultos de Miércoles vs Domingo**: Se corrigió el cálculo de recaudación por día de servicio, eliminando la duplicación cruzada de ofrendas. Ahora cada culto refleja exactamente lo que se recaudó en su respectivo día.
+3. **Reporte Financiero Oficial en PDF Mejorado**: Se perfeccionó la diagramación para impresión en PDF tamaño Carta. Al imprimir el reporte oficial, toda la interfaz de la página web se oculta por completo, comenzando directamente en la página 1 con el membrete institucional íntegro y sin divisiones a la mitad de página.
+4. **Impresión Directa y Membrete en Libro de Caja**: El Libro de Caja General ahora cuenta con un botón para imprimir directamente la tabla con formato formal de auditoría, totales en el pie de tabla y espacio para tres firmas ministeriales (Pastor Principal, Tesorero General y Comité de Auditoría).
+5. **Visibilidad de Contraseña en el Login**: Se añadió un botón con icono de ojo para mostrar u ocultar la contraseña al iniciar sesión o registrarse.
+
+### ¿Qué significa para el proyecto?
+- **Cero discrepancias en tesorería**: El pastor y los líderes de mayordomía verán exactamente la misma cifra de saldo en cualquier pantalla del sistema.
+- **Reportes ejecutivos listos para asamblea**: Los documentos impresos o exportados a PDF tienen un acabado profesional tipo estado de cuenta bancario/eclesiástico.
+- **Mayor facilidad de acceso**: Los usuarios pueden verificar lo que escriben en su contraseña antes de iniciar sesión.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.3.0: Saldos por mes, saldo acumulado por movimiento y separación de Caja General
 
 | Campo | Detalle |

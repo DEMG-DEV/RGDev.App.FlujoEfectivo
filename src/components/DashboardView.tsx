@@ -48,6 +48,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Separación y cálculo detallado de ingresos (Ofrendas, Diezmos y Proyectos)
   const {
+    saldoCajaReal,
+    entradasCaja,
     totalOfrendas,
     totalDiezmos,
     totalProyectos,
@@ -70,29 +72,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const diezmos = resumen.totalDiezmos || 0;
     const proyectosRec = Math.max(resumen.totalPactos || 0, resumen.totalProyectosRecaudado || 0);
     const entradas = resumen.totalIngresos || (ofrendas + diezmos + proyectosRec);
+    const entradasCaja = ofrendas + diezmos + (resumen.totalOtrosIngresos || 0);
+    const saldoCajaReal = resumen.saldoCaja !== undefined ? resumen.saldoCaja : (entradasCaja - (resumen.totalGastos || 0));
 
     const pctOf = entradas > 0 ? Math.round((ofrendas / entradas) * 100) : 0;
     const pctDi = entradas > 0 ? Math.round((diezmos / entradas) * 100) : 0;
     const pctPr = entradas > 0 ? Math.min(100, Math.max(0, 100 - pctOf - pctDi)) : 0;
 
-    // Filtrar transacciones por culto/día
+    // Filtrar transacciones por culto/día evitando duplicidad cruzada
     const txIngresos = transacciones.filter(t => t.tipo === 'ingreso');
 
+    // Regla estricta: un movimiento es de Miércoles o de Domingo, nunca ambos
+    const esMiercoles = (t: Transaccion) => t.dia_semana === 'miercoles' || t.tipo_culto === 'miercoles_general';
+    const esDomingo = (t: Transaccion) => !esMiercoles(t) && (t.dia_semana === 'domingo' || t.tipo_culto === 'domingo_manana' || t.tipo_culto === 'domingo_tarde');
+
     // Miércoles
-    const txMiercoles = txIngresos.filter(t => t.dia_semana === 'miercoles' || t.tipo_culto === 'miercoles_general');
+    const txMiercoles = txIngresos.filter(esMiercoles);
     const ofMiercoles = txMiercoles.filter(t => t.subtipo === 'ofrenda').reduce((acc, t) => acc + t.monto, 0);
     const diMiercoles = txMiercoles.filter(t => t.subtipo === 'diezmo').reduce((acc, t) => acc + t.monto, 0);
     const prMiercoles = txMiercoles.filter(t => t.subtipo === 'pacto').reduce((acc, t) => acc + t.monto, 0);
     const totMiercoles = ofMiercoles + diMiercoles + prMiercoles;
 
     // Domingo
-    const txDomingo = txIngresos.filter(t => t.dia_semana === 'domingo' || t.tipo_culto === 'domingo_manana' || t.tipo_culto === 'domingo_tarde');
+    const txDomingo = txIngresos.filter(esDomingo);
     const ofDomingo = txDomingo.filter(t => t.subtipo === 'ofrenda').reduce((acc, t) => acc + t.monto, 0);
     const diDomingo = txDomingo.filter(t => t.subtipo === 'diezmo').reduce((acc, t) => acc + t.monto, 0);
     const prDomingo = txDomingo.filter(t => t.subtipo === 'pacto').reduce((acc, t) => acc + t.monto, 0);
     const totDomingo = ofDomingo + diDomingo + prDomingo;
 
     return {
+      saldoCajaReal,
+      entradasCaja,
       totalOfrendas: ofrendas,
       totalDiezmos: diezmos,
       totalProyectos: proyectosRec,
@@ -166,24 +176,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 2. TARJETAS DE SALDO PRINCIPAL SEPARADAS: FONDO, OFRENDAS, DIEZMOS, PROYECTOS Y EGRESOS (APPLE HIG) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         
-        {/* Card 1: Saldo Neto en Caja */}
+        {/* Card 1: Saldo en Caja General */}
         <div 
           onClick={onIrALibroCaja}
           className="bg-slate-950 text-white p-5 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-slate-800 relative overflow-hidden flex flex-col justify-between cursor-pointer hover:border-slate-700 transition-all active:scale-[0.99]"
         >
           <div>
             <div className="flex items-center justify-between text-slate-400 mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Fondo en Caja / Bancos</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Fondo en Caja General</span>
               <Wallet className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className={`text-2xl font-black tracking-tight tabular-nums ${resumen.saldoNeto >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {formatearMoneda(resumen.saldoNeto)}
+            <div className={`text-2xl font-black tracking-tight tabular-nums ${saldoCajaReal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {formatearMoneda(saldoCajaReal)}
             </div>
           </div>
           <div className="text-[10px] text-slate-400 mt-4 flex items-center justify-between pt-3 border-t border-slate-800">
             <span className="flex items-center space-x-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Balance neto disponible</span>
+              <span>Caja operativa (Ofrendas + Diezmos)</span>
             </span>
             <ChevronRight className="w-3 h-3 text-slate-500" />
           </div>
@@ -240,7 +250,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         >
           <div>
             <div className="flex items-center justify-between text-slate-500 mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Proyectos Pactados</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Fondo Proyectos</span>
               <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60">
                 <Landmark className="w-3.5 h-3.5" />
               </div>
@@ -250,7 +260,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <div className="text-[10px] text-amber-800 font-semibold mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-            <span>{pctProyectos}% de entradas</span>
+            <span>Fondo independiente</span>
             <span className="text-slate-400 font-normal">Meta: {formatearMoneda(resumen.totalProyectosMeta)}</span>
           </div>
         </div>
@@ -281,13 +291,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 2.1 COMPOSICIÓN VISUAL DE ENTRADAS (APPLE HIG) */}
       <div className="bg-white/80 backdrop-blur-xl border border-black/[0.06] rounded-2xl px-5 py-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center space-x-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Total Entradas:
-          </span>
-          <span className="text-base font-black text-slate-900 tabular-nums">
-            {formatearMoneda(totalEntradas)}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Total Entradas:
+            </span>
+            <span className="text-base font-black text-slate-900 tabular-nums">
+              {formatearMoneda(totalEntradas)}
+            </span>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            (Caja General: <strong className="text-emerald-700">{formatearMoneda(entradasCaja)}</strong> • Proyectos: <strong className="text-indigo-700">{formatearMoneda(totalProyectos)}</strong>)
+          </div>
         </div>
 
         {/* Barra Proporcional Segmentada */}

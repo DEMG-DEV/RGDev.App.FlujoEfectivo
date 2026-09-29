@@ -566,9 +566,12 @@ export const storageService = {
       if (t.tipo === 'ingreso') {
         totalIngresos += t.monto;
 
-        if (t.dia_semana === 'miercoles') {
+        const esMiercoles = t.dia_semana === 'miercoles' || t.tipo_culto === 'miercoles_general';
+        const esDomingo = !esMiercoles && (t.dia_semana === 'domingo' || t.tipo_culto === 'domingo_manana' || t.tipo_culto === 'domingo_tarde');
+
+        if (esMiercoles) {
           ingresosMiercoles += t.monto;
-        } else if (t.dia_semana === 'domingo') {
+        } else if (esDomingo) {
           ingresosDomingo += t.monto;
         }
 
@@ -584,10 +587,19 @@ export const storageService = {
     const totalProyectosMeta = proyectos.reduce((acc, p) => acc + (p.meta_total || 0), 0);
     const totalProyectosRecaudado = proyectos.reduce((acc, p) => acc + (p.total_recaudado || 0), 0);
 
+    // Entradas operativas de Caja General (Ofrendas + Diezmos + Otros, excluyendo pactos)
+    const ingresosOperativos = totalOfrendas + totalDiezmos + totalOtrosIngresos;
+    // Saldo real de Caja General: entradas operativas menos gastos
+    const saldoCaja = ingresosOperativos - totalGastos;
+    const saldoConsolidado = totalIngresos - totalGastos;
+
     return {
       totalIngresos,
       totalGastos,
-      saldoNeto: totalIngresos - totalGastos,
+      saldoNeto: saldoCaja, // El saldo de la caja es el correcto según la regla de mayordomía
+      saldoCaja,
+      saldoConsolidado,
+      ingresosOperativos,
       ingresosMiercoles,
       ingresosDomingo,
       totalDiezmos,

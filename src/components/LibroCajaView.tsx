@@ -280,7 +280,52 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Encabezado Apple HIG */}
+      {/* Membrete Oficial Exclusivo para Impresión PDF / Papel */}
+      <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-4 print-break-inside-avoid break-inside-avoid">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
+              <Church className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
+                Iglesia Cristiana Evangélica
+              </h1>
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Libro de Caja General — Auditoría Contable y Control de Fondos
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {!incluirPactos ? 'Caja Operativa (Excluye Proyectos Pactados)' : 'Consolidado General (Incluye Proyectos)'}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-2.5 min-w-[210px]">
+            <div className="text-[10px] font-bold uppercase text-slate-400">Libro Oficial de Caja</div>
+            <div><strong>Emisión:</strong> {formatearFechaLarga(new Date().toISOString().slice(0, 10))}</div>
+            <div><strong>Período:</strong> {fechaDesde && fechaHasta ? `${formatearFechaCorta(fechaDesde)} al ${formatearFechaCorta(fechaHasta)}` : 'Historial Acumulado'}</div>
+            <div><strong>Movimientos:</strong> {transaccionesFiltradas.length} registros</div>
+          </div>
+        </div>
+
+        {/* Resumen Ejecutivo de Totales Impreso */}
+        <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-200 text-xs">
+          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <span className="text-[10px] font-bold text-emerald-800 uppercase block">Total Entradas</span>
+            <span className="text-base font-black text-emerald-700">+{formatearMoneda(totalIngresosFiltrados)}</span>
+          </div>
+          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+            <span className="text-[10px] font-bold text-rose-800 uppercase block">Total Gastos</span>
+            <span className="text-base font-black text-rose-700">-{formatearMoneda(totalGastosFiltrados)}</span>
+          </div>
+          <div className={`p-2.5 rounded-xl border ${flujoNetoFiltrado >= 0 ? 'bg-slate-900 text-white border-slate-800' : 'bg-rose-900 text-white border-rose-800'}`}>
+            <span className="text-[10px] font-bold uppercase block text-slate-300">Balance en Caja</span>
+            <span className={`text-base font-black ${flujoNetoFiltrado >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>{formatearMoneda(flujoNetoFiltrado)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Encabezado Apple HIG (no-print) */}
       <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-6 sm:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
@@ -329,6 +374,15 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>{vistaModo === 'mensual' ? 'Exportar Saldos' : 'Exportar CSV'}</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            title="Imprimir vista actual de caja o guardar en PDF"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <span>Imprimir Libro</span>
           </button>
 
           <button
@@ -718,14 +772,14 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           <table className="w-full text-left text-sm">
             <thead className="bg-[#F9F9FB] text-slate-500 text-[11px] uppercase font-bold tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Fecha / Culto</th>
-                <th className="py-3 px-4">Tipo</th>
-                <th className="py-3 px-4">Categoría / Concepto</th>
-                <th className="py-3 px-4">Hermano / Donante</th>
-                <th className="py-3 px-4">Método</th>
-                <th className="py-3 px-4">Evidencia R2</th>
-                <th className="py-3 px-4 text-right">Monto</th>
-                <th className="py-3 px-4 text-right">Saldo en Caja</th>
+                <th className="py-3 px-3 sm:px-4">Fecha / Culto</th>
+                <th className="py-3 px-3 sm:px-4">Tipo</th>
+                <th className="py-3 px-3 sm:px-4">Categoría / Concepto</th>
+                <th className="py-3 px-3 sm:px-4">Hermano / Donante</th>
+                <th className="py-3 px-3 sm:px-4">Método</th>
+                <th className="no-print py-3 px-4">Evidencia R2</th>
+                <th className="py-3 px-3 sm:px-4 text-right">Monto</th>
+                <th className="py-3 px-3 sm:px-4 text-right">Saldo en Caja</th>
                 <th className="no-print py-3 px-3 text-right">Acción</th>
               </tr>
             </thead>
@@ -743,7 +797,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                     <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                       
                       {/* Fecha */}
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
                         <span className="font-bold text-slate-900 block text-xs">{formatearFechaCorta(t.fecha)}</span>
                         <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
                           t.dia_semana === 'miercoles' 
@@ -757,7 +811,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       </td>
 
                       {/* Tipo */}
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
                         <span className={`inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full ${
                           t.tipo === 'ingreso'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -768,7 +822,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       </td>
 
                       {/* Categoría & Concepto */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3 sm:px-4">
                         <span className="font-bold text-slate-900 text-xs block">{t.categoria}</span>
                         <span className="text-xs text-slate-600 block">{t.concepto}</span>
                         {t.proyecto_nombre && (
@@ -779,17 +833,17 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       </td>
 
                       {/* Hermano */}
-                      <td className="py-3 px-4 text-xs font-semibold text-slate-800">
+                      <td className="py-3 px-3 sm:px-4 text-xs font-semibold text-slate-800">
                         {t.miembro_nombre || <span className="text-slate-400 italic">Ofrenda Colectiva</span>}
                       </td>
 
                       {/* Método de Pago */}
-                      <td className="py-3 px-4 text-xs capitalize text-slate-600 whitespace-nowrap">
+                      <td className="py-3 px-3 sm:px-4 text-xs capitalize text-slate-600 whitespace-nowrap">
                         {t.metodo_pago}
                       </td>
 
-                      {/* Evidencia */}
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      {/* Evidencia (no-print) */}
+                      <td className="no-print py-3 px-4 whitespace-nowrap">
                         {t.evidencia_url ? (
                           <button
                             type="button"
@@ -805,14 +859,14 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       </td>
 
                       {/* Monto */}
-                      <td className={`py-3 px-4 text-right font-black text-sm whitespace-nowrap tabular-nums ${
+                      <td className={`py-3 px-3 sm:px-4 text-right font-black text-sm whitespace-nowrap tabular-nums ${
                         t.tipo === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
                       }`}>
                         {t.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(t.monto)}
                       </td>
 
                       {/* Saldo en cada movimiento */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap tabular-nums">
+                      <td className="py-3 px-3 sm:px-4 text-right whitespace-nowrap tabular-nums">
                         <span className={`text-xs sm:text-sm font-black ${
                           saldoMovimiento >= 0 ? 'text-slate-900' : 'text-rose-600'
                         }`}>
@@ -836,7 +890,51 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 })
               )}
             </tbody>
+            <tfoot className="bg-slate-50 font-bold border-t border-slate-200 text-xs">
+              <tr>
+                <td colSpan={5} className="py-3 px-4 text-right uppercase text-[10px] text-slate-500">
+                  Resumen de Movimientos ({transaccionesFiltradas.length} registros):
+                </td>
+                <td className="no-print"></td>
+                <td className="py-3 px-4 text-right whitespace-nowrap tabular-nums">
+                  <div className="text-[10px] text-emerald-700 font-bold">+{formatearMoneda(totalIngresosFiltrados)}</div>
+                  <div className="text-[10px] text-rose-700 font-bold">-{formatearMoneda(totalGastosFiltrados)}</div>
+                </td>
+                <td className="py-3 px-4 text-right whitespace-nowrap tabular-nums">
+                  <span className={`text-sm font-black ${
+                    flujoNetoFiltrado >= 0 ? 'text-slate-900' : 'text-rose-600'
+                  }`}>
+                    {formatearMoneda(flujoNetoFiltrado)}
+                  </span>
+                </td>
+                <td className="no-print"></td>
+              </tr>
+            </tfoot>
           </table>
+        </div>
+      </div>
+
+      {/* Firmas Oficiales de Certificación para Impresión */}
+      <div className="hidden print:block pt-8 mt-6 border-t-2 border-slate-900 print-break-inside-avoid break-inside-avoid">
+        <p className="text-[10px] text-slate-500 text-center italic mb-8 max-w-xl mx-auto">
+          "Certificamos la veracidad y transparencia de los movimientos registrados en este Libro de Caja General, respaldados en tesorería eclesiástica."
+        </p>
+        <div className="grid grid-cols-3 gap-6 text-center">
+          <div className="space-y-1">
+            <div className="border-t border-slate-900 w-36 mx-auto mb-2" />
+            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Pastor Principal</p>
+            <p className="text-[9px] text-slate-500">Supervisión Ministerial</p>
+          </div>
+          <div className="space-y-1">
+            <div className="border-t border-slate-900 w-36 mx-auto mb-2" />
+            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Tesorero General</p>
+            <p className="text-[9px] text-slate-500">Elaboración & Control de Fondos</p>
+          </div>
+          <div className="space-y-1">
+            <div className="border-t border-slate-900 w-36 mx-auto mb-2" />
+            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Comité de Auditoría</p>
+            <p className="text-[9px] text-slate-500">Revisor Fiscal</p>
+          </div>
         </div>
       </div>
         </>

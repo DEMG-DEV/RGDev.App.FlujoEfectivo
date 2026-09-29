@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Church, Lock, Mail, User, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2, UserPlus, LogIn, ShieldAlert } from 'lucide-react';
+import { Church, Lock, Mail, User, ShieldCheck, AlertCircle, ArrowRight, CheckCircle2, UserPlus, LogIn, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { RolUsuario } from '../types';
 
@@ -19,6 +19,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   // Formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState<boolean>(false);
   const [nombre, setNombre] = useState('');
   const [rol, setRol] = useState<RolUsuario>('tesorero');
   
@@ -240,14 +241,27 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
-                  type="password"
+                  type={mostrarPassword ? 'text' : 'password'}
                   required
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setMostrarPassword(!mostrarPassword)}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 rounded-lg hover:bg-slate-200/60 transition-colors"
+                  title={mostrarPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  tabIndex={-1}
+                >
+                  {mostrarPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
             </div>
 

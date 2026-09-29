@@ -78,22 +78,91 @@
   body {
     background: #ffffff !important;
     color: #111827 !important;
-    font-size: 11pt !important;
+    font-size: 10pt !important;
     line-height: 1.3 !important;
   }
 
-  .no-print,
+  header,
   nav,
   footer,
+  aside,
+  .no-print,
   button:not(.print-allow) {
     display: none !important;
+  }
+
+  /* Si el modal de reporte oficial está abierto, ocultar absolutamente todo excepto el modal */
+  body.reporte-modal-activo > #root > div > *:not(#modal-reporte-financiero),
+  body.reporte-modal-activo main,
+  body.reporte-modal-activo header,
+  body:has(#modal-reporte-financiero) > #root > div > *:not(#modal-reporte-financiero) {
+    display: none !important;
+  }
+
+  body.reporte-modal-activo {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reset del contenedor modal para imprimir como página nativa limpia */
+  #modal-reporte-financiero {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  #modal-reporte-financiero > div {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Membrete oficial indestructible: modelo tabla nativa a 2 columnas */
+  #reporte-membrete-tabla {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #reporte-membrete-col-izq {
+    display: table-cell !important;
+    vertical-align: top !important;
+    width: 65% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #reporte-membrete-col-der {
+    display: table-cell !important;
+    vertical-align: top !important;
+    width: 35% !important;
+    text-align: right !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .print-only {
     display: block !important;
   }
 
-  .print-break-inside-avoid {
+  .print-break-inside-avoid,
+  .break-inside-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
@@ -117,14 +186,31 @@
     page-break-inside: avoid !important;
   }
 
+  /* Evitar que wrappers con scrollbar corten columnas como Monto y Saldo en papel */
+  .overflow-x-auto,
+  div:has(> table) {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
   /* When printing the modal report, ensure container fills page nicely */
   #reporte-imprimible {
     position: static !important;
+    display: block !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
     background: transparent !important;
+    overflow: visible !important;
   }
 }
+
+

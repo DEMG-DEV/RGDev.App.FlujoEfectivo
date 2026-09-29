@@ -5,6 +5,46 @@
 
 ---
 
+## feat(release): release v1.4.0 - sincronizacion de saldos de caja en resumen, reporte pdf aislado e indestructible y toggle de password
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 12:10:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature / Minor Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.4.0` |
+| `src/services/storageService.ts` | Modificado | Cálculo riguroso de `saldoNeto` y `saldoCaja` deduciendo gastos únicamente de entradas operativas corrientes (ofrendas + diezmos) para igualar el Libro de Caja General, y asignación estricta de cultos Miércoles vs Domingo sin duplicidades |
+| `src/types/index.ts` | Modificado | Extensión de `ResumenFinanciero` con `saldoCaja`, `saldoConsolidado` e `ingresosOperativos` |
+| `src/App.tsx` | Modificado | Actualización de estado inicial de `resumen` con campos de saldo operativo |
+| `src/components/DashboardView.tsx` | Modificado | Sincronización del saldo en tarjeta principal "Fondo en Caja General", separación de "Fondo de Proyectos", clarificación de composición de entradas y corrección de doble conteo entre Miércoles y Domingo |
+| `src/components/Navbar.tsx` | Modificado | Distintivo `CAJA` en sincronía con el saldo real de caja operativa (`saldoNeto`), y ocultamiento de navbar en impresión (`no-print`) |
+| `src/components/LibroCajaView.tsx` | Modificado | Ocultamiento de la columna Evidencia R2 en impresión (`no-print`), membrete oficial eclesiástico (`hidden print:block`), pie de tabla con totales, bloque de 3 firmas ministeriales y botón de impresión directa |
+| `src/components/ReporteFinancieroModal.tsx` | Modificado | Aislamiento de impresión mediante clase `reporte-modal-activo`, IDs para membrete en modelo tabla indestructible (`#reporte-membrete-tabla`, `#reporte-membrete-col-izq`, `#reporte-membrete-col-der`) y reglas anti-ruptura de página |
+| `src/components/AuthView.tsx` | Modificado | Botón interactivo de alternancia de contraseña con iconos `Eye` / `EyeOff`, espaciado ergonómico (`pr-10`) y navegación accesible |
+| `src/index.css` | Modificado | Reglas de `@media print` para ocultar la app de fondo al imprimir el reporte, supresión de barras de desplazamiento que recortaban columnas, y estilo de tabla fija para el membrete oficial |
+| `README.md` | Modificado | Actualización de punto de referencia a `v1.4.0` y documentación de nuevas funcionalidades |
+
+### Detalle Técnico
+
+1. **Sincronización de Liquidez Operativa en Caja:**  
+   Se corrigió la distorsión donde el Dashboard y el Navbar reportaban un saldo neto erróneo al consolidar indistintamente las aportaciones de proyectos pactados como efectivo libre. `storageService.calcularResumen` computa ahora el saldo operativo real (`ingresosOperativos - totalGastos`), alineando la tarjeta "Fondo en Caja General" y el Navbar exactamente con el saldo reportado por el `LibroCajaView` (-$662.00 en los datos actuales).
+2. **Desacoplamiento Estricto de Cultos Miércoles vs Domingo:**  
+   Se eliminó el solapamiento cruzado donde transacciones con fecha de miércoles eran atribuidas simultáneamente a domingo debido al `tipo_culto` por defecto. Mediante predicados mutuamente excluyentes (`esMiercoles` y `esDomingo`), la sumatoria de ofrendas, diezmos y proyectos por culto coincide al 100% con los totales registrados.
+3. **Arquitectura de Reporte Ministerial Indestructible en PDF:**  
+   Se solventó la limitación nativa de Blink/WebKit donde `break-inside: avoid` es omitido en contenedores flexbox. El membrete institucional se desacopló hacia un modelo `@media print` de `display: table` y `display: table-cell`, garantizando que el encabezado jamás sea seccionado a la mitad por un salto de página.
+4. **Aislamiento de Ventana Modal en Impresión:**  
+   Se configuró la regla `@media print { body.reporte-modal-activo > #root > div > *:not(#modal-reporte-financiero) { display: none !important; } }` para ocultar todo el DOM subyacente durante la impresión del reporte, iniciando de inmediato en la Página 1 sin páginas en blanco o residuos web precedentes.
+5. **Ergonomía de Acceso (Password Visibility Toggle):**  
+   Implementación de interruptor con estado React en `AuthView.tsx`, alternando atributos de tipo (`text` / `password`) con `tabIndex={-1}` para mantener el flujo natural del teclado.
+
+---
+
 ## feat(release): release v1.3.0 - saldos mensuales, saldo por movimiento y separacion de caja general
 
 | Campo | Detalle |

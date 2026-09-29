@@ -69,7 +69,10 @@ export interface MiembroFrecuente {
 export interface ResumenFinanciero {
   totalIngresos: number;
   totalGastos: number;
-  saldoNeto: number;
+  saldoNeto: number; // Saldo de caja operativa oficial
+  saldoCaja?: number; // Saldo real de Caja General (Ofrendas + Diezmos - Gastos)
+  saldoConsolidado?: number; // Saldo consolidado total (incluyendo Proyectos)
+  ingresosOperativos?: number; // Total ofrendas + diezmos (sin pactos)
   ingresosMiercoles: number;
   ingresosDomingo: number;
   totalDiezmos: number;
