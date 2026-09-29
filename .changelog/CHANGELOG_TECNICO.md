@@ -5,6 +5,41 @@
 
 ---
 
+## feat(release): release v1.4.1 - alineacion total del reporte pdf con resumen general y libro de caja
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 12:16:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature / Patch Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.4.1` |
+| `README.md` | Modificado | Actualización de tabla de versiones y referencias |
+| `src/components/ReporteFinancieroModal.tsx` | Modificado | Alineación contable integral del reporte en PDF con el Resumen General y Libro de Caja General: exclusión estricta de pactos en Entradas de Caja General, sincronización del balance neto de caja, adición de franja de desglose proporcional (ofrendas, diezmos y cultos), sub-tabla de aportes a proyectos en el período, toggle opcional de Libro Diario con saldos acumulados progresivos, y sincronización de exportación CSV |
+
+### Detalle Técnico
+1. **Sincronización de Resumen Ejecutivo de Tesorería**:
+   - Se recalculó `totalEntradasCaja` filtrando exclusivamente transacciones operativas corrientes (`subtipo !== 'pacto'`).
+   - Se sincronizó `balanceNetoCaja` (`totalEntradasCaja - totalGastosCaja`), garantizando que la tarjeta "Balance Neto en Caja" coincida exactamente con el saldo de Caja General y Resumen General.
+   - El Fondo de Proyectos Pactados se muestra en su propia tarjeta como fondo restringido independiente.
+2. **Franja de Desglose Proporcional y Cultos**:
+   - Se incorporó un bloque ejecutivo con las métricas de porcentaje y monto de Ofrendas, Diezmos, y recaudación por cultos de Miércoles vs Domingo (evitando conteo cruzado).
+3. **Sección 1 (Entradas de Caja General)**:
+   - La tabla cronológica ahora lista únicamente Ofrendas y Diezmos, evitando la contaminación visual de recibos de pactos en la caja operativa.
+4. **Sección 3 (Proyectos Pactados)**:
+   - Se añadió una sub-tabla detallada con los aportes recaudados para proyectos durante el período seleccionado, preservando la trazabilidad de recibos individuales en su contexto ministerial correcto.
+5. **Sección 4 Opcional (Libro Diario con Saldo Progresivo)**:
+   - Se integró un toggle de control `[ ] Libro Diario con Saldos` que imprime la bitácora completa de entradas y salidas con la columna `Saldo en Caja` calculada cronológicamente.
+6. **Sincronización de CSV**:
+   - La exportación a CSV refleja con idéntica fidelidad la separación entre Caja General y Proyectos Pactados.
+
+---
+
 ## feat(release): release v1.4.0 - sincronizacion de saldos de caja en resumen, reporte pdf aislado e indestructible y toggle de password
 
 | Campo | Detalle |

@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.4.1** | 2026-09-29 12:16:00 | David Méndez | Producción / Estable |
 | **v1.4.0** | 2026-09-29 12:10:00 | David Méndez | Producción / Estable |
 | **v1.3.0** | 2026-09-29 11:54:00 | David Méndez | Producción / Estable |
 | **v1.2.0** | 2026-09-29 11:25:00 | David Méndez | Producción / Estable |

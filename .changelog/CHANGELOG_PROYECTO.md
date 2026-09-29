@@ -5,6 +5,26 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.4.1: Reporte PDF perfectamente alineado con Resumen y Caja General
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 12:16:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Saldos Idénticos en el Reporte PDF**: El informe oficial en PDF ahora refleja con total exactitud las cifras del Resumen General y del Libro de Caja General. Las entradas de caja suman únicamente las ofrendas y diezmos operativos, y el balance neto coincide centavo a centavo con la liquidez real de la caja general.
+2. **Separación Contable Transparente de Proyectos**: Los aportes a proyectos pactados ya no se mezclan con las ofrendas ordinarias en la primera tabla. Ahora tienen su propia sub-tabla detallada dentro de la sección de Proyectos Pactados, mostrando con nombre y apellido cada recibo y aporte del período sin distorsionar la caja operativa.
+3. **Franja Ejecutiva de Desglose**: Se añadió una barra de indicadores ejecutivos al reporte PDF que muestra los montos y porcentajes de Ofrendas y Diezmos, así como el desglose exacto de lo recaudado en cultos de Miércoles vs Domingo.
+4. **Opción de Imprimir Libro Diario con Saldos**: Se incluyó un selector que permite imprimir también la bitácora completa de movimientos de caja con su respectiva columna de "Saldo en Caja" acumulado paso a paso.
+5. **Descarga de Datos en CSV Sincronizada**: La exportación en formato de hoja de cálculo CSV genera la información con la misma separación nítida y estructurada.
+
+### ¿Qué significa para el proyecto?
+- **Claridad total ante la congregación y líderes**: El informe impreso o en PDF coincide exactamente con lo que el pastor y los tesoreros ven en la pantalla principal.
+- **Auditoría sin confusiones**: Cada fondo (Caja General y Proyectos) mantiene su independencia y propósito contable intacto.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.4.0: Sincronización de saldos en resumen, reporte oficial en PDF de alta fidelidad y visualización de contraseña
 
 | Campo | Detalle |
