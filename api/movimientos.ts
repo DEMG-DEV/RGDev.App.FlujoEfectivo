@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDbPool } from './db.js';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sanitizeUUID(val: any): string | null {
   if (!val || typeof val !== 'string') return null;
@@ -96,6 +96,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         return res.status(201).json({ success: true, data: row });
+      } finally {
+        client.release();
+      }
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (req.method === 'PATCH' || req.method === 'PUT') {
+    try {
+      const data = req.body;
+      const { id } = data;
+      if (!id) return res.status(400).json({ error: 'Falta ID de movimiento' });
+      const client = await pool.connect();
+      try {
+        const fields: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (data.categoria !== undefined) {
+          fields.push(`categoria = $${idx++}`);
+          values.push(data.categoria);
+        }
+        if (data.concepto !== undefined) {
+          fields.push(`concepto = $${idx++}`);
+          values.push(data.concepto);
+        }
+        if (data.subtipo !== undefined) {
+          fields.push(`subtipo = $${idx++}`);
+          values.push(data.subtipo);
+        }
+        if (data.monto !== undefined) {
+          fields.push(`monto = $${idx++}`);
+          values.push(parseFloat(data.monto));
+        }
+
+        if (fields.length === 0) {
+          return res.status(400).json({ error: 'No se enviaron campos a actualizar' });
+        }
+
+        const validUuid = sanitizeUUID(id);
+        if (!validUuid) {
+          return res.status(200).json({ success: true, localOnly: true, data: { id, ...data } });
+        }
+
+        values.push(validUuid);
+        const query = `
+          UPDATE transacciones 
+          SET ${fields.join(', ')} 
+          WHERE id = $${idx}
+          RETURNING *;
+        `;
+        const result = await client.query(query, values);
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'Movimiento no encontrado' });
+        }
+        return res.status(200).json({ success: true, data: result.rows[0] });
       } finally {
         client.release();
       }

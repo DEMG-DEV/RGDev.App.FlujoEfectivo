@@ -171,11 +171,14 @@ function aivenDbDevPlugin(env: Record<string, string>) {
         }
 
         // 4. Movimientos / Transacciones en Aiven PostgreSQL
-        if (req.url === '/api/movimientos') {
+        if (req.url.startsWith('/api/movimientos')) {
           res.setHeader('Content-Type', 'application/json');
+          const p = getPool();
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const sanitizeDevUUID = (val: any) => (val && typeof val === 'string' && uuidRegex.test(val.trim())) ? val.trim() : null;
+
           if (req.method === 'GET') {
             try {
-              const p = getPool();
               if (!p) return res.end(JSON.stringify({ status: 'connected', data: [] }));
               const client = await p.connect();
               try {
@@ -211,13 +214,9 @@ function aivenDbDevPlugin(env: Record<string, string>) {
             req.on('end', async () => {
               try {
                 const data = JSON.parse(body);
-                const p = getPool();
                 if (!p) throw new Error('Base de datos no configurada');
                 const client = await p.connect();
                 try {
-                  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-                  const sanitizeDevUUID = (val: any) => (val && typeof val === 'string' && uuidRegex.test(val.trim())) ? val.trim() : null;
-
                   const proyectoId = sanitizeDevUUID(data.proyecto_id);
                   let pactoId = sanitizeDevUUID(data.pacto_id);
 
@@ -276,6 +275,101 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               }
             });
             return;
+          }
+
+          if (req.method === 'PATCH' || req.method === 'PUT') {
+            let body = '';
+            req.on('data', (chunk: any) => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                const { id } = data;
+                if (!id) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'Falta ID de movimiento' }));
+                }
+                if (!p) {
+                  return res.end(JSON.stringify({ success: true, data }));
+                }
+                const client = await p.connect();
+                try {
+                  const fields: string[] = [];
+                  const values: any[] = [];
+                  let idx = 1;
+
+                  if (data.categoria !== undefined) {
+                    fields.push(`categoria = $${idx++}`);
+                    values.push(data.categoria);
+                  }
+                  if (data.concepto !== undefined) {
+                    fields.push(`concepto = $${idx++}`);
+                    values.push(data.concepto);
+                  }
+                  if (data.subtipo !== undefined) {
+                    fields.push(`subtipo = $${idx++}`);
+                    values.push(data.subtipo);
+                  }
+                  if (data.monto !== undefined) {
+                    fields.push(`monto = $${idx++}`);
+                    values.push(parseFloat(data.monto));
+                  }
+
+                  if (fields.length === 0) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'No se enviaron campos a actualizar' }));
+                  }
+
+                  const validUuid = sanitizeDevUUID(id);
+                  if (!validUuid) {
+                    return res.end(JSON.stringify({ success: true, localOnly: true, data: { id, ...data } }));
+                  }
+
+                  values.push(validUuid);
+                  const query = `
+                    UPDATE transacciones 
+                    SET ${fields.join(', ')} 
+                    WHERE id = $${idx}
+                    RETURNING *;
+                  `;
+                  const result = await client.query(query, values);
+                  if (result.rows.length === 0) {
+                    res.statusCode = 404;
+                    return res.end(JSON.stringify({ error: 'Movimiento no encontrado' }));
+                  }
+                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'DELETE') {
+            try {
+              const parsedUrl = new URL(req.url, 'http://localhost');
+              const id = sanitizeDevUUID(parsedUrl.searchParams.get('id'));
+              if (!id) {
+                res.statusCode = 400;
+                return res.end(JSON.stringify({ error: 'Falta ID' }));
+              }
+              if (!p) {
+                return res.end(JSON.stringify({ success: true }));
+              }
+              const client = await p.connect();
+              try {
+                await client.query('DELETE FROM transacciones WHERE id = $1;', [id]);
+                return res.end(JSON.stringify({ success: true }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
+            }
           }
         }
 

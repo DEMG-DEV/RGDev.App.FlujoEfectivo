@@ -9,6 +9,7 @@ import { ModalEvidencia } from './components/ModalEvidencia';
 import { AuthView } from './components/AuthView';
 import { GestionUsuariosModal } from './components/GestionUsuariosModal';
 import { ReporteFinancieroModal } from './components/ReporteFinancieroModal';
+import { FloatingActionsDock } from './components/FloatingActionsDock';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { storageService } from './services/storageService';
 import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, TipoCulto, SubtipoIngreso } from './types';
@@ -189,6 +190,7 @@ const AppContent: React.FC = () => {
           <LibroCajaView
             transacciones={transacciones}
             onTransaccionEliminada={recargarTodo}
+            onTransaccionActualizada={recargarTodo}
             onVerEvidencia={handleVerEvidencia}
             onAbrirReportePDF={() => setMostrarModalReporte(true)}
           />
@@ -216,6 +218,13 @@ const AppContent: React.FC = () => {
         transacciones={transacciones}
         proyectos={proyectos}
         pactos={pactos}
+      />
+
+      {/* Muelle Flotante Global de Acciones Rápidas (Apple HIG) */}
+      <FloatingActionsDock
+        onAbrirCapturaIngreso={() => handleAbrirCaptura()}
+        onAbrirRegistroGasto={() => setVistaActiva('gastos')}
+        onAbrirReportePDF={() => setMostrarModalReporte(true)}
       />
 
       {/* Footer pastoral */}

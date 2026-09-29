@@ -139,6 +139,41 @@ export const storageService = {
     }).catch(err => console.warn('Error al eliminar en Aiven:', err));
   },
 
+  async actualizarCategoriaTransaccion(id: string, nuevaCategoria: string): Promise<boolean> {
+    const catLimpia = nuevaCategoria.trim();
+    if (!catLimpia) return false;
+
+    const lista = this.getTransacciones();
+    const idx = lista.findIndex(t => t.id === id);
+    if (idx >= 0) {
+      lista[idx].categoria = catLimpia;
+      localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
+    }
+
+    try {
+      const res = await fetch('/api/movimientos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, categoria: catLimpia })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.categoria) {
+          const fresh = this.getTransacciones();
+          const fIdx = fresh.findIndex(t => t.id === id);
+          if (fIdx >= 0) {
+            fresh[fIdx].categoria = json.data.categoria;
+            localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(fresh));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error al actualizar categoría en Aiven / API:', err);
+    }
+
+    return true;
+  },
+
   // Proyectos Pactados
   getProyectos(): ProyectoPactado[] {
     const raw = localStorage.getItem(STORAGE_KEYS.PROYECTOS);

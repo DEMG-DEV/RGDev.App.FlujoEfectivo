@@ -5,6 +5,28 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.5.0: Cambio ágil de categorías, dock flotante ergonómico, confidencialidad en diezmos y reporte mes a mes
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 13:14:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Cambio Inmediato y Permanente de Categorías**: Se agregó un selector desplegable directo en cada fila del Libro de Caja. Ahora el tesorero puede reclasificar cualquier ingreso o gasto con un solo clic, y el cambio se guarda inmediatamente en la base de datos de manera definitiva, sin perderse ni regresar al valor anterior al actualizar la página.
+2. **Barra Superior (Navbar) Más Limpia y Dock Flotante**: Se simplificó el menú superior para ofrecer una vista mucho más despejada y profesional. Los botones de acción rápida para registrar entradas, gastos e imprimir informes se reubicaron en un dock flotante interactivo, siempre al alcance del usuario.
+3. **Reporte Financiero por Mes o Total General**: Se incorporó un control que permite consultar de inmediato un mes específico (con selector directo de mes) o ver el consolidado general de todo el historial.
+4. **Privacidad y Confidencialidad en Diezmos**: En apego a la discreción ministerial y pastoral, en el informe oficial impreso y en PDF, los nombres de las personas que entregan diezmos aparecen protegidos como "Confidencial", manteniendo la transparencia de los montos sin exponer públicamente datos personales.
+5. **Incorporación del Secretario General en las Firmas**: Se sumó la firma oficial del Secretario General al bloque de validación ministerial (Pastor Principal, Secretario General, Tesorero General y Comité de Auditoría).
+6. **Reporte Ejecutivo Mes a Mes**: Al consultar el Total General o el año, se despliega una tabla comparativa con los ingresos (ofrendas y diezmos), gastos y balance neto de cada mes. Las tablas de detalle mantienen su orden cronológico continuo y ordenado por fecha.
+
+### ¿Qué significa para el proyecto?
+- **Agilidad operativa**: Menos clics para corregir clasificaciones de movimientos contables y registrar operaciones diarias.
+- **Privacidad y formalidad eclesiástica**: Respaldo institucional completo con 4 firmas ministeriales y protección de la identidad de los diezmantistas en asambleas y reuniones públicas.
+- **Claridad gerencial**: Visión ejecutiva mes a mes para evaluar el crecimiento financiero y la mayordomía congregacional.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.4.1: Reporte PDF perfectamente alineado con Resumen y Caja General
 
 | Campo | Detalle |

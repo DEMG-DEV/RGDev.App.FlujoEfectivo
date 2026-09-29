@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.5.0** | 2026-09-29 13:14:00 | David Méndez | Producción / Estable |
 | **v1.4.1** | 2026-09-29 12:16:00 | David Méndez | Producción / Estable |
 | **v1.4.0** | 2026-09-29 12:10:00 | David Méndez | Producción / Estable |
 | **v1.3.0** | 2026-09-29 11:54:00 | David Méndez | Producción / Estable |
@@ -16,7 +17,15 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Sincronización Contable, Reportes PDF Formateados y Visibilidad de Credenciales
+### 1. Cambio Rápido de Categorías, Dock Flotante, Confidencialidad en Diezmos y Auditoría Mes a Mes
+- **Persistencia y Cambio Ágil de Categorías**: Selector desplegable inline directo en el Libro de Caja para reclasificar cualquier movimiento con 1 clic, con actualización optimista y persistencia en base de datos Aiven PostgreSQL (soporte para endpoints `PATCH` y `DELETE` en producción y desarrollo local).
+- **Navbar Limpio y Dock de Acciones Flotante**: Reorganización ergonómica del encabezado con reducción de saturación visual; las acciones rápidas de registro e informes se centralizaron en un dock flotante interactivo y accesible.
+- **Modos de Reporte Flexible (Por Mes y Total General)**: Selector rápido que permite alternar entre el desglose de un mes específico o el consolidado histórico general.
+- **Confidencialidad en Diezmos Eclesiásticos**: Protección de datos y privacidad congregacional en el reporte oficial en PDF y CSV, reemplazando automáticamente el nombre de los diezmantistas por "Confidencial".
+- **Firma del Secretario General**: Integración del Secretario General en el bloque ministerial de firmas oficiales a cuatro columnas (Pastor Principal, Secretario General, Tesorero General y Comité de Auditoría).
+- **Reporte Consolidado Mes a Mes y Detalle Cronológico Continuo**: Tabla ejecutiva comparativa mensual para el Total General y listado de detalle estrictamente ordenado por fecha de forma continua.
+
+### 2. Sincronización Contable, Reportes PDF Formateados y Visibilidad de Credenciales
 - **Sincronización Total de Saldos**: Armonización exacta del balance contable entre el **Libro de Caja General**, el tablero principal (**Fondo en Caja General**) y el distintivo del **Navbar** (`CAJA`), deduciendo gastos únicamente de entradas operativas e independizando los fondos de proyectos pactados.
 - **Cuadratura Matemática Miércoles vs Domingo**: Regla estricta de exclusión mutua que elimina duplicidades cruzadas en la comparativa de cultos, asegurando que la sumatoria de aportes coincida al 100% con los totales registrados.
 - **Reportes PDF de Alta Fidelidad Vectorial**: Aislamiento total del informe ministerial en impresión (`@media print`), iniciando en la primera página sin elementos web residuales, con membrete oficial indestructible a dos columnas fijas y sin corte horizontal en tablas.

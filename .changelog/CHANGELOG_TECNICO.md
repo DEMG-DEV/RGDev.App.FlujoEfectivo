@@ -5,6 +5,48 @@
 
 ---
 
+## feat(release): release v1.5.0 - cambio agil de categorias, dock flotante, confidencialidad de diezmos y auditoria mes a mes
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 13:14:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.5.0` |
+| `README.md` | Modificado | Actualización de tabla de versiones y nuevas características |
+| `api/movimientos.ts` | Modificado | Soporte completo para métodos HTTP `PATCH` y `DELETE` para actualizar categorías y eliminar transacciones en producción Vercel/PostgreSQL |
+| `vite.config.ts` | Modificado | Implementación de manejadores `PATCH` y `DELETE` en el plugin local de desarrollo `aivenDbDevPlugin` con actualización en base de datos PostgreSQL Aiven |
+| `src/services/storageService.ts` | Modificado | Función `actualizarCategoriaTransaccion` con `await`, sincronización optimista local y fallback |
+| `src/components/LibroCajaView.tsx` | Modificado | Integración de selector desplegable inline (`<select>`) para cambio directo e instantáneo de categoría con 1 clic y auto-guardado |
+| `src/components/Navbar.tsx` | Modificado | Limpieza y simplificación del encabezado superior, reubicando botones de acciones frecuentes para una interfaz más despejada |
+| `src/components/FloatingActionsDock.tsx` | Creado | Dock flotante ergonómico de acciones rápidas para registro de ingresos, gastos y apertura del informe financiero |
+| `src/App.tsx` | Modificado | Integración del componente `FloatingActionsDock` con los modales correspondientes |
+| `src/components/ReporteFinancieroModal.tsx` | Modificado | Soporte de modos de reporte "Por Mes" / "Total General", anonimización de diezmantistas a "Confidencial", adición del Secretario General en las firmas ministeriales (4 columnas), tabla ejecutiva mes a mes, y ordenamiento estrictamente cronológico continuo sin separaciones artificiales en las tablas de detalle |
+
+### Detalle Técnico
+1. **Persistencia de Categorías en Base de Datos**:
+   - Se resolvió la causa raíz donde el dev server de Vite carecía de endpoints `PATCH` y `DELETE` en `/api/movimientos`, provocando respuestas 404 que hacían que las categorías se revirtieran al recargar datos desde PostgreSQL.
+   - Se añadieron consultas parametrizadas seguras `UPDATE transacciones SET categoria = $1 WHERE id = $2 RETURNING *`.
+2. **Selector Inline de Categorías**:
+   - En `LibroCajaView.tsx`, se habilitó un `<select>` directo por fila con actualización reactiva instantánea en memoria y en almacenamiento permanente.
+3. **Ergonomía de Interfaz (Navbar + FloatingActionsDock)**:
+   - Se despejó el navbar de elementos redundantes, creando un dock flotante discreto y accesible (`FloatingActionsDock.tsx`) para registrar ingresos, egresos y abrir el reporte financiero.
+4. **Confidencialidad Congregacional de Diezmos**:
+   - En el reporte financiero oficial, los diezmos se marcan automáticamente con `<span className="text-slate-500 italic font-medium">Confidencial</span>` en la columna de donante y se higieniza el concepto en la vista de impresión, en el Libro Diario y en la exportación a CSV.
+5. **Ampliación de Firmas Ministeriales**:
+   - Se incorporó la firma de "Secretario General" entre el Pastor Principal y el Tesorero General, estructurando una cuadrícula simétrica de 4 columnas en impresión.
+6. **Auditoría Mes a Mes y Detalle Continuo por Fecha**:
+   - Se integró la tabla ejecutiva "Reporte Consolidado de Entradas y Gastos Mes a Mes" cuando se consulta el Total General o el Año en Curso.
+   - Las tablas detalladas de entradas y gastos se mantienen en una lista única y continua, ordenada estrictamente por fecha (`fecha` y `created_at`) de forma ascendente.
+
+---
+
 ## feat(release): release v1.4.1 - alineacion total del reporte pdf con resumen general y libro de caja
 
 | Campo | Detalle |

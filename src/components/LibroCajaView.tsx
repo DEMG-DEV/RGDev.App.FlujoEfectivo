@@ -16,7 +16,12 @@ import {
   X,
   CalendarDays,
   Table,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Pencil,
+  Tag,
+  Check,
+  CheckCircle2
 } from 'lucide-react';
 import { Transaccion } from '../types';
 import { storageService } from '../services/storageService';
@@ -33,9 +38,35 @@ function formatearMesAnio(claveMes: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+const CATEGORIAS_GASTOS_DISPONIBLES = [
+  'Mantenimiento y Reparaciones del Templo',
+  'Sonido, Multimedia e Instrumentos',
+  'Servicios Básicos (Luz, Agua, Gas)',
+  'Papelería, Limpieza y Administración',
+  'Honorarios Pastorales / Viáticos',
+  'Obra Social, Misericordia y Canasta Básica',
+  'Material de Evangelismo y Discipulado',
+  'Escuela Dominical y Actividades Infantiles',
+  'Internet y Telecomunicaciones',
+  'Eventos Especiales, Vigilias y Retiros',
+  'Aportes Misioneros y Ofrendas a Ministerios'
+];
+
+const CATEGORIAS_INGRESOS_DISPONIBLES = [
+  'Ofrenda General',
+  'Diezmo General',
+  'Ofrenda Misionera',
+  'Escuela Dominical / Niños',
+  'Ofrenda de Acción de Gracias',
+  'Ofrenda de Jóvenes',
+  'Pro-Templo / Edificación',
+  'Aporte a Proyecto Pactado'
+];
+
 interface LibroCajaProps {
   transacciones: Transaccion[];
   onTransaccionEliminada?: () => void;
+  onTransaccionActualizada?: () => void;
   onVerEvidencia: (url: string, nombre?: string) => void;
   onAbrirReportePDF?: () => void;
 }
@@ -43,6 +74,7 @@ interface LibroCajaProps {
 export const LibroCajaView: React.FC<LibroCajaProps> = ({
   transacciones,
   onTransaccionEliminada,
+  onTransaccionActualizada,
   onVerEvidencia,
   onAbrirReportePDF
 }) => {
@@ -55,6 +87,58 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   const [fechaHasta, setFechaHasta] = useState('');
   // Por defecto NO contar proyectos pactados (se manejan en su módulo independiente)
   const [incluirPactos, setIncluirPactos] = useState(false);
+
+  // Estado para cambio rápido de categoría
+  const [txEditandoCategoria, setTxEditandoCategoria] = useState<Transaccion | null>(null);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('');
+  const [categoriaPersonalizada, setCategoriaPersonalizada] = useState<string>('');
+  const [guardandoCategoria, setGuardandoCategoria] = useState<boolean>(false);
+  const [notificacionExito, setNotificacionExito] = useState<string | null>(null);
+
+  const handleAbrirEdicionCategoria = (t: Transaccion) => {
+    setTxEditandoCategoria(t);
+    setCategoriaSeleccionada(t.categoria);
+    setCategoriaPersonalizada('');
+  };
+
+  const handleCambioDirectoCategoria = async (t: Transaccion, nuevaCat: string) => {
+    const catFinal = nuevaCat.trim();
+    if (!catFinal || catFinal === t.categoria) return;
+
+    // Actualización inmediata en el objeto en memoria
+    t.categoria = catFinal;
+
+    setGuardandoCategoria(true);
+    await storageService.actualizarCategoriaTransaccion(t.id, catFinal);
+    setGuardandoCategoria(false);
+
+    setNotificacionExito(`Categoría cambiada a "${catFinal}"`);
+    setTimeout(() => setNotificacionExito(null), 3000);
+
+    if (onTransaccionActualizada) {
+      onTransaccionActualizada();
+    }
+  };
+
+  const handleGuardarCategoria = async (nuevaCat?: string) => {
+    if (!txEditandoCategoria) return;
+    const catFinal = (nuevaCat || (categoriaSeleccionada === '__custom__' ? categoriaPersonalizada : categoriaSeleccionada)).trim();
+    if (!catFinal) return;
+
+    txEditandoCategoria.categoria = catFinal;
+
+    setGuardandoCategoria(true);
+    await storageService.actualizarCategoriaTransaccion(txEditandoCategoria.id, catFinal);
+    setGuardandoCategoria(false);
+    setTxEditandoCategoria(null);
+
+    setNotificacionExito(`Categoría actualizada a "${catFinal}"`);
+    setTimeout(() => setNotificacionExito(null), 3000);
+
+    if (onTransaccionActualizada) {
+      onTransaccionActualizada();
+    }
+  };
 
   // 1. Filtrar transacciones base: excluir proyectos pactados por defecto
   const transaccionesBase = React.useMemo(() => {
@@ -326,28 +410,22 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
       </div>
 
       {/* Encabezado Apple HIG (no-print) */}
-      <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-6 sm:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* 1. ENCABEZADO MINIMALISTA APPLE HIG */}
+      <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
             <Receipt className="w-4 h-4" />
-            <span>Auditoría & Mayordomía Eclesiástica</span>
-            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-              !incluirPactos 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-            }`}>
-              {!incluirPactos ? 'Caja Operativa' : 'Consolidado con Proyectos'}
-            </span>
+            <span>Auditoría & Mayordomía</span>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-slate-950">
             Libro de Caja General
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5 max-w-xl">
-            Historial de entradas operativas (ofrendas y diezmos) y egresos de la iglesia con saldo acumulado en cada movimiento. Los proyectos pactados se gestionan en su módulo independiente.
+            Historial de entradas operativas y egresos con saldo acumulado en cada movimiento.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
           {/* Segmented Control de Modo: Movimientos vs Saldos por Mes */}
           <div className="apple-segmented-group">
             <button
@@ -370,27 +448,29 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
           <button
             onClick={handleExportar}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            title="Exportar a CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>{vistaModo === 'mensual' ? 'Exportar Saldos' : 'Exportar CSV'}</span>
+            <span>CSV</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
-            title="Imprimir vista actual de caja o guardar en PDF"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            title="Imprimir vista actual de caja"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
-            <span>Imprimir Libro</span>
+            <span>Imprimir</span>
           </button>
 
           <button
             onClick={onAbrirReportePDF || (() => window.print())}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20"
+            title="Abrir Reporte Financiero Oficial en PDF"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Generar Reporte PDF Oficial</span>
+            <span>Reporte PDF</span>
           </button>
         </div>
       </div>
@@ -823,8 +903,48 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
                       {/* Categoría & Concepto */}
                       <td className="py-3 px-3 sm:px-4">
-                        <span className="font-bold text-slate-900 text-xs block">{t.categoria}</span>
-                        <span className="text-xs text-slate-600 block">{t.concepto}</span>
+                        <div className="flex items-center space-x-1.5 max-w-full">
+                          <div className="relative inline-flex items-center max-w-[260px]">
+                            <select
+                              value={
+                                (t.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).includes(t.categoria)
+                                  ? t.categoria
+                                  : '__custom_actual__'
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '__custom__') {
+                                  handleAbrirEdicionCategoria(t);
+                                } else if (val !== '__custom_actual__') {
+                                  handleCambioDirectoCategoria(t, val);
+                                }
+                              }}
+                              className="font-bold text-slate-900 text-xs bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg py-1 pl-2 pr-6 cursor-pointer transition-all shadow-sm appearance-none truncate max-w-full"
+                              title="Haz clic para cambiar de categoría inmediatamente"
+                            >
+                              {!(t.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).includes(t.categoria) && (
+                                <option value="__custom_actual__">{t.categoria} (Personalizada)</option>
+                              )}
+                              <optgroup label={t.tipo === 'ingreso' ? 'Categorías de Ingreso' : 'Categorías de Gasto'}>
+                                {(t.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </optgroup>
+                              <option value="__custom__">✏️ Otra categoría personalizada...</option>
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-1.5 pointer-events-none" />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirEdicionCategoria(t)}
+                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors flex-shrink-0"
+                            title="Abrir panel completo de categorías"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-xs text-slate-600 block mt-1">{t.concepto}</span>
                         {t.proyecto_nombre && (
                           <span className="inline-block mt-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
                             Proyecto: {t.proyecto_nombre}
@@ -874,15 +994,26 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                         </span>
                       </td>
 
-                      {/* Acción Eliminar */}
+                      {/* Acciones: Editar Categoría y Eliminar */}
                       <td className="no-print py-3 px-3 text-right">
-                        <button
-                          onClick={() => handleEliminar(t.id, t.concepto)}
-                          className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors"
-                          title="Eliminar movimiento"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirEdicionCategoria(t)}
+                            className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="Cambiar categoría de forma sencilla"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEliminar(t.id, t.concepto)}
+                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+                            title="Eliminar movimiento"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
 
                     </tr>
@@ -938,6 +1069,152 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
         </div>
       </div>
         </>
+      )}
+
+      {/* Modal Rápido para Cambiar Categoría */}
+      {txEditandoCategoria && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            
+            {/* Header del Modal */}
+            <div className="bg-[#F9F9FB] border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-500/20">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-none">
+                    Cambiar Categoría
+                  </h3>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {txEditandoCategoria.tipo === 'ingreso' ? 'Entrada de Caja' : 'Egreso / Gasto'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTxEditandoCategoria(null)}
+                className="w-7 h-7 rounded-full bg-slate-200/70 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-5 space-y-4">
+              
+              {/* Información del Movimiento */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Concepto</span>
+                  <span className="text-xs font-bold text-slate-900 block">{txEditandoCategoria.concepto}</span>
+                  <span className="text-[11px] text-slate-500">{formatearFechaCorta(txEditandoCategoria.fecha)} • {txEditandoCategoria.miembro_nombre || 'Ofrenda Colectiva'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Monto</span>
+                  <span className={`text-sm font-black tabular-nums ${txEditandoCategoria.tipo === 'ingreso' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {txEditandoCategoria.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(txEditandoCategoria.monto)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Categoría actual */}
+              <div className="text-xs text-slate-600">
+                <span>Categoría actual: </span>
+                <strong className="text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-bold">
+                  {txEditandoCategoria.categoria}
+                </strong>
+              </div>
+
+              {/* Lista de Categorías en botones de un solo clic */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Selecciona la nueva categoría con 1 clic:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
+                  {(txEditandoCategoria.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).map((cat) => {
+                    const esActual = categoriaSeleccionada === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setCategoriaSeleccionada(cat);
+                          handleGuardarCategoria(cat);
+                        }}
+                        disabled={guardandoCategoria}
+                        className={`text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all border flex items-center justify-between group ${
+                          esActual
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white hover:bg-blue-50 text-slate-700 border-slate-200 hover:border-blue-300'
+                        }`}
+                      >
+                        <span className="truncate pr-1">{cat}</span>
+                        {esActual && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Opción de categoría personalizada */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  O escribe otra categoría personalizada:
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Ej. Materiales de Construcción..."
+                    value={categoriaPersonalizada}
+                    onChange={(e) => {
+                      setCategoriaPersonalizada(e.target.value);
+                      setCategoriaSeleccionada('__custom__');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && categoriaPersonalizada.trim()) {
+                        e.preventDefault();
+                        handleGuardarCategoria(categoriaPersonalizada.trim());
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={!categoriaPersonalizada.trim() || guardandoCategoria}
+                    onClick={() => handleGuardarCategoria(categoriaPersonalizada.trim())}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex items-center justify-between text-xs text-slate-500">
+              <span>Al hacer clic en cualquier categoría, se guarda automáticamente.</span>
+              <button
+                type="button"
+                onClick={() => setTxEditandoCategoria(null)}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Notificación Toast flotante de éxito */}
+      {notificacionExito && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-800 flex items-center space-x-2.5 animate-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span className="text-xs font-bold">{notificacionExito}</span>
+        </div>
       )}
 
     </div>

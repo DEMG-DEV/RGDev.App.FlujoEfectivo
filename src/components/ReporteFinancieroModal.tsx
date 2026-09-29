@@ -17,7 +17,8 @@ import {
   HeartHandshake,
   Coins,
   Wallet,
-  BookOpen
+  BookOpen,
+  Table
 } from 'lucide-react';
 import { Transaccion, ProyectoPactado, PactoMiembro } from '../types';
 import { formatearMoneda, formatearFechaCorta, formatearFechaLarga, getFechaHoy } from '../utils/dateUtils';
@@ -30,7 +31,7 @@ interface ReporteFinancieroModalProps {
   pactos: PactoMiembro[];
 }
 
-type RangoPeriodo = 'todo' | 'este_mes' | 'mes_anterior' | 'este_ano' | 'personalizado';
+type RangoPeriodo = 'por_mes' | 'todo' | 'este_ano' | 'personalizado';
 
 export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
   isOpen,
@@ -49,15 +50,21 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     }
   }, [isOpen]);
 
-  // Filtros de fecha
-  const [periodo, setPeriodo] = useState<RangoPeriodo>('este_mes');
+  // Filtros de fecha y modo
+  const [periodo, setPeriodo] = useState<RangoPeriodo>('por_mes');
+  const [mesSeleccionado, setMesSeleccionado] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [fechaDesde, setFechaDesde] = useState<string>(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
   });
-  const [fechaHasta, setFechaHasta] = useState<string>(() => getFechaHoy());
+  const [fechaHasta, setFechaHasta] = useState<string>(() => {
+    const d = new Date();
+    const ultimo = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return `${d.toISOString().slice(0, 7)}-${ultimo.toString().padStart(2, '0')}`;
+  });
 
   // Secciones a incluir en la impresión
+  const [incluirResumenMensual, setIncluirResumenMensual] = useState<boolean>(true);
   const [incluirIngresos, setIncluirIngresos] = useState<boolean>(true);
   const [incluirGastos, setIncluirGastos] = useState<boolean>(true);
   const [incluirProyectos, setIncluirProyectos] = useState<boolean>(true);
@@ -70,28 +77,55 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     return `TES-${fechaEmision.getFullYear()}${(fechaEmision.getMonth() + 1).toString().padStart(2, '0')}-${rand}`;
   }, [fechaEmision]);
 
+  // Lista de meses disponibles ordenada descendente
+  const mesesDisponibles = useMemo(() => {
+    const setMeses = new Set<string>();
+    const hoyClave = new Date().toISOString().slice(0, 7);
+    setMeses.add(hoyClave);
+
+    for (const t of transacciones) {
+      if (t.fecha && t.fecha.length >= 7) {
+        setMeses.add(t.fecha.slice(0, 7));
+      }
+    }
+
+    return Array.from(setMeses).sort().reverse();
+  }, [transacciones]);
+
+  const formatearNombreMes = (claveMes: string) => {
+    if (!claveMes) return '';
+    const [year, month] = claveMes.split('-').map(Number);
+    const date = new Date(year, month - 1, 1);
+    const str = new Intl.DateTimeFormat('es-MX', {
+      month: 'long',
+      year: 'numeric'
+    }).format(date);
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const aplicarMes = (claveMes: string) => {
+    setMesSeleccionado(claveMes);
+    setPeriodo('por_mes');
+    const [year, month] = claveMes.split('-').map(Number);
+    const ultimoDia = new Date(year, month, 0).getDate();
+    setFechaDesde(`${claveMes}-01`);
+    setFechaHasta(`${claveMes}-${ultimoDia.toString().padStart(2, '0')}`);
+  };
+
   // Manejo de cambio de periodo rápido
   const handleCambioPeriodo = (nuevo: RangoPeriodo) => {
     setPeriodo(nuevo);
     const hoy = new Date();
-    const hoyStr = hoy.toISOString().slice(0, 10);
 
-    if (nuevo === 'este_mes') {
-      const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
-      setFechaDesde(inicio);
-      setFechaHasta(hoyStr);
-    } else if (nuevo === 'mes_anterior') {
-      const inicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1).toISOString().slice(0, 10);
-      const fin = new Date(hoy.getFullYear(), hoy.getMonth(), 0).toISOString().slice(0, 10);
-      setFechaDesde(inicio);
-      setFechaHasta(fin);
-    } else if (nuevo === 'este_ano') {
-      const inicio = `${hoy.getFullYear()}-01-01`;
-      setFechaDesde(inicio);
-      setFechaHasta(hoyStr);
+    if (nuevo === 'por_mes') {
+      aplicarMes(mesSeleccionado);
     } else if (nuevo === 'todo') {
       setFechaDesde('2000-01-01');
       setFechaHasta('2099-12-31');
+    } else if (nuevo === 'este_ano') {
+      const year = hoy.getFullYear();
+      setFechaDesde(`${year}-01-01`);
+      setFechaHasta(`${year}-12-31`);
     }
   };
 
@@ -127,6 +161,96 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     return mapa;
   }, [transaccionesBaseCaja]);
 
+  // 2.1. Resumen y auditoría contable mes por mes (Caja General)
+  const resumenesMensuales = useMemo(() => {
+    const mesesSet = new Set<string>();
+    const mesActualClave = new Date().toISOString().slice(0, 7);
+    mesesSet.add(mesActualClave);
+
+    for (const t of transaccionesBaseCaja) {
+      if (t.fecha && t.fecha.length >= 7) {
+        mesesSet.add(t.fecha.slice(0, 7));
+      }
+    }
+
+    const mesesOrdenados = Array.from(mesesSet).sort();
+
+    const resultado: Array<{
+      claveMes: string;
+      nombreMes: string;
+      fechaInicio: string;
+      fechaFin: string;
+      saldoInicial: number;
+      totalIngresos: number;
+      totalOfrendas: number;
+      totalDiezmos: number;
+      totalOtros: number;
+      totalGastos: number;
+      flujoNeto: number;
+      saldoFinal: number;
+      cantidadMovimientos: number;
+      entradas: Transaccion[];
+      gastos: Transaccion[];
+    }> = [];
+
+    let saldoAcumulado = 0;
+
+    for (const claveMes of mesesOrdenados) {
+      const [year, month] = claveMes.split('-').map(Number);
+      const ultimoDia = new Date(year, month, 0).getDate();
+      const fInicio = `${claveMes}-01`;
+      const fFin = `${claveMes}-${ultimoDia.toString().padStart(2, '0')}`;
+
+      const saldoInicial = saldoAcumulado;
+
+      const txsMes = transaccionesBaseCaja.filter(t => t.fecha >= fInicio && t.fecha <= fFin);
+      const entradasMes = txsMes.filter(t => t.tipo === 'ingreso');
+      const gastosMes = txsMes.filter(t => t.tipo === 'gasto');
+
+      const totalIngresos = entradasMes.reduce((acc, t) => acc + (t.monto || 0), 0);
+      const totalOfrendas = entradasMes.filter(t => t.subtipo === 'ofrenda').reduce((acc, t) => acc + t.monto, 0);
+      const totalDiezmos = entradasMes.filter(t => t.subtipo === 'diezmo').reduce((acc, t) => acc + t.monto, 0);
+      const totalOtros = entradasMes.filter(t => t.subtipo !== 'ofrenda' && t.subtipo !== 'diezmo').reduce((acc, t) => acc + t.monto, 0);
+
+      const totalGastos = gastosMes.reduce((acc, t) => acc + (t.monto || 0), 0);
+      const flujoNeto = totalIngresos - totalGastos;
+      saldoAcumulado += flujoNeto;
+
+      resultado.push({
+        claveMes,
+        nombreMes: formatearNombreMes(claveMes),
+        fechaInicio: fInicio,
+        fechaFin: fFin,
+        saldoInicial,
+        totalIngresos,
+        totalOfrendas,
+        totalDiezmos,
+        totalOtros,
+        totalGastos,
+        flujoNeto,
+        saldoFinal: saldoAcumulado,
+        cantidadMovimientos: txsMes.length,
+        entradas: entradasMes,
+        gastos: gastosMes
+      });
+    }
+
+    return resultado;
+  }, [transaccionesBaseCaja]);
+
+  // Meses a visualizar en la tabla mensual
+  const mesesAMostrar = useMemo(() => {
+    if (periodo === 'por_mes') {
+      const match = resumenesMensuales.filter(m => m.claveMes === mesSeleccionado);
+      return match.length > 0 ? match : resumenesMensuales.slice(-1);
+    }
+    if (periodo === 'este_ano') {
+      const yearStr = new Date().getFullYear().toString();
+      return resumenesMensuales.filter(m => m.claveMes.startsWith(yearStr));
+    }
+    return resumenesMensuales;
+  }, [resumenesMensuales, periodo, mesSeleccionado]);
+
   // 3. Filtrar movimientos según el rango de fechas
   const transaccionesFiltradas = useMemo(() => {
     return transacciones.filter(t => {
@@ -144,14 +268,26 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     });
   }, [transaccionesFiltradas]);
 
-  // Entradas de Caja General (Ofrendas y Diezmos)
+  // Entradas de Caja General (Ofrendas y Diezmos ordenadas estrictamente por fecha)
   const entradasCaja = useMemo(() => {
-    return transaccionesCajaFiltradas.filter(t => t.tipo === 'ingreso');
+    return transaccionesCajaFiltradas
+      .filter(t => t.tipo === 'ingreso')
+      .sort((a, b) => {
+        const c = a.fecha.localeCompare(b.fecha);
+        if (c !== 0) return c;
+        return (a.created_at || '').localeCompare(b.created_at || '');
+      });
   }, [transaccionesCajaFiltradas]);
 
-  // Gastos Operativos de Caja General
+  // Gastos Operativos de Caja General ordenados estrictamente por fecha
   const gastosCaja = useMemo(() => {
-    return transaccionesCajaFiltradas.filter(t => t.tipo === 'gasto');
+    return transaccionesCajaFiltradas
+      .filter(t => t.tipo === 'gasto')
+      .sort((a, b) => {
+        const c = a.fecha.localeCompare(b.fecha);
+        if (c !== 0) return c;
+        return (a.created_at || '').localeCompare(b.created_at || '');
+      });
   }, [transaccionesCajaFiltradas]);
 
   // Aportes de Proyectos Pactados en el período
@@ -230,7 +366,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     const rows = [
       ['FOLIO', folioReporte],
       ['FECHA EMISION', fechaEmision.toLocaleString('es-MX')],
-      ['PERIODO', periodo === 'todo' ? 'Todo el Historial' : `${fechaDesde} al ${fechaHasta}`],
+      ['PERIODO', periodo === 'por_mes' ? `Mes de ${formatearNombreMes(mesSeleccionado)} (${fechaDesde} al ${fechaHasta})` : periodo === 'todo' ? 'Total General Consolidado (Historial Completo)' : `${fechaDesde} al ${fechaHasta}`],
       ['--- RESUMEN EJECUTIVO (ALINEADO A CAJA GENERAL Y RESUMEN) ---'],
       ['ENTRADAS CAJA GENERAL (OFRENDAS Y DIEZMOS)', totalEntradasCaja],
       ['TOTAL OFRENDAS', totalOfrendas],
@@ -248,8 +384,8 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
         i.fecha,
         i.dia_semana,
         i.subtipo || 'ofrenda',
-        `"${(i.miembro_nombre || 'Ofrenda Colectiva').replace(/"/g, '""')}"`,
-        `"${(i.concepto || '').replace(/"/g, '""')}"`,
+        `"${(i.subtipo === 'diezmo' || i.categoria === 'Diezmo General' ? 'Confidencial' : (i.miembro_nombre || 'Ofrenda Colectiva')).replace(/"/g, '""')}"`,
+        `"${((i.subtipo === 'diezmo' || i.categoria === 'Diezmo General') && i.miembro_nombre ? i.concepto.replace(new RegExp(i.miembro_nombre, 'gi'), 'Hermano/a') : (i.concepto || '')).replace(/"/g, '""')}"`,
         i.metodo_pago,
         i.monto
       ]),
@@ -309,6 +445,73 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     document.body.removeChild(link);
   };
 
+  const renderFilaEntrada = (i: Transaccion) => (
+    <tr key={i.id} className="hover:bg-slate-50">
+      <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
+        {formatearFechaCorta(i.fecha)}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-600">
+        {i.dia_semana === 'miercoles' ? 'Miércoles General' : i.dia_semana === 'domingo' ? 'Domingo' : 'Especial'}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap">
+        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+          i.subtipo === 'diezmo' 
+            ? 'bg-indigo-100 text-indigo-800' 
+            : 'bg-emerald-100 text-emerald-800'
+        }`}>
+          {i.subtipo || 'Ofrenda'}
+        </span>
+      </td>
+      <td className="py-2 px-2.5 text-slate-800">
+        {i.subtipo === 'diezmo' || i.categoria === 'Diezmo General' ? (
+          <span className="text-slate-500 italic font-medium">Confidencial</span>
+        ) : (
+          i.miembro_nombre || <span className="text-slate-400 italic">Ofrenda Colectiva</span>
+        )}
+      </td>
+      <td className="py-2 px-2.5 text-slate-600">
+        {(i.subtipo === 'diezmo' || i.categoria === 'Diezmo General') && i.miembro_nombre
+          ? i.concepto.replace(new RegExp(i.miembro_nombre, 'gi'), 'Hermano/a')
+          : i.concepto}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
+        {i.metodo_pago}
+      </td>
+      <td className="py-2 px-2.5 text-right font-bold text-emerald-700 whitespace-nowrap">
+        +{formatearMoneda(i.monto)}
+      </td>
+    </tr>
+  );
+
+  const renderFilaGasto = (g: Transaccion) => (
+    <tr key={g.id} className="hover:bg-slate-50">
+      <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
+        {formatearFechaCorta(g.fecha)}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700">
+        {g.categoria}
+      </td>
+      <td className="py-2 px-2.5 text-slate-800">
+        {g.concepto}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
+        {g.metodo_pago}
+      </td>
+      <td className="py-2 px-2.5 whitespace-nowrap text-[10px]">
+        {g.evidencia_url ? (
+          <span className="font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded">
+            Respaldada en R2
+          </span>
+        ) : (
+          <span className="text-slate-400 italic">Sin archivo</span>
+        )}
+      </td>
+      <td className="py-2 px-2.5 text-right font-bold text-rose-700 whitespace-nowrap">
+        -{formatearMoneda(g.monto)}
+      </td>
+    </tr>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -365,62 +568,89 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
         {/* Barra de Filtros Rápida Apple HIG (no-print) */}
         <div className="no-print bg-white px-5 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           
-          {/* Segmented Control de Período */}
-          <div className="apple-segmented-group">
-            <button
-              onClick={() => handleCambioPeriodo('este_mes')}
-              className={`apple-segmented-item px-3 py-1 text-xs ${periodo === 'este_mes' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Este Mes
-            </button>
-            <button
-              onClick={() => handleCambioPeriodo('mes_anterior')}
-              className={`apple-segmented-item px-3 py-1 text-xs ${periodo === 'mes_anterior' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Mes Anterior
-            </button>
-            <button
-              onClick={() => handleCambioPeriodo('este_ano')}
-              className={`apple-segmented-item px-3 py-1 text-xs ${periodo === 'este_ano' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Año en Curso
-            </button>
-            <button
-              onClick={() => handleCambioPeriodo('todo')}
-              className={`apple-segmented-item px-3 py-1 text-xs ${periodo === 'todo' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Histórico
-            </button>
-            <button
-              onClick={() => setPeriodo('personalizado')}
-              className={`apple-segmented-item px-3 py-1 text-xs ${periodo === 'personalizado' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Personalizado
-            </button>
-          </div>
-
-          {/* Fechas personalizadas si está activo */}
-          {periodo === 'personalizado' && (
-            <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500">Del:</span>
-              <input
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-                className="px-2 py-0.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800"
-              />
-              <span className="text-[11px] font-bold text-slate-500">Al:</span>
-              <input
-                type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-                className="px-2 py-0.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800"
-              />
+          {/* Segmented Control de Modo de Reporte */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="apple-segmented-group">
+              <button
+                type="button"
+                onClick={() => handleCambioPeriodo('por_mes')}
+                className={`apple-segmented-item px-3 py-1 text-xs font-bold ${periodo === 'por_mes' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                📅 Por Mes
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCambioPeriodo('todo')}
+                className={`apple-segmented-item px-3 py-1 text-xs font-bold ${periodo === 'todo' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                📊 Total General
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCambioPeriodo('este_ano')}
+                className={`apple-segmented-item px-3 py-1 text-xs font-bold ${periodo === 'este_ano' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Año en Curso
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodo('personalizado')}
+                className={`apple-segmented-item px-3 py-1 text-xs font-bold ${periodo === 'personalizado' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Personalizado
+              </button>
             </div>
-          )}
+
+            {/* Selector de Mes cuando el modo es "Por Mes" */}
+            {periodo === 'por_mes' && (
+              <div className="flex items-center space-x-1.5 bg-blue-50/90 border border-blue-200 rounded-xl px-2.5 py-1">
+                <span className="text-[11px] font-bold text-blue-700">Mes:</span>
+                <select
+                  value={mesSeleccionado}
+                  onChange={(e) => aplicarMes(e.target.value)}
+                  className="bg-transparent font-bold text-blue-900 text-xs cursor-pointer focus:outline-none pr-1"
+                >
+                  {mesesDisponibles.map((clave) => (
+                    <option key={clave} value={clave} className="text-slate-900 font-semibold">
+                      {formatearNombreMes(clave)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Fechas personalizadas si está activo */}
+            {periodo === 'personalizado' && (
+              <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-500">Del:</span>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  className="px-2 py-0.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800"
+                />
+                <span className="text-[11px] font-bold text-slate-500">Al:</span>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  className="px-2 py-0.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800"
+                />
+              </div>
+            )}
+          </div>
 
           {/* Toggles de Secciones a Imprimir */}
           <div className="flex items-center space-x-3 text-slate-600 font-medium">
+            <label className="flex items-center space-x-1.5 cursor-pointer select-none text-blue-700 font-semibold">
+              <input
+                type="checkbox"
+                checked={incluirResumenMensual}
+                onChange={(e) => setIncluirResumenMensual(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-0"
+              />
+              <span>Tabla por Mes</span>
+            </label>
             <label className="flex items-center space-x-1.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -497,7 +727,14 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                   <strong>Emisión:</strong> {formatearFechaLarga(fechaEmision.toISOString().slice(0, 10))}
                 </div>
                 <div className="text-[11px] text-slate-600 font-medium">
-                  <strong>Período:</strong> {periodo === 'todo' ? 'Historial Acumulado' : `${formatearFechaCorta(fechaDesde)} al ${formatearFechaCorta(fechaHasta)}`}
+                  <strong>Período:</strong>{' '}
+                  {periodo === 'por_mes'
+                    ? `Mes de ${formatearNombreMes(mesSeleccionado)} (${formatearFechaCorta(fechaDesde)} al ${formatearFechaCorta(fechaHasta)})`
+                    : periodo === 'todo'
+                    ? 'Total General Consolidado (Historial Completo)'
+                    : periodo === 'este_ano'
+                    ? `Año Fiscal ${new Date().getFullYear()} (${formatearFechaCorta(fechaDesde)} al ${formatearFechaCorta(fechaHasta)})`
+                    : `${formatearFechaCorta(fechaDesde)} al ${formatearFechaCorta(fechaHasta)}`}
                 </div>
               </div>
 
@@ -609,6 +846,108 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
 
           </div>
 
+          {/* TABLA: REPORTE DE ENTRADAS Y GASTOS MES A MES (CUANDO SE CONSULTA EL TOTAL GENERAL) */}
+          {(periodo === 'todo' || periodo === 'este_ano') && incluirResumenMensual && (
+            <div className="mb-8 print-break-inside-avoid break-inside-avoid">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                  <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 flex items-center space-x-1.5">
+                    <span>Reporte Consolidado de Entradas y Gastos Mes a Mes</span>
+                  </h3>
+                </div>
+                <span className="text-xs font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                  {mesesAMostrar.length} Meses Auditados
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border border-slate-200">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Mes / Período</th>
+                      <th className="py-2.5 px-3 text-right text-emerald-800">Ofrendas</th>
+                      <th className="py-2.5 px-3 text-right text-indigo-800">Diezmos</th>
+                      <th className="py-2.5 px-3 text-right font-bold text-emerald-700">Total Entradas (+)</th>
+                      <th className="py-2.5 px-3 text-right font-bold text-rose-700">Gastos (-)</th>
+                      <th className="py-2.5 px-3 text-right">Balance Neto</th>
+                      <th className="py-2.5 px-3 text-right font-black">Saldo al Cierre</th>
+                      <th className="py-2.5 px-3 text-center">Movs</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {mesesAMostrar.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-4 text-center text-slate-400 italic">
+                          No hay movimientos registrados.
+                        </td>
+                      </tr>
+                    ) : (
+                      mesesAMostrar.map((m) => (
+                        <tr key={m.claveMes} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
+                            {m.nombreMes}
+                          </td>
+                          <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700 font-semibold">
+                            +{formatearMoneda(m.totalOfrendas)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right tabular-nums text-indigo-700 font-semibold">
+                            +{formatearMoneda(m.totalDiezmos)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700 font-bold">
+                            +{formatearMoneda(m.totalIngresos)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right tabular-nums text-rose-700 font-bold">
+                            -{formatearMoneda(m.totalGastos)}
+                          </td>
+                          <td className={`py-2.5 px-3 text-right tabular-nums font-bold ${
+                            m.flujoNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                          }`}>
+                            {m.flujoNeto >= 0 ? '+' : ''}{formatearMoneda(m.flujoNeto)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right tabular-nums font-black text-slate-950">
+                            {formatearMoneda(m.saldoFinal)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-500 font-semibold text-[11px]">
+                            {m.cantidadMovimientos}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {mesesAMostrar.length > 0 && (
+                    <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-black text-xs">
+                      <tr>
+                        <td className="py-2.5 px-3 text-slate-900 uppercase">Total Consolidado</td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-emerald-800">
+                          +{formatearMoneda(mesesAMostrar.reduce((acc, m) => acc + m.totalOfrendas, 0))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-indigo-800">
+                          +{formatearMoneda(mesesAMostrar.reduce((acc, m) => acc + m.totalDiezmos, 0))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-emerald-800">
+                          +{formatearMoneda(mesesAMostrar.reduce((acc, m) => acc + m.totalIngresos, 0))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-rose-800">
+                          -{formatearMoneda(mesesAMostrar.reduce((acc, m) => acc + m.totalGastos, 0))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums">
+                          {formatearMoneda(mesesAMostrar.reduce((acc, m) => acc + m.flujoNeto, 0))}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-blue-900 font-extrabold text-sm">
+                          {formatearMoneda(mesesAMostrar[mesesAMostrar.length - 1]?.saldoFinal ?? 0)}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-slate-600">
+                          {mesesAMostrar.reduce((acc, m) => acc + m.cantidadMovimientos, 0)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* 3. SECCIÓN 1: DETALLE DE ENTRADAS A CAJA GENERAL (OFRENDAS Y DIEZMOS) */}
           {incluirIngresos && (
             <div className="mb-8">
@@ -645,37 +984,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      entradasCaja.map((i) => (
-                        <tr key={i.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
-                            {formatearFechaCorta(i.fecha)}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-600">
-                            {i.dia_semana === 'miercoles' ? 'Miércoles General' : i.dia_semana === 'domingo' ? 'Domingo' : 'Especial'}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              i.subtipo === 'diezmo' 
-                                ? 'bg-indigo-100 text-indigo-800' 
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}>
-                              {i.subtipo || 'Ofrenda'}
-                            </span>
-                          </td>
-                          <td className="py-2 px-2.5 text-slate-800">
-                            {i.miembro_nombre || <span className="text-slate-400 italic">Ofrenda Colectiva</span>}
-                          </td>
-                          <td className="py-2 px-2.5 text-slate-600">
-                            {i.concepto}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
-                            {i.metodo_pago}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-bold text-emerald-700 whitespace-nowrap">
-                            +{formatearMoneda(i.monto)}
-                          </td>
-                        </tr>
-                      ))
+                      entradasCaja.map(renderFilaEntrada)
                     )}
                   </tbody>
                   <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
@@ -728,34 +1037,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      gastosCaja.map((g) => (
-                        <tr key={g.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
-                            {formatearFechaCorta(g.fecha)}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700">
-                            {g.categoria}
-                          </td>
-                          <td className="py-2 px-2.5 text-slate-800">
-                            {g.concepto}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
-                            {g.metodo_pago}
-                          </td>
-                          <td className="py-2 px-2.5 whitespace-nowrap text-[10px]">
-                            {g.evidencia_url ? (
-                              <span className="font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded">
-                                Respaldada en R2
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic">Sin archivo</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-bold text-rose-700 whitespace-nowrap">
-                            -{formatearMoneda(g.monto)}
-                          </td>
-                        </tr>
-                      ))
+                      gastosCaja.map(renderFilaGasto)
                     )}
                   </tbody>
                   <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
@@ -997,10 +1279,18 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                             </td>
                             <td className="py-2 px-2.5 text-slate-800">
                               <span className="font-semibold block">{t.categoria}</span>
-                              <span className="text-slate-500 text-[11px] block">{t.concepto}</span>
+                              <span className="text-slate-500 text-[11px] block">
+                                {(t.subtipo === 'diezmo' || t.categoria === 'Diezmo General') && t.miembro_nombre
+                                  ? t.concepto.replace(new RegExp(t.miembro_nombre, 'gi'), 'Hermano/a')
+                                  : t.concepto}
+                              </span>
                             </td>
                             <td className="py-2 px-2.5 text-slate-700">
-                              {t.miembro_nombre || (t.tipo === 'ingreso' ? 'Ofrenda Colectiva' : 'Proveedor')}
+                              {t.subtipo === 'diezmo' || t.categoria === 'Diezmo General' ? (
+                                <span className="text-slate-500 italic font-medium">Confidencial</span>
+                              ) : (
+                                t.miembro_nombre || (t.tipo === 'ingreso' ? 'Ofrenda Colectiva' : 'Proveedor')
+                              )}
                             </td>
                             <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
                               {t.metodo_pago}
@@ -1047,25 +1337,32 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
               "Damos testimonio y fe de que los fondos detallados en el presente informe financiero corresponden fielmente a los ingresos recibidos en caja general, los gastos efectuados con sus correspondientes comprobantes, y los proyectos pactados bajo mayordomía eclesiástica."
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 print:grid-cols-4 gap-6 text-center">
               
               {/* Pastor Principal */}
               <div className="space-y-1">
-                <div className="border-t border-slate-900 w-44 mx-auto mb-2" />
+                <div className="border-t border-slate-900 w-36 sm:w-40 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-950 uppercase tracking-tight">Pastor Principal</p>
-                <p className="text-[10px] text-slate-500">Supervisión & Aprobación Ministerial</p>
+                <p className="text-[10px] text-slate-500">Supervisión & Aprobación</p>
+              </div>
+
+              {/* Secretario General */}
+              <div className="space-y-1">
+                <div className="border-t border-slate-900 w-36 sm:w-40 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-950 uppercase tracking-tight">Secretario General</p>
+                <p className="text-[10px] text-slate-500">Fe Pública & Actas</p>
               </div>
 
               {/* Tesorero General */}
               <div className="space-y-1">
-                <div className="border-t border-slate-900 w-44 mx-auto mb-2" />
+                <div className="border-t border-slate-900 w-36 sm:w-40 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-950 uppercase tracking-tight">Tesorero General</p>
-                <p className="text-[10px] text-slate-500">Elaboración & Control de Fondos</p>
+                <p className="text-[10px] text-slate-500">Elaboración & Control</p>
               </div>
 
-              {/* Revisor de Cuentas */}
+              {/* Comité de Auditoría */}
               <div className="space-y-1">
-                <div className="border-t border-slate-900 w-44 mx-auto mb-2" />
+                <div className="border-t border-slate-900 w-36 sm:w-40 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-950 uppercase tracking-tight">Comité de Auditoría</p>
                 <p className="text-[10px] text-slate-500">Revisor Fiscal & Verificación</p>
               </div>
