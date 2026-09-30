@@ -8,11 +8,11 @@ import Credentials from '@auth/core/providers/credentials';
 
 function aivenDbDevPlugin(env: Record<string, string>) {
   let pool: pg.Pool | null = null;
-  const AIVEN_CONNECTION_STRING = env.AIVEN_PG_URL || env.DATABASE_URL || '';
-  const R2_ACCOUNT_ID = env.R2_ACCOUNT_ID || '';
-  const R2_BUCKET_NAME = env.R2_BUCKET_NAME || 'gospel';
-  const R2_ACCESS_KEY_ID = env.R2_ACCESS_KEY_ID || '';
-  const R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY || '';
+  const AIVEN_CONNECTION_STRING = process.env.DATABASE_URL || process.env.AIVEN_PG_URL || env.AIVEN_PG_URL || env.DATABASE_URL || '';
+  const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
+  const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || env.R2_BUCKET_NAME || 'gospel';
+  const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || env.R2_ACCESS_KEY_ID || '';
+  const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || env.R2_SECRET_ACCESS_KEY || '';
 
   const s3 = new S3Client({
     region: 'auto',
@@ -26,15 +26,21 @@ function aivenDbDevPlugin(env: Record<string, string>) {
   function getPool() {
     if (!pool && AIVEN_CONNECTION_STRING) {
       const parsed = new URL(AIVEN_CONNECTION_STRING);
+      const isSsl = parsed.searchParams.get('sslmode') === 'require' || (
+        parsed.hostname !== 'localhost' &&
+        parsed.hostname !== '127.0.0.1' &&
+        parsed.hostname !== 'db' &&
+        parsed.searchParams.get('sslmode') !== 'disable'
+      );
       pool = new pg.Pool({
         user: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
         host: parsed.hostname,
         port: parseInt(parsed.port || '5432'),
         database: parsed.pathname.replace(/^\//, ''),
-        ssl: {
+        ssl: isSsl ? {
           rejectUnauthorized: false
-        },
+        } : false,
         connectionTimeoutMillis: 5000
       });
     }

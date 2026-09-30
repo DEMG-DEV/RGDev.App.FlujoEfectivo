@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.7.0** | 2026-09-29 21:26:00 | David Méndez | Producción / Estable |
 | **v1.6.0** | 2026-09-29 13:35:00 | David Méndez | Producción / Estable |
 | **v1.5.0** | 2026-09-29 13:14:00 | David Méndez | Producción / Estable |
 | **v1.4.1** | 2026-09-29 12:16:00 | David Méndez | Producción / Estable |
@@ -18,7 +19,13 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Navegación Móvil Apple HIG (Bottom Tab Bar), A11y Integral y Micro-Feedback Reactivo
+### 1. Analítica Visual Interactiva en Resumen, Entorno Docker Aislado y Libro de Caja Compacto
+- **Analítica Visual Interactiva y Gráficos Dinámicos**: Implementación en el Dashboard de gráfico donut interactivo para distribución de aportes (Ofrendas, Diezmos y Proyectos), barra comparativa mensual interactiva con visualización al hover/toque y desglose comparativo por culto (Miércoles vs Domingo).
+- **Entorno de Pruebas y Desarrollo Local con Docker**: Infraestructura contenerizada con PostgreSQL local en puerto `5433` sin tocar jamás datos de producción de Aiven, scripts automáticos de copia de seguridad en modo solo lectura (`pnpm docker:backup`) y restauración local (`pnpm docker:restore`), además de comandos `pnpm dev:local` y `pnpm docker:up`.
+- **Adaptabilidad de Conexión de Base de Datos (Cloud vs Local)**: Detección inteligente de SSL en `api/db.ts` y en el plugin dev de `vite.config.ts`, permitiendo conexión sin SSL en local/Docker y con SSL estricto en Aiven Cloud.
+- **Diseño Compacto Apple HIG en Saldos por Mes y Libro de Caja**: Rediseño de la sección de Saldos y Balances por Mes para optimizar el espacio vertical, incorporando tarjetas de mes compactas con conteo de movimientos y barra de estado de filtros slim con píldoras financieras de entradas, gastos y balance.
+
+### 2. Navegación Móvil Apple HIG (Bottom Tab Bar), A11y Integral y Micro-Feedback Reactivo
 - **Barra de Pestañas Inferior Nativa (iOS Bottom Tab Bar)**: Implementación de la barra de navegación principal fija en la zona del pulgar (`bottom-0`) para móviles con acabado `backdrop-blur-xl bg-slate-900/95` y soporte para safe-area (`pb-[env(safe-area-inset-bottom)]`), permitiendo alternar entre Resumen, Caja General, Entradas, Gastos y Pactos con 1 toque.
 - **Dock Flotante Anticolisión y Touch Target 56x56**: Reubicación adaptativa del botón flotante por encima de la barra móvil (`bottom-[calc(4.5rem+env(safe-area-inset-bottom))]`) y elevación de dimensiones a `w-14 h-14` (56x56px) para un toque ergonómico impecable.
 - **Micro-Loader en Reclasificación Inline**: Indicador visual giratorio (`Loader2`) directo en la fila del Libro de Caja al cambiar de categoría, deshabilitando el selector durante la persistencia en Aiven PostgreSQL para evitar peticiones duplicadas.
@@ -133,12 +140,55 @@ El proyecto ya incluye [`vercel.json`](file:///Users/davidmendez/RGDev/RGDev.App
 
 ---
 
-## 🛠️ Comandos de Desarrollo Local
+## 🛠️ Comandos de Desarrollo Local y Pruebas con Docker
+
+### Opción 1: Entorno Completo con Docker (App + Base de Datos Aislada)
+Levanta la aplicación en el puerto `5174` y la base de datos local PostgreSQL con el respaldo de producción ya cargado en el puerto `5433` (sin afectar jamás los datos de producción en Aiven):
 
 ```bash
-# Iniciar servidor local
+# Iniciar servicios en segundo plano
+pnpm docker:up     # o: npm run docker:up
+
+# Ver registros de ejecución
+pnpm docker:logs   # o: npm run docker:logs
+
+# Detener los servicios
+pnpm docker:down   # o: npm run docker:down
+```
+Acceso a la aplicación: [http://localhost:5174](http://localhost:5174)
+
+---
+
+### Opción 2: Híbrido Rápido (Base de Datos en Docker + Vite en Host)
+Si prefieres tener recarga ultrarrápida (HMR) ejecutando Vite directamente en tu terminal:
+
+```bash
+# 1. Levantar únicamente la base de datos local en Docker (puerto 5433)
+pnpm docker:db     # o: npm run docker:db
+
+# 2. Iniciar Vite en tu máquina host apuntando a la base de datos local
+pnpm dev:local     # o: npm run dev:local
+```
+Acceso a la aplicación: [http://localhost:5173](http://localhost:5173)
+
+---
+
+### Gestión de Respaldos de Producción
+
+| Comando | Descripción |
+| :--- | :--- |
+| `pnpm docker:backup` | Realiza una copia de seguridad en modo **solo lectura** desde la base de datos de Aiven hacia `docker/backup_prod.sql`. |
+| `pnpm docker:restore` | Reinicia y restaura la base de datos local de Docker con el respaldo de `docker/backup_prod.sql`. |
+
+---
+
+### Comandos Generales
+
+```bash
+# Iniciar servidor local conectado a producción (Aiven)
 pnpm dev
 
 # Compilar para producción
 pnpm build
 ```
+

@@ -5,6 +5,26 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.7.0: Analítica visual con gráficos interactivos, entorno local Docker de pruebas y Libro de Caja estilizado
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 21:26:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Gráficos Dinámicos y Analítica Visual Interactiva**: El panel principal de Resumen ahora incluye un moderno gráfico interactivo en forma de rosquilla (Donut Chart) que permite ver con un toque la proporción exacta de Ofrendas, Diezmos y Proyectos. Además, se sumó una gráfica de barras con la evolución financiera de cada mes que revela ingresos, egresos y balance neto al pasar el cursor o pulsar sobre cada mes.
+2. **Comparativa Visual de Cultos (Miércoles vs Domingo)**: Una nueva barra proporcional muestra visualmente qué porcentaje del ingreso total corresponde a las reuniones de mitad de semana y a los cultos dominicales.
+3. **Entorno de Pruebas Seguro con Docker**: Se creó un sistema de desarrollo local totalmente aislado mediante Docker. Los desarrolladores pueden levantar una copia idéntica de la base de datos de la iglesia en su computadora con un solo comando, respaldar datos con un clic y probar nuevas funciones sin alterar jamás la información real que está en la nube.
+4. **Saldos por Mes y Filtros Más Compactos en Libro de Caja**: Se reorganizó la vista contable con un diseño mucho más limpio y cómodo para pantallas medianas y móviles, facilitando la consulta de cierres mensuales sin ocupar espacio excesivo.
+5. **Píldoras de Balance Financiero y Rescate de Filtros**: La barra de filtros ahora muestra en tiempo real y en un formato compacto el total de entradas, gastos y balance neto de la búsqueda actual, junto con un botón para restablecer filtros al instante.
+
+### ¿Qué significa para el proyecto?
+- **Claridad ejecutiva para pastores y líderes**: La información financiera ahora entra por los ojos; es fácil explicar a la congregación o a los directivos cómo se distribuyen los ingresos con gráficos claros y profesionales.
+- **Seguridad total para los datos de la iglesia**: Los desarrolladores pueden experimentar y validar cambios sin peligro de alterar accidentalmente los registros reales de tesorería.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.6.0: Experiencia móvil nativa estilo Apple, barra inferior accesible y mayor agilidad interactiva
 
 | Campo | Detalle |

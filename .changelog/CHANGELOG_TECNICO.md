@@ -5,6 +5,49 @@
 
 ---
 
+## feat(release): release v1.7.0 - analitica visual interactiva, entorno docker de pruebas local y libro de caja compacto
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-09-29 21:26:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.7.0` y adición de scripts de desarrollo local con Docker (`dev:local`, `docker:up`, `docker:down`, `docker:db`, `docker:logs`, `docker:backup`, `docker:restore`) |
+| `README.md` | Modificado | Registro de versión `v1.7.0` en Punto de Referencia, resumen de características y guía de comandos Docker |
+| `src/components/DashboardView.tsx` | Modificado | Integración de analítica interactiva: gráfico SVG donut de aportes por segmento, gráfico mensual de barras interactivas con hover y desglose por culto Miércoles vs Domingo |
+| `src/components/LibroCajaView.tsx` | Modificado | Rediseño compacto Apple HIG en Saldos por Mes y barra de estado slim en 3 niveles con píldoras de balance financiero y botón de restablecimiento |
+| `src/App.tsx` | Modificado | Remoción de pie de página redundante para una vista más limpia y ergonómica |
+| `api/db.ts` | Modificado | Soporte flexible de conexión (`DATABASE_URL` y `AIVEN_PG_URL`) con detección automática de SSL (`ssl: false` en Docker/localhost y SSL habilitado en producción) |
+| `vite.config.ts` | Modificado | Soporte para base de datos local en plugin dev de Vite con manejo dinámico de SSL |
+| `pnpm-workspace.yaml` | Modificado | Definición de paquete raíz para compatibilidad de espacio de trabajo |
+| `docker-compose.yml` | Creado | Orquestación multi-contenedor para servicio de base de datos PostgreSQL local (`5433`) con init script y contenedor de aplicación |
+| `Dockerfile` | Creado | Imagen de desarrollo Node.js/pnpm para contenedor de aplicación |
+| `.dockerignore` | Creado | Exclusión de `node_modules`, `dist` y temporales en build de Docker |
+| `docker/backup-from-prod.sh` | Creado | Script de respaldo de solo lectura desde PostgreSQL de Aiven hacia `docker/backup_prod.sql` |
+| `docker/restore-to-local.sh` | Creado | Script de restauración automática hacia PostgreSQL en Docker |
+| `docker/backup_prod.sql` | Creado | Respaldo inicial para inicialización automática de base de datos local |
+| `docker/.env.docker.example` | Creado | Plantilla de variables de entorno para Docker |
+
+### Detalle Técnico
+1. **Analítica Visual Interactiva en Resumen General**:
+   - Se diseñó e implementó un gráfico tipo Donut en SVG nativo para la composición de ingresos (Ofrendas, Diezmos y Proyectos) con estados interactivos por segmento (`segmentoActivoDonut`).
+   - Se estructuró un gráfico comparativo de barras mensuales dinámico (`MesEstadistica`) con tooltip reactivo al hover (`mesHover`) mostrando entradas, salidas y neto mensual.
+   - Se optimizó el cálculo de distribución porcentual por culto con barra proporcional para Miércoles vs Domingo.
+2. **Entorno Contenerizado de Desarrollo y Pruebas Local (Docker + PostgreSQL)**:
+   - Se configuró PostgreSQL Alpine en puerto `5433` con inicialización mediante `backup_prod.sql` para pruebas locales idénticas a producción con cero riesgo para Aiven.
+   - En `api/db.ts` y `vite.config.ts`, se implementó detección de host (`localhost`, `127.0.0.1`, `db`) y parámetros `sslmode` para desactivar `ssl` en local y mantener `rejectUnauthorized: false` en Aiven.
+3. **Optimización Visual del Libro de Caja (Apple HIG Compact)**:
+   - Se redujo el padding y la altura vertical de las tarjetas de períodos contables mensuales.
+   - Se consolidó la barra de estado de filtros en un formato slim con conteo dinámico de movimientos, botón de restablecimiento rápido y píldoras financieras de Entradas, Gastos y Balance Neto con tipografía `tabular-nums`.
+
+---
+
 ## feat(release): release v1.6.0 - navegacion movil apple hig bottom tab bar, a11y integral y micro-feedback reactivo
 
 | Campo | Detalle |

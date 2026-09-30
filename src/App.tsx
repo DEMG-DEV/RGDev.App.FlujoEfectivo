@@ -227,18 +227,6 @@ const AppContent: React.FC = () => {
         onAbrirReportePDF={() => setMostrarModalReporte(true)}
       />
 
-      {/* Footer pastoral */}
-      <footer className="no-print bg-white/80 backdrop-blur-md border-t border-black/[0.06] py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p className="font-semibold text-slate-700">
-            Sistema de Flujo de Efectivo Eclesiástico • Tesorería y Mayordomía
-          </p>
-          <p className="text-slate-400">
-            PostgreSQL en Aiven • Cloudflare R2 Bucket • Autenticación Auth.js • Vercel Serverless
-          </p>
-        </div>
-      </footer>
-
     </div>
   );
 };

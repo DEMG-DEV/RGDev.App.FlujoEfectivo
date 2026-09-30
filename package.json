@@ -1,12 +1,19 @@
 {
   "name": "rgdev-app-flujo-efectivo-iglesia",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "DATABASE_URL=postgres://postgres:postgres@localhost:5433/flujo_efectivo AIVEN_PG_URL=postgres://postgres:postgres@localhost:5433/flujo_efectivo vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:db": "docker compose up -d db",
+    "docker:logs": "docker compose logs -f",
+    "docker:backup": "./docker/backup-from-prod.sh",
+    "docker:restore": "./docker/restore-to-local.sh"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",

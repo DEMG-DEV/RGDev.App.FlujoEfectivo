@@ -479,26 +479,27 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
         </div>
       </div>
 
-      {/* 2. CARRUSEL / GRID DE SALDOS POR MES (APPLE HIG) */}
-      <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center space-x-2 text-blue-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+      {/* 2. SALDOS Y BALANCES POR MES (APPLE HIG COMPACTO) */}
+      <div className="no-print bg-white/95 backdrop-blur-xl border border-black/[0.06] rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
               <CalendarDays className="w-3.5 h-3.5" />
-              <span>Cierre Periódico de Caja</span>
             </div>
-            <h3 className="text-lg font-black text-slate-900 tracking-tight">
-              Saldos y Balances por Mes
-            </h3>
-            <p className="text-xs text-slate-500">
-              Saldo inicial, entradas, gastos y balance acumulado al cierre de cada período. Haz clic en un mes para filtrar.
-            </p>
+            <div className="flex items-baseline space-x-2">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                Saldos y Balances por Mes
+              </h3>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                • Cierre contable periódico ({resumenesMensuales.length} {resumenesMensuales.length === 1 ? 'período' : 'períodos'})
+              </span>
+            </div>
           </div>
 
           {fechaDesde && fechaHasta && (
-            <div className="flex items-center space-x-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl self-start sm:self-auto">
-              <span className="text-xs font-bold text-blue-800">
-                Filtro activo de mes
+            <div className="flex items-center space-x-1.5 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-lg text-xs">
+              <span className="text-[11px] font-semibold text-blue-800">
+                Mes filtrado
               </span>
               <button
                 type="button"
@@ -506,7 +507,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   setFechaDesde('');
                   setFechaHasta('');
                 }}
-                className="text-xs font-black text-blue-600 hover:text-blue-900 bg-white px-2 py-0.5 rounded-md shadow-sm border border-blue-200"
+                className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-white px-1.5 py-0.5 rounded shadow-2xs border border-blue-200"
               >
                 Limpiar
               </button>
@@ -514,8 +515,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           )}
         </div>
 
-        {/* Tarjetas de Saldos por Mes */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-1">
+        {/* Tarjetas Compactas de Saldos por Mes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
           {resumenesMensuales.map((m) => {
             const esMesFiltrado = fechaDesde === m.fechaInicio && fechaHasta === m.fechaFin;
             return (
@@ -533,56 +534,55 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                     }
                   }
                 }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none active:scale-[0.99] ${
                   esMesFiltrado 
-                    ? 'bg-blue-50/80 border-blue-400 ring-2 ring-blue-500/20 shadow-md' 
-                    : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-sm'
+                    ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-500/20 shadow-sm' 
+                    : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-xs'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-black text-slate-900">{m.nombreMes}</span>
+                {/* Cabecera del Mes */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 truncate">{m.nombreMes}</span>
+                  <div className="flex items-center space-x-1 flex-shrink-0">
                     {esMesFiltrado ? (
-                      <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                      <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded-full">
                         Filtrado
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-semibold">
+                      <span className="text-[10px] text-slate-400 font-medium">
                         {m.cantidadMovimientos} movs
                       </span>
                     )}
                   </div>
-                  
-                  {/* Saldo al Cierre */}
-                  <div className="mt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Saldo al Cierre
-                    </span>
-                    <div className={`text-xl font-black tabular-nums ${m.saldoFinal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
-                      {formatearMoneda(m.saldoFinal)}
-                    </div>
-                  </div>
                 </div>
 
-                {/* Desglose de Entradas, Gastos y Flujo */}
-                <div className="pt-2.5 border-t border-slate-200/60 space-y-1 text-xs">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Saldo inicial:</span>
+                {/* Saldo al Cierre Destacado */}
+                <div className="flex items-baseline justify-between py-0.5">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Saldo al Cierre
+                  </span>
+                  <span className={`text-base font-black tabular-nums ${m.saldoFinal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                    {formatearMoneda(m.saldoFinal)}
+                  </span>
+                </div>
+
+                {/* Mini Grilla Compacta: Inicial, Entradas, Gastos, Flujo */}
+                <div className="pt-2 border-t border-slate-200/60 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Inicial:</span>
                     <span className="font-semibold text-slate-700 tabular-nums">{formatearMoneda(m.saldoInicial)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-emerald-700 font-medium">Entradas:</span>
-                    <span className="font-bold text-emerald-700 tabular-nums">+{formatearMoneda(m.totalIngresos)}</span>
+                  <div className="flex justify-between text-emerald-700">
+                    <span className="font-medium">Entradas:</span>
+                    <span className="font-bold tabular-nums">+{formatearMoneda(m.totalIngresos)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-rose-700 font-medium">Gastos:</span>
-                    <span className="font-bold text-rose-700 tabular-nums">-{formatearMoneda(m.totalGastos)}</span>
+                  <div className="flex justify-between text-rose-700">
+                    <span className="font-medium">Gastos:</span>
+                    <span className="font-bold tabular-nums">-{formatearMoneda(m.totalGastos)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px] pt-1 border-t border-dashed border-slate-200 font-bold">
-                    <span className="text-slate-600">Flujo neto:</span>
-                    <span className={`tabular-nums ${m.flujoNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {m.flujoNeto >= 0 ? '+' : ''}{formatearMoneda(m.flujoNeto)}
-                    </span>
+                  <div className={`flex justify-between font-bold ${m.flujoNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <span>Neto:</span>
+                    <span className="tabular-nums">{m.flujoNeto >= 0 ? '+' : ''}{formatearMoneda(m.flujoNeto)}</span>
                   </div>
                 </div>
               </div>
@@ -678,39 +678,40 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
       {/* 4. VISTA B: BARRA DE FILTROS & MOVIMIENTOS DETALLADOS */}
       {vistaModo === 'movimientos' && (
         <>
-          {/* Barra de Filtros Apple HIG Inset Grouped */}
-          <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-4">
+          {/* Barra de Filtros Apple HIG Compact Toolbar */}
+          <div className="no-print bg-white/95 backdrop-blur-xl border border-black/[0.06] rounded-2xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
             
-            {/* Controles de Búsqueda, Segmented Controls y Selector de Ámbito */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Fila 1: Buscador Spotlight + Segmented Controls */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
               
-              {/* Buscador macOS Style */}
+              {/* Buscador macOS Style Compacto */}
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Buscar por hermano, concepto o categoría..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full pl-8 pr-8 py-1.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                 />
                 {busqueda && (
                   <button
                     onClick={() => setBusqueda('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+              {/* Segmented Controls Apple HIG */}
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                 {/* Segmented Control de Ámbito: Caja General vs Todos */}
                 <div className="apple-segmented-group">
                   <button
                     type="button"
                     onClick={() => setIncluirPactos(false)}
-                    className={`apple-segmented-item px-3 py-1.5 text-xs ${!incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs ${!incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                     title="Muestra únicamente las entradas y salidas de la caja general operativa"
                   >
                     Solo Caja General
@@ -718,7 +719,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   <button
                     type="button"
                     onClick={() => setIncluirPactos(true)}
-                    className={`apple-segmented-item px-3 py-1.5 text-xs ${incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs ${incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                     title="Incluye también los aportes a proyectos pactados"
                   >
                     Incluir Proyectos
@@ -729,19 +730,19 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 <div className="apple-segmented-group">
                   <button
                     onClick={() => setFiltroTipo('todos')}
-                    className={`apple-segmented-item px-3 py-1.5 text-xs ${filtroTipo === 'todos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'todos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Todos (+/-)
                   </button>
                   <button
                     onClick={() => setFiltroTipo('ingreso')}
-                    className={`apple-segmented-item px-3 py-1.5 text-xs ${filtroTipo === 'ingreso' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'ingreso' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Entradas (+)
                   </button>
                   <button
                     onClick={() => setFiltroTipo('gasto')}
-                    className={`apple-segmented-item px-3 py-1.5 text-xs ${filtroTipo === 'gasto' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'gasto' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Gastos (-)
                   </button>
@@ -750,17 +751,15 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
             </div>
 
-            {/* Filtros Secundarios: Culto, Subtipo y Rango de Fechas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+            {/* Fila 2: Filtros Compactos en Línea (Culto, Clasificación, Fechas) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
               
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Día de Culto
-                </label>
+              {/* Filtro Culto */}
+              <div className="relative">
                 <select
                   value={filtroCulto}
                   onChange={(e) => setFiltroCulto(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                 >
                   <option value="todos">Todos los Cultos</option>
                   <option value="miercoles">Cultos de Miércoles</option>
@@ -768,14 +767,12 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Clasificación de Ingreso
-                </label>
+              {/* Filtro Clasificación */}
+              <div className="relative">
                 <select
                   value={filtroSubtipo}
                   onChange={(e) => setFiltroSubtipo(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                 >
                   <option value="todos">Todas las Clasificaciones</option>
                   <option value="ofrenda">Ofrendas Generales</option>
@@ -784,65 +781,73 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Desde Fecha
-                </label>
+              {/* Fecha Desde */}
+              <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Del:</span>
                 <input
                   type="date"
                   value={fechaDesde}
                   onChange={(e) => setFechaDesde(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Hasta Fecha
-                </label>
+              {/* Fecha Hasta */}
+              <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Al:</span>
                 <input
                   type="date"
                   value={fechaHasta}
                   onChange={(e) => setFechaHasta(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
                 />
               </div>
 
             </div>
 
-            {/* Resumen de Filtros KPI Pills */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
-              <div className="text-slate-500 font-medium flex items-center space-x-1.5">
-                <span>Mostrando <strong>{transaccionesFiltradas.length}</strong> movimientos</span>
+            {/* Fila 3: Barra de Estado y Balance Financiero (Slim Status Bar) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+              <div className="text-slate-500 font-medium flex items-center space-x-2 text-[11px]">
+                <span>Mostrando <strong>{transaccionesFiltradas.length}</strong> movs</span>
                 {!incluirPactos && (
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
-                    (Excluyendo pactos)
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
+                    Solo Caja
                   </span>
                 )}
-                {fechaDesde && fechaHasta && (
-                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
-                    Período: {fechaDesde} al {fechaHasta}
-                  </span>
+                {(fechaDesde || fechaHasta || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || busqueda) && (
+                  <button
+                    onClick={() => {
+                      setBusqueda('');
+                      setFiltroCulto('todos');
+                      setFiltroSubtipo('todos');
+                      setFechaDesde('');
+                      setFechaHasta('');
+                    }}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                  >
+                    Restablecer filtros
+                  </button>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center space-x-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-1 rounded-lg font-bold text-xs">
-                  <span>Entradas:</span>
-                  <span className="tabular-nums">{formatearMoneda(totalIngresosFiltrados)}</span>
+              {/* Pills Financieras Compactas */}
+              <div className="flex items-center space-x-2 text-xs">
+                <span className="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-800 border border-emerald-200/70 px-2 py-0.5 rounded-lg font-bold text-[11px]">
+                  <span className="text-slate-500 font-normal">Entradas:</span>
+                  <span className="tabular-nums">+{formatearMoneda(totalIngresosFiltrados)}</span>
                 </span>
 
-                <span className="inline-flex items-center space-x-1.5 bg-rose-50 text-rose-800 border border-rose-200/80 px-2.5 py-1 rounded-lg font-bold text-xs">
-                  <span>Gastos:</span>
-                  <span className="tabular-nums">{formatearMoneda(totalGastosFiltrados)}</span>
+                <span className="inline-flex items-center space-x-1 bg-rose-50 text-rose-800 border border-rose-200/70 px-2 py-0.5 rounded-lg font-bold text-[11px]">
+                  <span className="text-slate-500 font-normal">Gastos:</span>
+                  <span className="tabular-nums">-{formatearMoneda(totalGastosFiltrados)}</span>
                 </span>
 
-                <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg font-black text-xs ${
+                <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-lg font-black text-xs ${
                   flujoNetoFiltrado >= 0 
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20' 
-                    : 'bg-rose-600 text-white shadow-sm shadow-rose-600/20'
+                    ? 'bg-emerald-600 text-white shadow-2xs' 
+                    : 'bg-rose-600 text-white shadow-2xs'
                 }`}>
-                  <span>Balance:</span>
+                  <span className="opacity-90 font-medium text-[11px]">Balance:</span>
                   <span className="tabular-nums">{formatearMoneda(flujoNetoFiltrado)}</span>
                 </span>
               </div>
