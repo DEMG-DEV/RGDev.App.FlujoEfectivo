@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
-import { formatearMoneda, formatearFechaCorta, formatearFechaLarga, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana } from '../utils/dateUtils';
+import { formatearMoneda, formatearFechaCorta, formatearFechaLarga, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana, extraerFechaYYYYMMDD } from '../utils/dateUtils';
 import { ModalEditarGasto } from './ModalEditarGasto';
 
 function formatearMesAnio(claveMes: string): string {
@@ -120,7 +120,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
     setTxEditandoCategoria(t);
     setCategoriaSeleccionada(t.categoria);
     setCategoriaPersonalizada('');
-    setFechaEditando(t.fecha || getFechaHoy());
+    setFechaEditando(extraerFechaYYYYMMDD(t.fecha) || getFechaHoy());
     setConceptoEditando(t.concepto || '');
     setMontoEditando(t.monto ? t.monto.toString() : '');
     setMetodoPagoEditando(t.metodo_pago || 'efectivo');
@@ -158,7 +158,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
     const montoNum = parseFloat(montoEditando);
     const montoFinal = (!isNaN(montoNum) && montoNum > 0) ? montoNum : txEditandoCategoria.monto;
-    const fechaFinal = fechaEditando.trim() || txEditandoCategoria.fecha;
+    const fechaFinal = extraerFechaYYYYMMDD(fechaEditando.trim() || txEditandoCategoria.fecha);
     const conceptoFinal = conceptoEditando.trim() || txEditandoCategoria.concepto;
 
     setGuardandoCategoria(true);

@@ -5,6 +5,42 @@
 
 ---
 
+## fix(release): release v1.8.1 - correccion de pantalla en blanco al editar movimientos, normalizacion de fechas y error boundary
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-11 10:51:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Bugfix Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.8.1` |
+| `README.md` | Modificado | Registro de versión `v1.8.1` en Punto de Referencia y documentación del parche |
+| `src/utils/dateUtils.ts` | Modificado | Implementación de `extraerFechaYYYYMMDD` y blindaje contra `Invalid time value` en `formatearFechaCorta`, `formatearFechaLarga`, `identificarDiaSemana` y `formatearMoneda` |
+| `src/services/storageService.ts` | Modificado | Adición y exportación de `normalizarTransaccion`, saneamiento forzado de `fecha` y `monto` numérico en `getTransacciones`, `guardarTransaccion`, `editarTransaccion` y `cargarTransaccionesRemotas` |
+| `src/components/LibroCajaView.tsx` | Modificado | Sanitización con `extraerFechaYYYYMMDD` en apertura y guardado de edición de fechas |
+| `src/components/ModalEditarGasto.tsx` | Modificado | Saneamiento de `fecha` con `extraerFechaYYYYMMDD` en inicialización de estado y en guardado |
+| `src/components/ErrorBoundary.tsx` | Creado | Componente de clase ErrorBoundary global estilo Apple/Tailwind con recuperación en un clic |
+| `src/main.tsx` | Modificado | Envoltura de `<App />` en `<ErrorBoundary>` para evitar pantallas blancas por excepciones de renderizado |
+| `api/movimientos.ts` | Modificado | Normalización de filas retornadas en `POST` y `PATCH` garantizando `fecha` `YYYY-MM-DD` y `monto` numérico |
+| `vite.config.ts` | Modificado | Normalización en endpoint dev de `POST` y `PATCH` para consistencia local y cloud |
+
+### Detalle Técnico
+1. **Resolución de la Causa Raíz de Pantalla en Blanco**:
+   - `pg` (node-postgres) devuelve columnas `date` como objetos `Date` o cadenas ISO con timestamp (`"2026-10-11T00:00:00.000Z"`), y columnas `numeric` como strings (`"150.00"`).
+   - Al editar una transacción, la respuesta cruda sobreescribía el registro en memoria y `localStorage`. Al renderizar la tabla, `formatearFechaCorta` ejecutaba `.split('-')` resultando en un día `NaN`, generando `RangeError: Invalid time value` en `Intl.DateTimeFormat`.
+   - Se introdujo `extraerFechaYYYYMMDD` mediante expresiones regulares y validación de `getTime()`, garantizando que `formatearFechaCorta` y `formatearFechaLarga` nunca arrojen excepciones.
+2. **Normalización Universal de Transacciones**:
+   - `storageService.ts` ahora ejecuta `normalizarTransaccion` al leer de `localStorage`, previniendo que registros corruptos previos continúen provocando fallos en el navegador del cliente.
+3. **ErrorBoundary Global**:
+   - Se encapsuló la aplicación en `ErrorBoundary.tsx` para interceptar cualquier fallo no controlado en el ciclo de renderizado de React, mostrando una UI con opciones de reintento y recarga en lugar de una pantalla en blanco.
+
+---
+
 ## feat(release): release v1.8.0 - gestion de comprobantes en gastos, anexo documental en reporte y mover fecha de movimientos
 
 | Campo | Detalle |

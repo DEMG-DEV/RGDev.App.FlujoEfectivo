@@ -271,7 +271,14 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                   }
 
                   res.statusCode = 201;
-                  return res.end(JSON.stringify({ success: true, data: row }));
+                  return res.end(JSON.stringify({
+                    success: true,
+                    data: {
+                      ...row,
+                      monto: parseFloat(row.monto) || 0,
+                      fecha: row.fecha ? String(row.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10)
+                    }
+                  }));
                 } finally {
                   client.release();
                 }
@@ -374,7 +381,13 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                     res.statusCode = 404;
                     return res.end(JSON.stringify({ error: 'Movimiento no encontrado' }));
                   }
-                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                  const row = result.rows[0];
+                  const normalizado = {
+                    ...row,
+                    monto: parseFloat(row.monto) || 0,
+                    fecha: row.fecha ? String(row.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10)
+                  };
+                  return res.end(JSON.stringify({ success: true, data: normalizado }));
                 } finally {
                   client.release();
                 }

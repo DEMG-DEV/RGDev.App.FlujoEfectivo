@@ -95,7 +95,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        return res.status(201).json({ success: true, data: row });
+        return res.status(201).json({
+          success: true,
+          data: {
+            ...row,
+            monto: parseFloat(row.monto) || 0,
+            fecha: row.fecha ? String(row.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10)
+          }
+        });
       } finally {
         client.release();
       }
@@ -184,7 +191,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (result.rows.length === 0) {
           return res.status(404).json({ error: 'Movimiento no encontrado' });
         }
-        return res.status(200).json({ success: true, data: result.rows[0] });
+        const row = result.rows[0];
+        const normalizado = {
+          ...row,
+          monto: parseFloat(row.monto) || 0,
+          fecha: row.fecha ? String(row.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10)
+        };
+        return res.status(200).json({ success: true, data: normalizado });
       } finally {
         client.release();
       }

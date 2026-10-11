@@ -5,6 +5,24 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.8.1: Corrección de pantalla en blanco al editar, blindaje de fechas y protección contra errores
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-11 10:51:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Solución a la Pantalla en Blanco al Guardar Cambios**: Se corrigió un problema donde al editar un ingreso o gasto desde Caja General, la pantalla se ponía en blanco. Esto ocurría porque la fecha devuelta por la base de datos contenía horas internas que confundían al formateador visual. Ahora todas las fechas se limpian y procesan con total precisión.
+2. **Protección y Recuperación Automática (Pantalla de Ayuda)**: Se agregó un sistema de seguridad inteligente que protege toda la aplicación. En caso de que ocurra algún error imprevisto al mostrar los datos, el sistema ya no se quedará en blanco; en su lugar, mostrará una tarjeta clara con un botón para reintentar la vista o recargar la información de la nube.
+3. **Limpieza Automática de Datos Guardados en el Navegador**: La aplicación ahora revisa y repara automáticamente cualquier registro guardado en la memoria local del navegador, garantizando que los saldos, fechas y montos se calculen siempre como números exactos.
+
+### ¿Qué significa para el proyecto?
+- **Estabilidad y Confiabilidad Continua**: Los tesoreros y administradores pueden corregir fechas, conceptos o montos de cualquier movimiento con la total tranquilidad de que la pantalla responderá de inmediato sin fallos.
+- **Cero Pérdida de Información**: Los registros en la base de datos de la nube se mantienen siempre íntegros y seguros.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.8.0: Gestión de comprobantes en gastos, anexo documental en reportes y cambio flexible de fechas
 
 | Campo | Detalle |

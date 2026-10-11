@@ -19,7 +19,7 @@ import {
 import { Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
 import { subirEvidenciaACloudflare, UploadResult } from '../services/cloudflareService';
-import { formatearMoneda, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana } from '../utils/dateUtils';
+import { formatearMoneda, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana, extraerFechaYYYYMMDD } from '../utils/dateUtils';
 
 interface ModalEditarGastoProps {
   isOpen: boolean;
@@ -76,7 +76,7 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
       setMonto(transaccion.monto ? transaccion.monto.toString() : '');
       setConcepto(transaccion.concepto || '');
       setCategoria(transaccion.categoria || CATEGORIAS_GASTOS[0]);
-      setFecha(transaccion.fecha || '');
+      setFecha(extraerFechaYYYYMMDD(transaccion.fecha));
       setMetodoPago(transaccion.metodo_pago || 'efectivo');
       setEvidenciaUrl(transaccion.evidencia_url || null);
       setEvidenciaNombre(transaccion.evidencia_nombre || null);
@@ -165,7 +165,7 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
         monto: montoNumerico,
         concepto: concepto.trim(),
         categoria,
-        fecha,
+        fecha: extraerFechaYYYYMMDD(fecha),
         metodo_pago: metodoPago,
         evidencia_url: evidenciaUrl || undefined,
         evidencia_nombre: evidenciaNombre || undefined,

@@ -1,7 +1,7 @@
 // Servicio central de almacenamiento y gestión de datos de tesorería eclesiástica
 // Conectado directamente a Aiven PostgreSQL y Cloudflare R2
 import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, MiembroFrecuente, TipoCulto, MetodoPago } from '../types';
-import { identificarDiaSemana } from '../utils/dateUtils';
+import { identificarDiaSemana, extraerFechaYYYYMMDD } from '../utils/dateUtils';
 
 const STORAGE_KEYS = {
   TRANSACCIONES: 'iglesia_flujo_transacciones_v2',
@@ -19,6 +19,36 @@ function purgarSeedAntiguo() {
 }
 purgarSeedAntiguo();
 
+/**
+ * Normaliza y sanea cualquier registro de transacción proveniente de PostgreSQL,
+ * localStorage o respuestas HTTP para garantizar tipado numérico y fechas válidas YYYY-MM-DD
+ */
+export function normalizarTransaccion(row: any): Transaccion {
+  if (!row) return {} as Transaccion;
+  const fechaLimpia = extraerFechaYYYYMMDD(row.fecha);
+  const montoNum = typeof row.monto === 'number' ? row.monto : (parseFloat(String(row.monto)) || 0);
+  return {
+    id: String(row.id || ''),
+    tipo: row.tipo === 'gasto' ? 'gasto' : 'ingreso',
+    subtipo: row.subtipo || undefined,
+    categoria: String(row.categoria || 'Sin categoría'),
+    monto: isNaN(montoNum) ? 0 : montoNum,
+    fecha: fechaLimpia,
+    dia_semana: row.dia_semana || identificarDiaSemana(fechaLimpia),
+    tipo_culto: row.tipo_culto || 'no_aplica',
+    concepto: String(row.concepto || ''),
+    miembro_nombre: row.miembro_nombre || undefined,
+    proyecto_id: row.proyecto_id || undefined,
+    proyecto_nombre: row.proyecto_nombre || undefined,
+    pacto_id: row.pacto_id || undefined,
+    metodo_pago: (row.metodo_pago as MetodoPago) || 'efectivo',
+    evidencia_url: row.evidencia_url || undefined,
+    evidencia_nombre: row.evidencia_nombre || undefined,
+    evidencia_tipo: row.evidencia_tipo || undefined,
+    created_at: row.created_at ? String(row.created_at) : new Date().toISOString()
+  };
+}
+
 export const storageService = {
   // Transacciones
   getTransacciones(): Transaccion[] {
@@ -27,7 +57,11 @@ export const storageService = {
       return [];
     }
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizarTransaccion);
+      }
+      return [];
     } catch {
       return [];
     }
@@ -39,25 +73,7 @@ export const storageService = {
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
-          const normalizadas: Transaccion[] = json.data.map((row: any) => ({
-            id: row.id,
-            tipo: row.tipo,
-            subtipo: row.subtipo,
-            categoria: row.categoria,
-            monto: parseFloat(row.monto) || 0,
-            fecha: row.fecha ? String(row.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10),
-            dia_semana: row.dia_semana || identificarDiaSemana(row.fecha),
-            tipo_culto: row.tipo_culto || 'no_aplica',
-            concepto: row.concepto,
-            miembro_nombre: row.miembro_nombre,
-            proyecto_id: row.proyecto_id,
-            proyecto_nombre: row.proyecto_nombre,
-            pacto_id: row.pacto_id,
-            metodo_pago: row.metodo_pago || 'efectivo',
-            evidencia_url: row.evidencia_url,
-            evidencia_nombre: row.evidencia_nombre,
-            created_at: row.created_at || new Date().toISOString()
-          }));
+          const normalizadas: Transaccion[] = json.data.map(normalizarTransaccion);
           localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(normalizadas));
           return normalizadas;
         }
@@ -70,21 +86,25 @@ export const storageService = {
 
   async guardarTransaccion(transaccion: Omit<Transaccion, 'id' | 'created_at' | 'dia_semana'>): Promise<Transaccion> {
     const lista = this.getTransacciones();
-    const dia_semana = identificarDiaSemana(transaccion.fecha);
+    const fechaLimpia = extraerFechaYYYYMMDD(transaccion.fecha);
+    const montoNum = typeof transaccion.monto === 'number' ? transaccion.monto : (parseFloat(String(transaccion.monto)) || 0);
+    const dia_semana = identificarDiaSemana(fechaLimpia);
     const tempId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'tx-' + Date.now();
-    const nueva: Transaccion = {
+    const nueva: Transaccion = normalizarTransaccion({
       ...transaccion,
       id: tempId,
+      fecha: fechaLimpia,
+      monto: montoNum,
       dia_semana,
       created_at: new Date().toISOString()
-    };
+    });
 
     lista.unshift(nueva);
     localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
 
     // Si es aporte a proyecto pactado, actualizar totales del proyecto y pacto localmente de inmediato
     if (transaccion.tipo === 'ingreso' && transaccion.subtipo === 'pacto' && transaccion.proyecto_id) {
-      this.actualizarAportePacto(transaccion.proyecto_id, transaccion.pacto_id, transaccion.monto);
+      this.actualizarAportePacto(transaccion.proyecto_id, transaccion.pacto_id, montoNum);
     }
 
     // Si incluye nombre de miembro, guardarlo como frecuente
@@ -109,7 +129,7 @@ export const storageService = {
           const txs = this.getTransacciones();
           const idx = txs.findIndex(t => t.id === tempId);
           if (idx >= 0) {
-            txs[idx] = nueva;
+            txs[idx] = normalizarTransaccion({ ...txs[idx], ...json.data, id: json.data.id });
             localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(txs));
           }
         }
@@ -147,8 +167,9 @@ export const storageService = {
     const txAnterior = { ...lista[idx] };
     const cambiosCompletos: Partial<Transaccion> = { ...cambios };
 
-    // Si se mueve la fecha, recalcular automáticamente el día de la semana
+    // Si se mueve la fecha, recalcular automáticamente el día de la semana y garantizar formato YYYY-MM-DD
     if (cambiosCompletos.fecha) {
+      cambiosCompletos.fecha = extraerFechaYYYYMMDD(cambiosCompletos.fecha);
       cambiosCompletos.dia_semana = identificarDiaSemana(cambiosCompletos.fecha);
       if (txAnterior.tipo === 'ingreso' && !cambiosCompletos.tipo_culto) {
         if (cambiosCompletos.dia_semana === 'miercoles') {
@@ -159,11 +180,18 @@ export const storageService = {
       }
     }
 
-    const txActualizada: Transaccion = {
+    // Asegurar que monto sea un número de punto flotante válido
+    if (cambiosCompletos.monto !== undefined) {
+      cambiosCompletos.monto = typeof cambiosCompletos.monto === 'number'
+        ? cambiosCompletos.monto
+        : (parseFloat(String(cambiosCompletos.monto)) || 0);
+    }
+
+    const txActualizada: Transaccion = normalizarTransaccion({
       ...txAnterior,
       ...cambiosCompletos,
       id // Garantizar ID original
-    };
+    });
 
     lista[idx] = txActualizada;
     localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
@@ -180,7 +208,7 @@ export const storageService = {
           const fresh = this.getTransacciones();
           const fIdx = fresh.findIndex(t => t.id === id);
           if (fIdx >= 0) {
-            fresh[fIdx] = { ...fresh[fIdx], ...json.data };
+            fresh[fIdx] = normalizarTransaccion({ ...fresh[fIdx], ...json.data, id });
             localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(fresh));
             return fresh[fIdx];
           }

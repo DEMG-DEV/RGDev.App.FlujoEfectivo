@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.8.1** | 2026-10-11 10:51:00 | David Méndez | Producción / Estable |
 | **v1.8.0** | 2026-10-11 09:58:00 | David Méndez | Producción / Estable |
 | **v1.7.0** | 2026-09-29 21:26:00 | David Méndez | Producción / Estable |
 | **v1.6.0** | 2026-09-29 13:35:00 | David Méndez | Producción / Estable |
@@ -20,7 +21,12 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Gestión Integral de Comprobantes, Anexo Documental en Reportes y Mover Fecha de Movimientos
+### 1. Resiliencia en Edición de Movimientos, Normalización de Fechas y Error Boundary Global
+- **Blindaje contra Pantalla en Blanco**: Corrección del error de tiempo inválido (`RangeError: Invalid time value`) al editar movimientos en Caja General o gastos en `ModalEditarGasto`, garantizando que respuestas de PostgreSQL con marcas de tiempo ISO o strings numéricos se procesen de forma transparente.
+- **Normalización Universal de Transacciones (`extraerFechaYYYYMMDD` y `normalizarTransaccion`)**: Extracción limpia del formato `YYYY-MM-DD` y conversión a float numérico tanto en cliente como en APIs serverless (`api/movimientos.ts`) y dev server (`vite.config.ts`), auto-reparando registros antiguos en `localStorage`.
+- **Componente de Resiliencia `ErrorBoundary` Global**: Envoltura de nivel raíz en `main.tsx` que previene cualquier pantalla blanca ante excepciones de renderizado imprevistas, ofreciendo botones de recuperación y recarga segura.
+
+### 2. Gestión Integral de Comprobantes, Anexo Documental en Reportes y Mover Fecha de Movimientos
 - **Mover Fecha al Editar Movimientos en Caja General**: Nueva función integral en el Libro de Caja para modificar o mover la fecha de cualquier movimiento (ingresos y gastos) con un selector de fecha interactivo, indicador reactivo del día de culto (`Miércoles`, `Domingo`, `Otro`) y accesos rápidos de 1 clic (`Hoy`, `Último Miércoles`, `Último Domingo`). Al hacer clic en la fecha dentro de la tabla se abre directamente el editor.
 - **Edición Completa de Gastos y Comprobantes (`ModalEditarGasto`)**: Módulo para modificar montos, conceptos, categorías, fechas y métodos de pago de gastos, con soporte completo para subir, visualizar miniatura, reemplazar o eliminar comprobantes digitales (imágenes JPG, PNG, WebP o documentos PDF) respaldados en Cloudflare R2 con compresión automática y barra de progreso.
 - **Anexo Documental de Comprobantes en Reporte Oficial**: Sección en el informe financiero oficial que compila todas las facturas y comprobantes del período como un anexo documental numerado (`Anexo #1`, `Anexo #2`...), con ficha descriptiva (fecha, categoría, concepto, método de pago, nombre de archivo, importe en rojo) y referencia cruzada directa en la columna de Evidencia de la tabla de egresos.
