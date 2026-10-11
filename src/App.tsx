@@ -218,6 +218,7 @@ const AppContent: React.FC = () => {
         transacciones={transacciones}
         proyectos={proyectos}
         pactos={pactos}
+        onVerEvidencia={handleVerEvidencia}
       />
 
       {/* Muelle Flotante Global de Acciones Rápidas (Apple HIG) */}

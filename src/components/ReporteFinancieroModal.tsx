@@ -29,6 +29,7 @@ interface ReporteFinancieroModalProps {
   transacciones: Transaccion[];
   proyectos: ProyectoPactado[];
   pactos: PactoMiembro[];
+  onVerEvidencia?: (url: string, nombre?: string) => void;
 }
 
 type RangoPeriodo = 'por_mes' | 'todo' | 'este_ano' | 'personalizado';
@@ -38,7 +39,8 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
   onClose,
   transacciones,
   proyectos,
-  pactos
+  pactos,
+  onVerEvidencia
 }) => {
   // Asegurar que cuando el modal de reporte esté abierto, la app de fondo se oculte completamente al imprimir
   useEffect(() => {
@@ -69,6 +71,7 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
   const [incluirGastos, setIncluirGastos] = useState<boolean>(true);
   const [incluirProyectos, setIncluirProyectos] = useState<boolean>(true);
   const [incluirLibroCaja, setIncluirLibroCaja] = useState<boolean>(false);
+  const [incluirAnexos, setIncluirAnexos] = useState<boolean>(true);
 
   // Fecha y folio de emisión
   const fechaEmision = useMemo(() => new Date(), []);
@@ -290,6 +293,20 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
       });
   }, [transaccionesCajaFiltradas]);
 
+  // Comprobantes de egresos / gastos respaldados con archivo o imagen en Cloudflare R2
+  const gastosConComprobante = useMemo(() => {
+    return gastosCaja.filter(g => Boolean(g.evidencia_url));
+  }, [gastosCaja]);
+
+  // Mapa de ID de transacción a número de anexo (para referencia cruzada exacta)
+  const mapaIndicesAnexos = useMemo(() => {
+    const mapa = new Map<string, number>();
+    gastosConComprobante.forEach((g, idx) => {
+      mapa.set(g.id, idx + 1);
+    });
+    return mapa;
+  }, [gastosConComprobante]);
+
   // Aportes de Proyectos Pactados en el período
   const aportesPactosFiltrados = useMemo(() => {
     return transaccionesFiltradas.filter(t => t.tipo === 'ingreso' && t.subtipo === 'pacto');
@@ -483,34 +500,41 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
     </tr>
   );
 
-  const renderFilaGasto = (g: Transaccion) => (
-    <tr key={g.id} className="hover:bg-slate-50">
-      <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
-        {formatearFechaCorta(g.fecha)}
-      </td>
-      <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700">
-        {g.categoria}
-      </td>
-      <td className="py-2 px-2.5 text-slate-800">
-        {g.concepto}
-      </td>
-      <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
-        {g.metodo_pago}
-      </td>
-      <td className="py-2 px-2.5 whitespace-nowrap text-[10px]">
-        {g.evidencia_url ? (
-          <span className="font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded">
-            Respaldada en R2
-          </span>
-        ) : (
-          <span className="text-slate-400 italic">Sin archivo</span>
-        )}
-      </td>
-      <td className="py-2 px-2.5 text-right font-bold text-rose-700 whitespace-nowrap">
-        -{formatearMoneda(g.monto)}
-      </td>
-    </tr>
-  );
+  const renderFilaGasto = (g: Transaccion) => {
+    const numAnexo = mapaIndicesAnexos.get(g.id);
+    return (
+      <tr key={g.id} className="hover:bg-slate-50">
+        <td className="py-2 px-2.5 whitespace-nowrap font-bold text-slate-900">
+          {formatearFechaCorta(g.fecha)}
+        </td>
+        <td className="py-2 px-2.5 whitespace-nowrap font-semibold text-slate-700">
+          {g.categoria}
+        </td>
+        <td className="py-2 px-2.5 text-slate-800">
+          {g.concepto}
+        </td>
+        <td className="py-2 px-2.5 whitespace-nowrap capitalize text-slate-500">
+          {g.metodo_pago}
+        </td>
+        <td className="py-2 px-2.5 whitespace-nowrap text-[10px]">
+          {g.evidencia_url ? (
+            <span 
+              onClick={() => onVerEvidencia?.(g.evidencia_url!, g.evidencia_nombre)}
+              title="Ver comprobante adjunto"
+              className="font-bold text-sky-800 bg-sky-50 border border-sky-300 px-2 py-0.5 rounded cursor-pointer hover:bg-sky-100 transition-colors inline-flex items-center space-x-1"
+            >
+              <span>Anexo #{numAnexo}</span>
+            </span>
+          ) : (
+            <span className="text-slate-400 italic">Sin archivo</span>
+          )}
+        </td>
+        <td className="py-2 px-2.5 text-right font-bold text-rose-700 whitespace-nowrap">
+          -{formatearMoneda(g.monto)}
+        </td>
+      </tr>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -686,6 +710,15 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                 className="rounded text-indigo-600 focus:ring-0"
               />
               <span>Libro Diario con Saldos</span>
+            </label>
+            <label className="flex items-center space-x-1.5 cursor-pointer select-none text-sky-700 font-semibold">
+              <input
+                type="checkbox"
+                checked={incluirAnexos}
+                onChange={(e) => setIncluirAnexos(e.target.checked)}
+                className="rounded text-sky-600 focus:ring-0"
+              />
+              <span>Anexo Comprobantes ({gastosConComprobante.length})</span>
             </label>
           </div>
 
@@ -1326,6 +1359,125 @@ export const ReporteFinancieroModal: React.FC<ReporteFinancieroModalProps> = ({
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* 6. ANEXO DOCUMENTAL: COMPROBANTES Y FACTURAS DE EGRESOS FISCALES */}
+          {incluirAnexos && gastosConComprobante.length > 0 && (
+            <div className="mb-8 pt-4">
+              <div className="flex items-center justify-between pb-2 mb-4 border-b-2 border-slate-900 print-break-inside-avoid break-inside-avoid">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center font-black text-xs">
+                    A
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wide text-slate-950">
+                      Anexo Documental: Comprobantes & Evidencias Digitales de Gastos
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Respaldo documental fiscal y facturas en Cloudflare R2 ({gastosConComprobante.length} comprobantes identificados)
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-sky-800 bg-sky-50 border border-sky-200 px-3 py-1 rounded-full">
+                  {gastosConComprobante.length} {gastosConComprobante.length === 1 ? 'Comprobante' : 'Comprobantes'}
+                </span>
+              </div>
+
+              {/* Cuadrícula de Comprobantes con Identificación Completa */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
+                {gastosConComprobante.map((g, idx) => {
+                  const numAnexo = idx + 1;
+                  const esPdf = g.evidencia_url?.toLowerCase().includes('.pdf') || 
+                                g.evidencia_url?.startsWith('data:application/pdf') || 
+                                g.evidencia_tipo === 'application/pdf';
+
+                  return (
+                    <div
+                      key={g.id}
+                      className="border-2 border-slate-200 rounded-2xl p-4 bg-white shadow-2xs print:border-slate-300 print:shadow-none print-break-inside-avoid break-inside-avoid flex flex-col justify-between"
+                    >
+                      {/* Cabecera del Anexo Identificado */}
+                      <div>
+                        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-sky-700 text-white shadow-2xs">
+                              ANEXO #{numAnexo}
+                            </span>
+                            <span className="text-xs font-bold text-slate-500">
+                              {formatearFechaCorta(g.fecha)}
+                            </span>
+                          </div>
+                          <span className="text-sm font-black text-rose-700 tabular-nums">
+                            -{formatearMoneda(g.monto)}
+                          </span>
+                        </div>
+
+                        {/* Ficha de Identificación del Gasto */}
+                        <div className="bg-slate-50 rounded-xl p-2.5 space-y-1 text-xs border border-slate-100 mb-3">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Categoría:</span>
+                            <span className="font-bold text-slate-800 text-right truncate max-w-[200px]">{g.categoria}</span>
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Concepto / Motivo:</span>
+                            <span className="font-medium text-slate-700 text-right truncate max-w-[200px]">{g.concepto}</span>
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Método:</span>
+                            <span className="font-semibold text-slate-600 capitalize">{g.metodo_pago}</span>
+                          </div>
+                          {g.evidencia_nombre && (
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Archivo:</span>
+                              <span className="font-mono text-[10px] text-slate-500 truncate max-w-[200px]">{g.evidencia_nombre}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Visualización del Comprobante / Imagen o PDF */}
+                      <div className="mt-auto pt-2 border-t border-slate-100">
+                        {esPdf ? (
+                          <div className="p-3 bg-rose-50/60 border border-rose-200/80 rounded-xl flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-900 truncate">
+                                {g.evidencia_nombre || 'Comprobante Fiscal en PDF'}
+                              </p>
+                              <p className="text-[10px] text-slate-500">
+                                Documento PDF digital archivado en Cloudflare R2
+                              </p>
+                            </div>
+                            {onVerEvidencia && g.evidencia_url && (
+                              <button
+                                type="button"
+                                onClick={() => onVerEvidencia(g.evidencia_url!, g.evidencia_nombre)}
+                                className="no-print px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-slate-50 text-rose-700 border border-rose-300 rounded-lg shadow-2xs"
+                              >
+                                Abrir PDF
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center justify-center min-h-[160px] max-h-[260px] overflow-hidden">
+                            <img
+                              src={g.evidencia_url}
+                              alt={`Comprobante de ${g.concepto}`}
+                              className="max-h-[240px] w-auto max-w-full object-contain rounded-lg shadow-2xs bg-white cursor-pointer hover:scale-[1.02] transition-transform"
+                              onClick={() => onVerEvidencia?.(g.evidencia_url!, g.evidencia_nombre)}
+                              loading="eager"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

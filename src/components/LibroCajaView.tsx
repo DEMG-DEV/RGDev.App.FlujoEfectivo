@@ -22,11 +22,15 @@ import {
   Tag,
   Check,
   CheckCircle2,
-  Loader2
+  Loader2,
+  UploadCloud,
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
-import { Transaccion } from '../types';
+import { Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
-import { formatearMoneda, formatearFechaCorta, formatearFechaLarga } from '../utils/dateUtils';
+import { formatearMoneda, formatearFechaCorta, formatearFechaLarga, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana } from '../utils/dateUtils';
+import { ModalEditarGasto } from './ModalEditarGasto';
 
 function formatearMesAnio(claveMes: string): string {
   if (!claveMes) return '';
@@ -89,18 +93,41 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   // Por defecto NO contar proyectos pactados (se manejan en su módulo independiente)
   const [incluirPactos, setIncluirPactos] = useState(false);
 
-  // Estado para cambio rápido de categoría
+  // Estado para edición completa de gasto (incluyendo comprobante)
+  const [gastoEditando, setGastoEditando] = useState<Transaccion | null>(null);
+
+  // Estado para edición y cambio de fecha / categoría de movimientos de caja
   const [txEditandoCategoria, setTxEditandoCategoria] = useState<Transaccion | null>(null);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('');
   const [categoriaPersonalizada, setCategoriaPersonalizada] = useState<string>('');
+  const [fechaEditando, setFechaEditando] = useState<string>('');
+  const [conceptoEditando, setConceptoEditando] = useState<string>('');
+  const [montoEditando, setMontoEditando] = useState<string>('');
+  const [metodoPagoEditando, setMetodoPagoEditando] = useState<MetodoPago>('efectivo');
   const [guardandoCategoria, setGuardandoCategoria] = useState<boolean>(false);
   const [guardandoCategoriaId, setGuardandoCategoriaId] = useState<string | null>(null);
   const [notificacionExito, setNotificacionExito] = useState<string | null>(null);
 
-  const handleAbrirEdicionCategoria = (t: Transaccion) => {
+  const handleAbrirEdicion = (t: Transaccion) => {
+    if (t.tipo === 'gasto') {
+      setGastoEditando(t);
+    } else {
+      handleAbrirEdicionMovimiento(t);
+    }
+  };
+
+  const handleAbrirEdicionMovimiento = (t: Transaccion) => {
     setTxEditandoCategoria(t);
     setCategoriaSeleccionada(t.categoria);
     setCategoriaPersonalizada('');
+    setFechaEditando(t.fecha || getFechaHoy());
+    setConceptoEditando(t.concepto || '');
+    setMontoEditando(t.monto ? t.monto.toString() : '');
+    setMetodoPagoEditando(t.metodo_pago || 'efectivo');
+  };
+
+  const handleAbrirEdicionCategoria = (t: Transaccion) => {
+    handleAbrirEdicionMovimiento(t);
   };
 
   const handleCambioDirectoCategoria = async (t: Transaccion, nuevaCat: string) => {
@@ -124,24 +151,37 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
     }
   };
 
-  const handleGuardarCategoria = async (nuevaCat?: string) => {
+  const handleGuardarMovimiento = async (nuevaCat?: string) => {
     if (!txEditandoCategoria) return;
     const catFinal = (nuevaCat || (categoriaSeleccionada === '__custom__' ? categoriaPersonalizada : categoriaSeleccionada)).trim();
     if (!catFinal) return;
 
-    txEditandoCategoria.categoria = catFinal;
+    const montoNum = parseFloat(montoEditando);
+    const montoFinal = (!isNaN(montoNum) && montoNum > 0) ? montoNum : txEditandoCategoria.monto;
+    const fechaFinal = fechaEditando.trim() || txEditandoCategoria.fecha;
+    const conceptoFinal = conceptoEditando.trim() || txEditandoCategoria.concepto;
 
     setGuardandoCategoria(true);
-    await storageService.actualizarCategoriaTransaccion(txEditandoCategoria.id, catFinal);
+    await storageService.editarTransaccion(txEditandoCategoria.id, {
+      categoria: catFinal,
+      fecha: fechaFinal,
+      concepto: conceptoFinal,
+      monto: montoFinal,
+      metodo_pago: metodoPagoEditando
+    });
     setGuardandoCategoria(false);
     setTxEditandoCategoria(null);
 
-    setNotificacionExito(`Categoría actualizada a "${catFinal}"`);
+    setNotificacionExito(`Movimiento actualizado (Fecha: ${formatearFechaCorta(fechaFinal)})`);
     setTimeout(() => setNotificacionExito(null), 3000);
 
     if (onTransaccionActualizada) {
       onTransaccionActualizada();
     }
+  };
+
+  const handleGuardarCategoria = async (nuevaCat?: string) => {
+    await handleGuardarMovimiento(nuevaCat);
   };
 
   // 1. Filtrar transacciones base: excluir proyectos pactados por defecto
@@ -913,16 +953,28 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       
                       {/* Fecha */}
                       <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                        <span className="font-bold text-slate-900 block text-xs">{formatearFechaCorta(t.fecha)}</span>
-                        <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
-                          t.dia_semana === 'miercoles' 
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                            : t.dia_semana === 'domingo'
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {t.dia_semana}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirEdicion(t)}
+                          className="text-left group/fecha hover:bg-blue-50/80 -m-1 p-1 rounded-xl transition-all"
+                          title="Clic para editar movimiento o mover fecha"
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span className="font-bold text-slate-900 group-hover/fecha:text-blue-700 text-xs transition-colors">
+                              {formatearFechaCorta(t.fecha)}
+                            </span>
+                            <Calendar className="w-3 h-3 text-slate-400 group-hover/fecha:text-blue-600 opacity-60 group-hover/fecha:opacity-100 transition-opacity" />
+                          </div>
+                          <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded inline-block mt-0.5 ${
+                            t.dia_semana === 'miercoles' 
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : t.dia_semana === 'domingo'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {t.dia_semana}
+                          </span>
+                        </button>
                       </td>
 
                       {/* Tipo */}
@@ -1009,14 +1061,38 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       {/* Evidencia (no-print) */}
                       <td className="no-print py-3 px-4 whitespace-nowrap">
                         {t.evidencia_url ? (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
+                              aria-label={`Ver comprobante de ${t.concepto}`}
+                              className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors min-h-[32px]"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Ver</span>
+                            </button>
+                            {t.tipo === 'gasto' && (
+                              <button
+                                type="button"
+                                onClick={() => handleAbrirEdicion(t)}
+                                aria-label={`Gestionar comprobante de ${t.concepto}`}
+                                className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                                title="Editar o reemplazar comprobante"
+                              >
+                                <UploadCloud className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ) : t.tipo === 'gasto' ? (
                           <button
                             type="button"
-                            onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
-                            aria-label={`Ver comprobante de ${t.concepto}`}
-                            className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors min-h-[32px]"
+                            onClick={() => handleAbrirEdicion(t)}
+                            aria-label={`Subir comprobante para ${t.concepto}`}
+                            className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-dashed border-slate-300 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors min-h-[30px]"
+                            title="Subir comprobante a Cloudflare R2"
                           >
-                            <Eye className="w-3.5 h-3.5 text-sky-600" />
-                            <span>Ver</span>
+                            <UploadCloud className="w-3.5 h-3.5 text-slate-400" />
+                            <span>+ Subir</span>
                           </button>
                         ) : (
                           <span className="text-xs text-slate-400 italic">Sin comprobante</span>
@@ -1039,15 +1115,15 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                         </span>
                       </td>
 
-                      {/* Acciones: Editar Categoría y Eliminar */}
+                      {/* Acciones: Editar y Eliminar */}
                       <td className="no-print py-3 px-3 text-right">
                         <div className="flex items-center justify-end space-x-1">
                           <button
                             type="button"
-                            onClick={() => handleAbrirEdicionCategoria(t)}
-                            aria-label={`Editar categoría de ${t.concepto}`}
+                            onClick={() => handleAbrirEdicion(t)}
+                            aria-label={`Editar ${t.tipo === 'gasto' ? 'gasto y comprobante' : 'categoría'} de ${t.concepto}`}
                             className="text-slate-400 hover:text-blue-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-blue-50 transition-colors"
-                            title="Cambiar categoría de forma sencilla"
+                            title={t.tipo === 'gasto' ? "Editar gasto y comprobante" : "Cambiar categoría"}
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
@@ -1118,23 +1194,27 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
         </>
       )}
 
-      {/* Modal Rápido para Cambiar Categoría */}
+      {/* Modal para Editar Movimiento de Caja y Mover Fecha */}
       {txEditandoCategoria && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
             
             {/* Header del Modal */}
-            <div className="bg-[#F9F9FB] border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+            <div className="bg-[#F9F9FB] border-b border-slate-200 px-5 py-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-500/20">
-                  <Tag className="w-4 h-4" />
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                  txEditandoCategoria.tipo === 'ingreso'
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200/60'
+                    : 'bg-rose-50 text-rose-600 border-rose-200/60'
+                }`}>
+                  <Calendar className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 leading-none">
-                    Cambiar Categoría
+                    Editar Movimiento de Caja
                   </h3>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    {txEditandoCategoria.tipo === 'ingreso' ? 'Entrada de Caja' : 'Egreso / Gasto'}
+                    Mueve la fecha, ajusta el concepto o cambia la categoría contable
                   </span>
                 </div>
               </div>
@@ -1148,38 +1228,130 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
               </button>
             </div>
 
-            {/* Contenido del Modal */}
-            <div className="p-5 space-y-4">
+            {/* Contenido del Modal con Scroll */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               
-              {/* Información del Movimiento */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Concepto</span>
-                  <span className="text-xs font-bold text-slate-900 block">{txEditandoCategoria.concepto}</span>
-                  <span className="text-[11px] text-slate-500">{formatearFechaCorta(txEditandoCategoria.fecha)} • {txEditandoCategoria.miembro_nombre || 'Ofrenda Colectiva'}</span>
+              {/* SECCIÓN 1: MOVER / CAMBIAR FECHA DEL MOVIMIENTO (DESTACADA) */}
+              <div className="bg-blue-50/70 border border-blue-200/90 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-blue-950 flex items-center space-x-1.5">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <span>Mover / Cambiar Fecha</span>
+                  </label>
+                  {fechaEditando && (
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                      identificarDiaSemana(fechaEditando) === 'miercoles'
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : identificarDiaSemana(fechaEditando) === 'domingo'
+                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                          : 'bg-slate-200 text-slate-800'
+                    }`}>
+                      Día: {identificarDiaSemana(fechaEditando)}
+                    </span>
+                  )}
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Monto</span>
-                  <span className={`text-sm font-black tabular-nums ${txEditandoCategoria.tipo === 'ingreso' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {txEditandoCategoria.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(txEditandoCategoria.monto)}
+
+                {/* Input de Fecha Principal */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="date"
+                    required
+                    value={fechaEditando}
+                    onChange={(e) => setFechaEditando(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                {/* Botones de Selección Rápida de Fecha */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold uppercase text-blue-600 mr-1">Rápido:</span>
+                  <button
+                    type="button"
+                    onClick={() => setFechaEditando(getFechaHoy())}
+                    className="text-[11px] font-semibold bg-white hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFechaEditando(getUltimoDiaSemana(3))}
+                    className="text-[11px] font-semibold bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+                  >
+                    Último Miércoles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFechaEditando(getUltimoDiaSemana(0))}
+                    className="text-[11px] font-semibold bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+                  >
+                    Último Domingo
+                  </button>
+                </div>
+              </div>
+
+              {/* SECCIÓN 2: INFORMACIÓN DE MONTO Y CONCEPTO */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Monto ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={montoEditando}
+                    onChange={(e) => setMontoEditando(e.target.value)}
+                    inputMode="decimal"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Concepto / Detalle
+                  </label>
+                  <input
+                    type="text"
+                    value={conceptoEditando}
+                    onChange={(e) => setConceptoEditando(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* SECCIÓN 3: MÉTODO DE PAGO */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Método de Pago
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['efectivo', 'transferencia', 'cheque', 'tarjeta'] as MetodoPago[]).map((metodo) => (
+                    <button
+                      key={metodo}
+                      type="button"
+                      onClick={() => setMetodoPagoEditando(metodo)}
+                      className={`py-1.5 px-2 text-center rounded-xl text-xs font-bold capitalize border transition-all ${
+                        metodoPagoEditando === metodo
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                      }`}
+                    >
+                      {metodo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECCIÓN 4: CATEGORÍA CONTABLE */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Categoría Contable:
+                  </label>
+                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                    {categoriaSeleccionada === '__custom__' ? (categoriaPersonalizada || 'Personalizada') : categoriaSeleccionada}
                   </span>
                 </div>
-              </div>
-
-              {/* Categoría actual */}
-              <div className="text-xs text-slate-600">
-                <span>Categoría actual: </span>
-                <strong className="text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-bold">
-                  {txEditandoCategoria.categoria}
-                </strong>
-              </div>
-
-              {/* Lista de Categorías en botones de un solo clic */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  Selecciona la nueva categoría con 1 clic:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-44 overflow-y-auto pr-1">
                   {(txEditandoCategoria.tipo === 'ingreso' ? CATEGORIAS_INGRESOS_DISPONIBLES : CATEGORIAS_GASTOS_DISPONIBLES).map((cat) => {
                     const esActual = categoriaSeleccionada === cat;
                     return (
@@ -1188,10 +1360,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                         type="button"
                         onClick={() => {
                           setCategoriaSeleccionada(cat);
-                          handleGuardarCategoria(cat);
                         }}
-                        disabled={guardandoCategoria}
-                        className={`text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all border flex items-center justify-between group ${
+                        className={`text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all border flex items-center justify-between ${
                           esActual
                             ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                             : 'bg-white hover:bg-blue-50 text-slate-700 border-slate-200 hover:border-blue-300'
@@ -1210,51 +1380,73 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                   O escribe otra categoría personalizada:
                 </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    placeholder="Ej. Materiales de Construcción..."
-                    value={categoriaPersonalizada}
-                    onChange={(e) => {
-                      setCategoriaPersonalizada(e.target.value);
-                      setCategoriaSeleccionada('__custom__');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && categoriaPersonalizada.trim()) {
-                        e.preventDefault();
-                        handleGuardarCategoria(categoriaPersonalizada.trim());
-                      }
-                    }}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <button
-                    type="button"
-                    disabled={!categoriaPersonalizada.trim() || guardandoCategoria}
-                    onClick={() => handleGuardarCategoria(categoriaPersonalizada.trim())}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm"
-                  >
-                    Guardar
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  placeholder="Ej. Materiales de Construcción, Ofrenda Misionera..."
+                  value={categoriaPersonalizada}
+                  onChange={(e) => {
+                    setCategoriaPersonalizada(e.target.value);
+                    setCategoriaSeleccionada('__custom__');
+                  }}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                />
               </div>
 
             </div>
 
-            {/* Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex items-center justify-between text-xs text-slate-500">
-              <span>Al hacer clic en cualquier categoría, se guarda automáticamente.</span>
-              <button
-                type="button"
-                onClick={() => setTxEditandoCategoria(null)}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold"
-              >
-                Cerrar
-              </button>
+            {/* Footer de Acciones */}
+            <div className="bg-slate-50 border-t border-slate-200 px-5 py-3.5 flex items-center justify-between flex-shrink-0">
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                Al guardar, la fecha y saldos se sincronizan automáticamente.
+              </span>
+              <div className="flex items-center space-x-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setTxEditandoCategoria(null)}
+                  disabled={guardandoCategoria}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={guardandoCategoria}
+                  onClick={() => handleGuardarMovimiento()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 flex items-center space-x-1.5"
+                >
+                  {guardandoCategoria ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>
         </div>
       )}
+
+      {/* Modal Completo para Editar Gasto y Comprobante */}
+      <ModalEditarGasto
+        isOpen={!!gastoEditando}
+        transaccion={gastoEditando}
+        onClose={() => setGastoEditando(null)}
+        onGuardado={(txAct) => {
+          setNotificacionExito(`Gasto "${txAct.concepto}" actualizado correctamente`);
+          setTimeout(() => setNotificacionExito(null), 3500);
+          if (onTransaccionActualizada) {
+            onTransaccionActualizada();
+          }
+        }}
+        onVerEvidencia={onVerEvidencia}
+      />
 
       {/* Notificación Toast flotante de éxito */}
       {notificacionExito && (

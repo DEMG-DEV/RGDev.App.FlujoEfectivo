@@ -131,6 +131,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fields.push(`monto = $${idx++}`);
           values.push(parseFloat(data.monto));
         }
+        if (data.fecha !== undefined) {
+          fields.push(`fecha = $${idx++}`);
+          values.push(data.fecha);
+        }
+        if (data.dia_semana !== undefined) {
+          fields.push(`dia_semana = $${idx++}`);
+          values.push(data.dia_semana);
+        }
+        if (data.tipo_culto !== undefined) {
+          fields.push(`tipo_culto = $${idx++}`);
+          values.push(data.tipo_culto);
+        }
+        if (data.metodo_pago !== undefined) {
+          fields.push(`metodo_pago = $${idx++}`);
+          values.push(data.metodo_pago);
+        }
+        if (data.evidencia_url !== undefined) {
+          fields.push(`evidencia_url = $${idx++}`);
+          values.push(data.evidencia_url || null);
+        }
+        if (data.evidencia_nombre !== undefined) {
+          fields.push(`evidencia_nombre = $${idx++}`);
+          values.push(data.evidencia_nombre || null);
+        }
+        if (data.evidencia_tipo !== undefined) {
+          fields.push(`evidencia_tipo = $${idx++}`);
+          values.push(data.evidencia_tipo || null);
+        }
+        if (data.miembro_nombre !== undefined) {
+          fields.push(`miembro_nombre = $${idx++}`);
+          values.push(data.miembro_nombre || null);
+        }
 
         if (fields.length === 0) {
           return res.status(400).json({ error: 'No se enviaron campos a actualizar' });

@@ -5,6 +5,46 @@
 
 ---
 
+## feat(release): release v1.8.0 - gestion de comprobantes en gastos, anexo documental en reporte y mover fecha de movimientos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-11 09:58:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `package.json` | Modificado | Bump de versión a `1.8.0` |
+| `README.md` | Modificado | Registro de versión `v1.8.0` en Punto de Referencia y documentación de nuevas capacidades |
+| `src/components/ModalEditarGasto.tsx` | Creado | Modal interactivo para edición completa de gastos con soporte para carga, previsualización, sustitución y eliminación de comprobantes en Cloudflare R2 |
+| `src/components/LibroCajaView.tsx` | Modificado | Integración de selector de fecha interactivo con badges de culto y atajos rápidos, apertura de modal desde celda de fecha y conexión con `ModalEditarGasto` |
+| `src/components/ReporteFinancieroModal.tsx` | Modificado | Identificación y referenciación cruzada de comprobantes (`Anexo #X`) y generación de la sección imprimible de Anexo Documental |
+| `src/services/storageService.ts` | Modificado | Implementación de `editarTransaccion` con recálculo automático de `dia_semana`, `tipo_culto` y soporte de campos de evidencia |
+| `api/movimientos.ts` | Modificado | Endpoint PATCH serverless actualizado con soporte para `fecha`, `dia_semana`, `tipo_culto`, `url_comprobante` y `nombre_archivo_comprobante` |
+| `vite.config.ts` | Modificado | Servidor de desarrollo local Vite actualizado en endpoint PATCH de movimientos con soporte completo de campos de fecha y comprobantes |
+
+### Detalle Técnico
+1. **Edición Completa de Gastos y Gestión de Comprobantes Digitales**:
+   - Se desarrolló el componente `ModalEditarGasto.tsx` con manejo de estados para montos, conceptos, categorías, métodos de pago y comprobantes.
+   - Soporte para subida directa de archivos (imágenes JPG, PNG, WebP y documentos PDF) a Cloudflare R2 vía `storageService.subirArchivoComprobante`.
+   - Se incluyó visor previo de comprobantes con opciones de reemplazo, eliminación y barra de progreso animada.
+2. **Capacidad de Mover Fecha al Editar Movimientos en Caja General**:
+   - En `LibroCajaView.tsx`, se integró un selector de fecha con cálculo reactivo del día de la semana y tipo de culto (`Miércoles`, `Domingo`, `Otro`).
+   - Se agregaron botones de acceso rápido de un clic: "Hoy", "Último Miércoles" y "Último Domingo".
+   - Las celdas de fecha en la tabla de transacciones ahora son interactivas e invocan directamente el editor correspondiente.
+3. **Anexo Documental en Reportes Financieros Oficiales**:
+   - En `ReporteFinancieroModal.tsx`, se creó un sistema de indexación secuencial para gastos con comprobante (`Anexo #1`, `Anexo #2`...).
+   - Se incluyó la insignia de anexo en la columna de evidencia de la tabla de egresos y una sección imprimible dedicada al final del informe con fichas técnicas y previsualizaciones completas.
+4. **Persistencia y Recálculo Automático en Backend y Base de Datos**:
+   - Al modificar una fecha, se recalculan automáticamente las columnas `dia_semana` y `tipo_culto` para mantener coherencia en estadísticas y consultas analíticas.
+   - Se actualizaron las funciones de actualización tanto en cliente (`storageService.ts`) como en backend serverless (`api/movimientos.ts`) y entorno local (`vite.config.ts`).
+
+---
+
 ## feat(release): release v1.7.0 - analitica visual interactiva, entorno docker de pruebas local y libro de caja compacto
 
 | Campo | Detalle |

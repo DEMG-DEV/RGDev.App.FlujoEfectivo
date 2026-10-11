@@ -139,39 +139,65 @@ export const storageService = {
     }).catch(err => console.warn('Error al eliminar en Aiven:', err));
   },
 
-  async actualizarCategoriaTransaccion(id: string, nuevaCategoria: string): Promise<boolean> {
-    const catLimpia = nuevaCategoria.trim();
-    if (!catLimpia) return false;
-
+  async editarTransaccion(id: string, cambios: Partial<Transaccion>): Promise<Transaccion | null> {
     const lista = this.getTransacciones();
     const idx = lista.findIndex(t => t.id === id);
-    if (idx >= 0) {
-      lista[idx].categoria = catLimpia;
-      localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
+    if (idx === -1) return null;
+
+    const txAnterior = { ...lista[idx] };
+    const cambiosCompletos: Partial<Transaccion> = { ...cambios };
+
+    // Si se mueve la fecha, recalcular automáticamente el día de la semana
+    if (cambiosCompletos.fecha) {
+      cambiosCompletos.dia_semana = identificarDiaSemana(cambiosCompletos.fecha);
+      if (txAnterior.tipo === 'ingreso' && !cambiosCompletos.tipo_culto) {
+        if (cambiosCompletos.dia_semana === 'miercoles') {
+          cambiosCompletos.tipo_culto = 'miercoles_general';
+        } else if (cambiosCompletos.dia_semana === 'domingo') {
+          cambiosCompletos.tipo_culto = txAnterior.tipo_culto === 'miercoles_general' ? 'domingo_manana' : txAnterior.tipo_culto;
+        }
+      }
     }
+
+    const txActualizada: Transaccion = {
+      ...txAnterior,
+      ...cambiosCompletos,
+      id // Garantizar ID original
+    };
+
+    lista[idx] = txActualizada;
+    localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
 
     try {
       const res = await fetch('/api/movimientos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, categoria: catLimpia })
+        body: JSON.stringify({ id, ...cambiosCompletos })
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?.categoria) {
+        if (json.data) {
           const fresh = this.getTransacciones();
           const fIdx = fresh.findIndex(t => t.id === id);
           if (fIdx >= 0) {
-            fresh[fIdx].categoria = json.data.categoria;
+            fresh[fIdx] = { ...fresh[fIdx], ...json.data };
             localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(fresh));
+            return fresh[fIdx];
           }
         }
       }
     } catch (err) {
-      console.warn('Error al actualizar categoría en Aiven / API:', err);
+      console.warn('Error al editar transacción en API / Aiven:', err);
     }
 
-    return true;
+    return txActualizada;
+  },
+
+  async actualizarCategoriaTransaccion(id: string, nuevaCategoria: string): Promise<boolean> {
+    const catLimpia = nuevaCategoria.trim();
+    if (!catLimpia) return false;
+    const res = await this.editarTransaccion(id, { categoria: catLimpia });
+    return !!res;
   },
 
   // Proyectos Pactados

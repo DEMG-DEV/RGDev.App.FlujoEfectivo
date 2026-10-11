@@ -5,6 +5,25 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.8.0: Gestión de comprobantes en gastos, anexo documental en reportes y cambio flexible de fechas
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-11 09:58:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Comprobantes y Facturas Digitales al Editar Gastos**: Ahora es posible subir, visualizar, sustituir o eliminar comprobantes digitales (fotos de recibos, facturas, tickets en imagen o PDF) directamente al editar cualquier gasto registrado. Los archivos se guardan de forma segura en la nube (Cloudflare R2) con compresión automática y barra de carga.
+2. **Anexo Documental Completo en el Informe Financiero**: El reporte oficial ahora incluye un anexo documental ilustrado al final del documento. Cada gasto que tenga comprobante recibe una etiqueta identificadora (`Anexo #1`, `Anexo #2`...), permitiendo que pastores y comités revisores puedan cotejar cada salida de dinero con su soporte gráfico y detalles contables (fecha, concepto, categoría, importe en rojo y archivo).
+3. **Mover Fecha al Editar Movimientos en Caja General**: En la pantalla de Caja General, ahora se puede cambiar fácilmente la fecha de cualquier movimiento (tanto ingresos como gastos). La herramienta incluye botones de un toque para "Hoy", "Último Miércoles" y "Último Domingo", además de detectar automáticamente el día de culto. Al pulsar sobre cualquier fecha en la tabla, se abre directamente la opción de edición.
+4. **Sincronización Automática de Días de Culto**: Cada vez que se cambia la fecha de un registro, el sistema recalcula de forma transparente el día de la semana y el tipo de reunión correspondiente, manteniendo las estadísticas de ofrendas y cultos perfectamente cuadradas.
+
+### ¿Qué significa para el proyecto?
+- **Transparencia y Respaldo Fiscal Total**: Cada salida de dinero ahora cuenta con soporte documental visible y ordenado, facilitando auditorías internas y reportes de rendición de cuentas claros ante la iglesia.
+- **Flexibilidad Operativa para Tesorería**: Si un ingreso o gasto se capturó con fecha errónea o corresponde a un culto anterior, el tesorero puede corregir la fecha en segundos sin necesidad de borrar y volver a crear el movimiento.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.7.0: Analítica visual con gráficos interactivos, entorno local Docker de pruebas y Libro de Caja estilizado
 
 | Campo | Detalle |
