@@ -80,9 +80,35 @@ export const ModalFinalizarProyecto: React.FC<ModalFinalizarProyectoProps> = ({
     }
   };
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!submitting) {
+          e.preventDefault();
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, submitting, onClose]);
+
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200/80 space-y-5 max-h-[92vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-finalizar-proyecto-titulo"
+        className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200/80 space-y-5 max-h-[92vh] overflow-y-auto"
+      >
         
         {/* Cabecera Apple HIG */}
         <div className="flex items-center justify-between">
@@ -91,7 +117,7 @@ export const ModalFinalizarProyecto: React.FC<ModalFinalizarProyectoProps> = ({
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-950 leading-tight">
+              <h3 id="modal-finalizar-proyecto-titulo" className="text-base sm:text-lg font-black text-slate-950 leading-tight">
                 Finalizar Proyecto & Traslado de Resto
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">

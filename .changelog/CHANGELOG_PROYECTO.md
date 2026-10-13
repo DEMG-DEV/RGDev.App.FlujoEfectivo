@@ -5,6 +5,30 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.8.2: Fondeo automático de compras en proyectos, corrección de saldos y diálogo de confirmación accesible
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-13 11:15:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Compras en Proyectos con Fondeo Automático**: Cuando se realiza una compra financiada por un proyecto específico (por ejemplo, adquisición de equipo o materiales), el sistema ahora traslada automáticamente el recurso del proyecto a la Caja General y de inmediato registra la salida para el proveedor. De esta forma, la caja general no absorbe el gasto de su propio bolsillo ni cae en saldo negativo.
+2. **Cifras Claras y Reales en Proyectos Pactados**: Se corrigió el cálculo de recaudación para que las transferencias de dinero hacia la caja general no se sumen erróneamente como nuevas donaciones. Ahora las metas, el dinero recaudado y los sobrantes de cada proyecto reflejan con exactitud las aportaciones reales de los miembros.
+3. **Nuevas Ventanas de Confirmación Seguras**: Se reemplazaron los avisos tradicionales del navegador por elegantes ventanas de confirmación estilo Apple. Cuentan con diseño visual claro, protección contra toques accidentales y cierre intuitivo con la tecla Escape.
+4. **Respaldo Integral en la Nube**: Se implementó una herramienta automatizada que genera copias de seguridad de toda la base de datos de la iglesia y las resguarda de forma segura e inmediata en Cloudflare.
+
+### ¿Qué significa para el proyecto?
+- **Total Transparencia y Fidelidad en las Cuentas**: Los fondos con propósito especial y la caja operativa de culto mantienen su separación y equilibrio financiero exacto.
+- **Rendición de Cuentas Confiable**: Cada salida cuenta con su soporte digital y no desajusta el balance general de la tesorería.
+
+### ¿Qué va a notar el usuario/cliente?
+- Al comprar algo pactado o finalizar un proyecto, el Libro de Caja registrará la entrada del fondo del proyecto, la salida del pago y el ingreso del resto sobrante.
+- Las estadísticas del proyecto mostrarán los importes exactos sin inflar cifras.
+- Una interfaz más fluida, accesible y consistente en todos los dispositivos.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.8.1: Corrección de pantalla en blanco al editar, blindaje de fechas y protección contra errores
 
 | Campo | Detalle |

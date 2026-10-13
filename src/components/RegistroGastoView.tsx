@@ -109,7 +109,7 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
     }
   };
 
-  const handleGuardarGasto = (e: React.FormEvent) => {
+  const handleGuardarGasto = async (e: React.FormEvent) => {
     e.preventDefault();
     const montoNumerico = parseFloat(monto);
     if (isNaN(montoNumerico) || montoNumerico <= 0) {
@@ -127,7 +127,26 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
       : concepto.trim();
 
     const proyecto = proyectos.find(p => p.id === proyectoSeleccionadoId);
-    storageService.guardarTransaccion({
+
+    // 1. Si el gasto es financiado por un proyecto pactado, generar primero el movimiento
+    // de ingreso a Caja General por el monto del gasto para fondear la compra con los recursos del proyecto.
+    if (proyecto) {
+      await storageService.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'ofrenda',
+        categoria: 'Ofrenda General',
+        monto: montoNumerico,
+        fecha,
+        tipo_culto: 'no_aplica',
+        concepto: `Fondo transferido del proyecto: ${proyecto.nombre} para compra`,
+        proyecto_id: proyecto.id,
+        proyecto_nombre: proyecto.nombre,
+        metodo_pago: metodoPago
+      });
+    }
+
+    // 2. Registrar el movimiento de salida / gasto con su comprobante
+    await storageService.guardarTransaccion({
       tipo: 'gasto',
       categoria,
       monto: montoNumerico,

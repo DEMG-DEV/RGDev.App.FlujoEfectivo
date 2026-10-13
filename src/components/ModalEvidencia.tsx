@@ -8,13 +8,37 @@ interface ModalEvidenciaProps {
 }
 
 export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ url, nombre, onCerrar }) => {
+  React.useEffect(() => {
+    if (!url) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCerrar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [url, onCerrar]);
+
   if (!url) return null;
 
   const esPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200/80 flex flex-col max-h-[90vh]">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onCerrar();
+        }
+      }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-evidencia-titulo"
+        className="bg-white rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200/80 flex flex-col max-h-[90vh]"
+      >
         
         {/* Cabecera Apple HIG */}
         <div className="flex items-center justify-between px-6 py-4 bg-[#F9F9FB] border-b border-slate-200">
@@ -23,7 +47,7 @@ export const ModalEvidencia: React.FC<ModalEvidenciaProps> = ({ url, nombre, onC
               <Cloud className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-sm">{nombre || 'Comprobante de Gasto'}</h4>
+              <h4 id="modal-evidencia-titulo" className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-sm">{nombre || 'Comprobante de Gasto'}</h4>
               <span className="text-[10px] text-slate-400 font-medium">Almacenado en Cloudflare R2 Bucket</span>
             </div>
           </div>

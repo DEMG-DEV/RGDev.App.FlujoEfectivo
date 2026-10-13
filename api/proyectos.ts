@@ -23,8 +23,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           SELECT 
             p.*,
             COALESCE((SELECT SUM(monto_total_pactado) FROM pactos_miembros WHERE proyecto_id = p.id), 0) as total_pactado,
-            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'ingreso'), 0) as total_recaudado,
-            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'gasto'), 0) as total_gastado
+            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'ingreso' AND subtipo = 'pacto'), 0) as total_recaudado,
+            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'gasto' AND (categoria != 'Liquidación / Remanente de Proyecto' OR categoria IS NULL)), 0) as total_gastado
           FROM proyectos_pactados p
           ORDER BY p.activo DESC, p.fecha_inicio DESC;
         `;
@@ -142,8 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mRes = await client.query(`
           SELECT 
             COALESCE((SELECT SUM(monto_total_pactado) FROM pactos_miembros WHERE proyecto_id = $1), 0) as total_pactado,
-            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = $1 AND tipo = 'ingreso'), 0) as total_recaudado,
-            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = $1 AND tipo = 'gasto'), 0) as total_gastado;
+            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = $1 AND tipo = 'ingreso' AND subtipo = 'pacto'), 0) as total_recaudado,
+            COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = $1 AND tipo = 'gasto' AND (categoria != 'Liquidación / Remanente de Proyecto' OR categoria IS NULL)), 0) as total_gastado;
         `, [id]);
         
         row.total_pactado = parseFloat(mRes.rows[0]?.total_pactado || 0);

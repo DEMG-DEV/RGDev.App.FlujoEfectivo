@@ -31,6 +31,7 @@ import { Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
 import { formatearMoneda, formatearFechaCorta, formatearFechaLarga, getFechaHoy, getUltimoDiaSemana, identificarDiaSemana, extraerFechaYYYYMMDD } from '../utils/dateUtils';
 import { ModalEditarGasto } from './ModalEditarGasto';
+import { ModalConfirmacion } from './ModalConfirmacion';
 
 function formatearMesAnio(claveMes: string): string {
   if (!claveMes) return '';
@@ -107,6 +108,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   const [guardandoCategoria, setGuardandoCategoria] = useState<boolean>(false);
   const [guardandoCategoriaId, setGuardandoCategoriaId] = useState<string | null>(null);
   const [notificacionExito, setNotificacionExito] = useState<string | null>(null);
+  const [transaccionAEliminar, setTransaccionAEliminar] = useState<{ id: string; concepto: string } | null>(null);
+  const [eliminandoTransaccion, setEliminandoTransaccion] = useState<boolean>(false);
 
   const handleAbrirEdicion = (t: Transaccion) => {
     if (t.tipo === 'gasto') {
@@ -338,9 +341,18 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   const flujoNetoFiltrado = totalIngresosFiltrados - totalGastosFiltrados;
 
   const handleEliminar = (id: string, concepto: string) => {
-    if (confirm(`¿Estás seguro de eliminar el registro "${concepto}"?`)) {
-      storageService.eliminarTransaccion(id);
+    setTransaccionAEliminar({ id, concepto });
+  };
+
+  const confirmarEliminarTransaccion = async () => {
+    if (!transaccionAEliminar) return;
+    setEliminandoTransaccion(true);
+    try {
+      await storageService.eliminarTransaccion(transaccionAEliminar.id);
       onTransaccionEliminada?.();
+    } finally {
+      setEliminandoTransaccion(false);
+      setTransaccionAEliminar(null);
     }
   };
 
@@ -406,7 +418,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 md:pb-8">
       
       {/* Membrete Oficial Exclusivo para Impresión PDF / Papel */}
       <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-4 print-break-inside-avoid break-inside-avoid">
@@ -475,7 +487,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             <button
               type="button"
               onClick={() => setVistaModo('movimientos')}
-              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold ${vistaModo === 'movimientos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'movimientos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
             >
               <Receipt className="w-3.5 h-3.5 inline mr-1" />
               Movimientos
@@ -483,7 +495,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             <button
               type="button"
               onClick={() => setVistaModo('mensual')}
-              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold ${vistaModo === 'mensual' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'mensual' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
             >
               <CalendarDays className="w-3.5 h-3.5 inline mr-1" />
               Saldos por Mes
@@ -491,8 +503,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={handleExportar}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Exportar a CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -500,8 +513,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Imprimir vista actual de caja"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
@@ -509,8 +523,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={onAbrirReportePDF || (() => window.print())}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Abrir Reporte Financiero Oficial en PDF"
           >
             <FileText className="w-3.5 h-3.5" />
@@ -547,7 +562,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   setFechaDesde('');
                   setFechaHasta('');
                 }}
-                className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-white px-1.5 py-0.5 rounded shadow-2xs border border-blue-200"
+                className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-white px-1.5 py-0.5 rounded shadow-2xs border border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 Limpiar
               </button>
@@ -559,22 +574,32 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
           {resumenesMensuales.map((m) => {
             const esMesFiltrado = fechaDesde === m.fechaInicio && fechaHasta === m.fechaFin;
+            const toggleFiltroMes = () => {
+              if (esMesFiltrado) {
+                setFechaDesde('');
+                setFechaHasta('');
+              } else {
+                setFechaDesde(m.fechaInicio);
+                setFechaHasta(m.fechaFin);
+                if (vistaModo === 'mensual') {
+                  setVistaModo('movimientos');
+                }
+              }
+            };
             return (
               <div
                 key={m.claveMes}
-                onClick={() => {
-                  if (esMesFiltrado) {
-                    setFechaDesde('');
-                    setFechaHasta('');
-                  } else {
-                    setFechaDesde(m.fechaInicio);
-                    setFechaHasta(m.fechaFin);
-                    if (vistaModo === 'mensual') {
-                      setVistaModo('movimientos');
-                    }
+                role="button"
+                tabIndex={0}
+                onClick={toggleFiltroMes}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleFiltroMes();
                   }
                 }}
-                className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none active:scale-[0.99] ${
+                aria-label={`Mes ${m.nombreMes}: Saldo al cierre ${formatearMoneda(m.saldoFinal)}, con ${m.cantidadMovimientos} movimientos. Clic para ${esMesFiltrado ? 'quitar filtro' : 'filtrar movimientos'}.`}
+                className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   esMesFiltrado 
                     ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-500/20 shadow-sm' 
                     : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-xs'
@@ -644,8 +669,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
               </p>
             </div>
             <button
+              type="button"
               onClick={exportarCSVMensual}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200 self-start sm:self-auto"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200 self-start sm:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Exportar Saldos Mensuales CSV</span>
@@ -696,12 +722,13 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                     </td>
                     <td className="py-3.5 px-4 text-right no-print">
                       <button
+                        type="button"
                         onClick={() => {
                           setFechaDesde(m.fechaInicio);
                           setFechaHasta(m.fechaFin);
                           setVistaModo('movimientos');
                         }}
-                        className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-1 rounded-lg transition-colors"
+                        className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       >
                         <span>Ver Movimientos</span>
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -732,12 +759,14 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   placeholder="Buscar por hermano, concepto o categoría..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-8 pr-8 py-1.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                  className="w-full pl-8 pr-8 py-1.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
                 />
                 {busqueda && (
                   <button
+                    type="button"
                     onClick={() => setBusqueda('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                    aria-label="Limpiar texto de búsqueda"
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -751,7 +780,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   <button
                     type="button"
                     onClick={() => setIncluirPactos(false)}
-                    className={`apple-segmented-item px-2.5 py-1 text-xs ${!incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${!incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                     title="Muestra únicamente las entradas y salidas de la caja general operativa"
                   >
                     Solo Caja General
@@ -759,7 +788,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   <button
                     type="button"
                     onClick={() => setIncluirPactos(true)}
-                    className={`apple-segmented-item px-2.5 py-1 text-xs ${incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${incluirPactos ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                     title="Incluye también los aportes a proyectos pactados"
                   >
                     Incluir Proyectos
@@ -769,20 +798,23 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 {/* Segmented Control de Tipo */}
                 <div className="apple-segmented-group">
                   <button
+                    type="button"
                     onClick={() => setFiltroTipo('todos')}
-                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'todos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${filtroTipo === 'todos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Todos (+/-)
                   </button>
                   <button
+                    type="button"
                     onClick={() => setFiltroTipo('ingreso')}
-                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'ingreso' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${filtroTipo === 'ingreso' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Entradas (+)
                   </button>
                   <button
+                    type="button"
                     onClick={() => setFiltroTipo('gasto')}
-                    className={`apple-segmented-item px-2.5 py-1 text-xs ${filtroTipo === 'gasto' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`apple-segmented-item px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${filtroTipo === 'gasto' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Gastos (-)
                   </button>
@@ -799,7 +831,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 <select
                   value={filtroCulto}
                   onChange={(e) => setFiltroCulto(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                  aria-label="Filtrar por tipo de culto"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
                 >
                   <option value="todos">Todos los Cultos</option>
                   <option value="miercoles">Cultos de Miércoles</option>
@@ -812,7 +845,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 <select
                   value={filtroSubtipo}
                   onChange={(e) => setFiltroSubtipo(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                  aria-label="Filtrar por clasificación de aporte"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
                 >
                   <option value="todos">Todas las Clasificaciones</option>
                   <option value="ofrenda">Ofrendas Generales</option>
@@ -828,7 +862,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   type="date"
                   value={fechaDesde}
                   onChange={(e) => setFechaDesde(e.target.value)}
-                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
+                  aria-label="Filtrar desde fecha"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none focus-visible:outline-none"
                 />
               </div>
 
@@ -839,7 +874,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   type="date"
                   value={fechaHasta}
                   onChange={(e) => setFechaHasta(e.target.value)}
-                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
+                  aria-label="Filtrar hasta fecha"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none focus-visible:outline-none"
                 />
               </div>
 
@@ -856,6 +892,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 )}
                 {(fechaDesde || fechaHasta || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || busqueda) && (
                   <button
+                    type="button"
                     onClick={() => {
                       setBusqueda('');
                       setFiltroCulto('todos');
@@ -863,7 +900,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                       setFechaDesde('');
                       setFechaHasta('');
                     }}
-                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                   >
                     Restablecer filtros
                   </button>
@@ -915,18 +952,20 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             <tbody className="divide-y divide-slate-100">
               {transaccionesFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 px-4 text-center">
-                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                        <Filter className="w-6 h-6 stroke-[1.5]" />
+                  <td colSpan={9} className="py-14 px-4 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3.5">
+                      <div className="w-16 h-16 rounded-3xl bg-gradient-to-b from-blue-50 to-indigo-50/50 border border-blue-200/60 flex items-center justify-center text-blue-600 shadow-sm">
+                        <Filter className="w-8 h-8 stroke-[1.75]" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-800">No se encontraron movimientos</h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          No hay registros que coincidan con los filtros de búsqueda o fechas aplicadas.
+                      <div className="space-y-1">
+                        <h4 className="text-base font-extrabold text-slate-900 tracking-tight">
+                          No se encontraron movimientos
+                        </h4>
+                        <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+                          No hay transacciones registradas que coincidan con los filtros de búsqueda, fechas o tipo de culto seleccionados.
                         </p>
                       </div>
-                      {(busqueda || filtroTipo !== 'todos' || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || fechaDesde || fechaHasta) && (
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                         <button
                           type="button"
                           onClick={() => {
@@ -936,12 +975,15 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                             setFiltroSubtipo('todos');
                             setFechaDesde('');
                             setFechaHasta('');
+                            setIncluirPactos(false);
                           }}
-                          className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors border border-blue-200 shadow-sm"
+                          aria-label="Limpiar todos los filtros"
+                          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                         >
-                          Restablecer todos los filtros
+                          <X className="w-3.5 h-3.5" />
+                          <span>Limpiar todos los filtros</span>
                         </button>
-                      )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -956,7 +998,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                         <button
                           type="button"
                           onClick={() => handleAbrirEdicion(t)}
-                          className="text-left group/fecha hover:bg-blue-50/80 -m-1 p-1 rounded-xl transition-all"
+                          className="text-left group/fecha hover:bg-blue-50/80 -m-1 p-1 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                           title="Clic para editar movimiento o mover fecha"
                         >
                           <div className="flex items-center space-x-1">
@@ -1008,7 +1050,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                                   handleCambioDirectoCategoria(t, val);
                                 }
                               }}
-                              className={`font-bold text-slate-900 text-xs bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg py-1 pl-2 pr-6 cursor-pointer transition-all shadow-sm appearance-none truncate max-w-full ${
+                              className={`font-bold text-slate-900 text-xs bg-slate-50 hover:bg-white border border-slate-200 hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg py-1 pl-2 pr-6 cursor-pointer transition-all shadow-sm appearance-none truncate max-w-full ${
                                 guardandoCategoriaId === t.id ? 'opacity-60 cursor-wait' : ''
                               }`}
                               title="Haz clic para cambiar de categoría inmediatamente"
@@ -1034,7 +1076,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                             type="button"
                             onClick={() => handleAbrirEdicionCategoria(t)}
                             aria-label={`Abrir panel completo de categorías para ${t.concepto}`}
-                            className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                            className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             title="Abrir panel completo de categorías"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -1050,7 +1092,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
                       {/* Hermano */}
                       <td className="py-3 px-3 sm:px-4 text-xs font-semibold text-slate-800">
-                        {t.miembro_nombre || <span className="text-slate-400 italic">Ofrenda Colectiva</span>}
+                        {t.miembro_nombre || <span className="text-slate-500 italic">Ofrenda Colectiva</span>}
                       </td>
 
                       {/* Método de Pago */}
@@ -1066,7 +1108,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                               type="button"
                               onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
                               aria-label={`Ver comprobante de ${t.concepto}`}
-                              className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors min-h-[32px]"
+                              className="inline-flex items-center space-x-1 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             >
                               <Eye className="w-3.5 h-3.5 text-sky-600" />
                               <span>Ver</span>
@@ -1076,7 +1118,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                                 type="button"
                                 onClick={() => handleAbrirEdicion(t)}
                                 aria-label={`Gestionar comprobante de ${t.concepto}`}
-                                className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                                className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                                 title="Editar o reemplazar comprobante"
                               >
                                 <UploadCloud className="w-3.5 h-3.5" />
@@ -1088,14 +1130,14 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                             type="button"
                             onClick={() => handleAbrirEdicion(t)}
                             aria-label={`Subir comprobante para ${t.concepto}`}
-                            className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-dashed border-slate-300 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors min-h-[30px]"
+                            className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-dashed border-slate-300 hover:border-blue-300 px-2 py-1 rounded-lg transition-colors min-h-[30px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             title="Subir comprobante a Cloudflare R2"
                           >
                             <UploadCloud className="w-3.5 h-3.5 text-slate-400" />
                             <span>+ Subir</span>
                           </button>
                         ) : (
-                          <span className="text-xs text-slate-400 italic">Sin comprobante</span>
+                          <span className="text-xs text-slate-500 italic">Sin comprobante</span>
                         )}
                       </td>
 
@@ -1122,7 +1164,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                             type="button"
                             onClick={() => handleAbrirEdicion(t)}
                             aria-label={`Editar ${t.tipo === 'gasto' ? 'gasto y comprobante' : 'categoría'} de ${t.concepto}`}
-                            className="text-slate-400 hover:text-blue-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-blue-50 transition-colors"
+                            className="text-slate-400 hover:text-blue-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-blue-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             title={t.tipo === 'gasto' ? "Editar gasto y comprobante" : "Cambiar categoría"}
                           >
                             <Pencil className="w-4 h-4" />
@@ -1131,7 +1173,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                             type="button"
                             onClick={() => handleEliminar(t.id, t.concepto)}
                             aria-label={`Eliminar movimiento ${t.concepto}`}
-                            className="text-slate-400 hover:text-rose-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-rose-50 transition-colors"
+                            className="text-slate-400 hover:text-rose-600 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-rose-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                             title="Eliminar movimiento"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1455,6 +1497,19 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           <span className="text-xs font-bold">{notificacionExito}</span>
         </div>
       )}
+
+      {/* Modal de Confirmación Accesible para Eliminación */}
+      <ModalConfirmacion
+        isOpen={!!transaccionAEliminar}
+        titulo="Eliminar Movimiento de Caja"
+        mensaje={`¿Estás seguro de que deseas eliminar permanentemente el registro "${transaccionAEliminar?.concepto}"? Esta acción afectará el saldo y no se puede deshacer.`}
+        textoConfirmar="Eliminar Registro"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        cargando={eliminandoTransaccion}
+        onConfirm={confirmarEliminarTransaccion}
+        onCancel={() => setTransaccionAEliminar(null)}
+      />
 
     </div>
   );

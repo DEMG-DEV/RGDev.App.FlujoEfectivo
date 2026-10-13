@@ -352,7 +352,7 @@ export const storageService = {
     tipoCulto?: TipoCulto;
     metodoPago?: MetodoPago;
     cerrarProyecto?: boolean;
-  }): Promise<{ transaccionIngreso: Transaccion; transaccionGasto?: Transaccion }> {
+  }): Promise<{ transaccionIngreso: Transaccion; transaccionFondeo?: Transaccion }> {
     const proyectos = this.getProyectos();
     const proyecto = proyectos.find(p => p.id === params.proyectoId);
     if (!proyecto) {
@@ -363,30 +363,63 @@ export const storageService = {
     const metodo = params.metodoPago || 'efectivo';
     const culto = params.tipoCulto || 'domingo_manana';
 
-    // 1. Crear gasto de liquidación del proyecto para balancear sus fondos
-    const transaccionGasto = await this.guardarTransaccion({
-      tipo: 'gasto',
-      categoria: 'Liquidación / Remanente de Proyecto',
-      monto: params.montoResto,
-      fecha: fechaFinal,
-      tipo_culto: 'no_aplica',
-      concepto: `Liquidación de resto no gastado: ${proyecto.nombre}`,
-      proyecto_id: proyecto.id,
-      proyecto_nombre: proyecto.nombre,
-      metodo_pago: metodo
-    });
+    // 1. Si el proyecto tuvo gastos y aún no se había transferido el fondo del proyecto a Caja General,
+    // se genera el ingreso compensatorio para que la compra no afecte negativamente el saldo operativo.
+    let transaccionFondeo: Transaccion | undefined;
+    const transacciones = this.getTransacciones();
+    const gastosProyecto = transacciones
+      .filter(t => t.proyecto_id === proyecto.id && t.tipo === 'gasto' && t.categoria !== 'Liquidación / Remanente de Proyecto')
+      .reduce((acc, t) => acc + t.monto, 0);
 
-    // 2. Crear entrada en Ofrenda General con el motivo exacto "resto del proyecto"
-    const transaccionIngreso = await this.guardarTransaccion({
-      tipo: 'ingreso',
-      subtipo: 'ofrenda',
-      categoria: 'Ofrenda General',
-      monto: params.montoResto,
-      fecha: fechaFinal,
-      tipo_culto: culto,
-      concepto: `Resto del proyecto: ${proyecto.nombre}`,
-      metodo_pago: metodo
-    });
+    const yaFondeado = transacciones
+      .filter(t => t.proyecto_id === proyecto.id && t.tipo === 'ingreso' && t.concepto?.includes('Fondo transferido del proyecto'))
+      .reduce((acc, t) => acc + t.monto, 0);
+
+    const pendienteFondeo = Math.max(0, gastosProyecto - yaFondeado);
+    if (pendienteFondeo > 0) {
+      transaccionFondeo = await this.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'ofrenda',
+        categoria: 'Ofrenda General',
+        monto: pendienteFondeo,
+        fecha: fechaFinal,
+        tipo_culto: 'no_aplica',
+        concepto: `Fondo transferido del proyecto: ${proyecto.nombre} para compra`,
+        proyecto_id: proyecto.id,
+        proyecto_nombre: proyecto.nombre,
+        metodo_pago: metodo
+      });
+    }
+
+    // 2. Crear entrada en Ofrenda General con el saldo o resto no gastado del proyecto
+    let transaccionIngreso: Transaccion;
+    if (params.montoResto > 0) {
+      transaccionIngreso = await this.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'ofrenda',
+        categoria: 'Ofrenda General',
+        monto: params.montoResto,
+        fecha: fechaFinal,
+        tipo_culto: culto,
+        concepto: `Resto del proyecto: ${proyecto.nombre}`,
+        proyecto_id: proyecto.id,
+        proyecto_nombre: proyecto.nombre,
+        metodo_pago: metodo
+      });
+    } else {
+      transaccionIngreso = transaccionFondeo || {
+        id: 'no-op',
+        tipo: 'ingreso',
+        categoria: 'Ofrenda General',
+        monto: 0,
+        fecha: fechaFinal,
+        dia_semana: 'otro',
+        tipo_culto: culto,
+        concepto: `Cierre del proyecto: ${proyecto.nombre}`,
+        metodo_pago: metodo,
+        created_at: new Date().toISOString()
+      };
+    }
 
     // 3. Si se solicita cerrar/finalizar el proyecto
     if (params.cerrarProyecto !== false) {
@@ -396,7 +429,7 @@ export const storageService = {
       });
     }
 
-    return { transaccionIngreso, transaccionGasto };
+    return { transaccionIngreso, transaccionFondeo };
   },
 
   // Pactos por Miembro

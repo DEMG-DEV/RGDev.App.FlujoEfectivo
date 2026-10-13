@@ -17,6 +17,7 @@ import {
   Save
 } from 'lucide-react';
 import { Usuario, RolUsuario } from '../types';
+import { ModalConfirmacion } from './ModalConfirmacion';
 
 interface GestionUsuariosModalProps {
   isOpen: boolean;
@@ -50,6 +51,10 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
   const [editActivo, setEditActivo] = useState(true);
   const [editPassword, setEditPassword] = useState('');
   const [actualizandoUsuario, setActualizandoUsuario] = useState(false);
+
+  // Estado para confirmación de eliminación accesible
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState<{ id: string; nombre: string } | null>(null);
+  const [eliminandoUsuario, setEliminandoUsuario] = useState(false);
 
   const handleIniciarEdicion = (u: Usuario) => {
     setUsuarioAEditar(u);
@@ -181,6 +186,29 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Si hay un diálogo de confirmación abierto, no cerrar este modal principal (el confirm responderá primero)
+        if (usuarioAEliminar) return;
+
+        if (usuarioAEditar) {
+          e.preventDefault();
+          setUsuarioAEditar(null);
+        } else if (mostrarFormulario) {
+          e.preventDefault();
+          setMostrarFormulario(false);
+        } else {
+          e.preventDefault();
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, usuarioAEliminar, usuarioAEditar, mostrarFormulario, onClose]);
+
   const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuardando(true);
@@ -237,34 +265,58 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
     }
   };
 
-  const handleEliminar = async (id: string, nombre: string) => {
-    if (!window.confirm(`¿Seguro que deseas eliminar al usuario "${nombre}"?`)) return;
+  const handleEliminar = (id: string, nombre: string) => {
+    setUsuarioAEliminar({ id, nombre });
+  };
+
+  const confirmarEliminacionUsuario = async () => {
+    if (!usuarioAEliminar) return;
+    setEliminandoUsuario(true);
     try {
-      const res = await fetch(`/api/usuarios?id=${id}`, {
+      const res = await fetch(`/api/usuarios?id=${usuarioAEliminar.id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
+        setMensajeExito(`Usuario "${usuarioAEliminar.nombre}" eliminado correctamente.`);
         cargarUsuarios();
+      } else {
+        setError('No se pudo eliminar el usuario.');
       }
-    } catch (err) {
-      console.error('Error al eliminar usuario:', err);
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar usuario.');
+    } finally {
+      setEliminandoUsuario(false);
+      setUsuarioAEliminar(null);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Cabecera del Modal */}
-        <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center">
-              <Users className="w-5 h-5 text-indigo-300" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Administración de Usuarios</h3>
+    <>
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div 
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-gestion-usuarios-titulo"
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        >
+          
+          {/* Cabecera del Modal */}
+          <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center">
+                <Users className="w-5 h-5 text-indigo-300" />
+              </div>
+              <div>
+                <h3 id="modal-gestion-usuarios-titulo" className="text-base font-bold text-white">Administración de Usuarios</h3>
               <p className="text-xs text-slate-400">
                 Usuarios con acceso a Auth.js (creados internamente o auto-registrados)
               </p>
@@ -711,5 +763,18 @@ export const GestionUsuariosModal: React.FC<GestionUsuariosModalProps> = ({
 
       </div>
     </div>
+
+    <ModalConfirmacion
+      isOpen={!!usuarioAEliminar}
+      titulo="Eliminar Usuario"
+      mensaje={`¿Estás seguro de que deseas eliminar al usuario "${usuarioAEliminar?.nombre}"? Esta acción no se puede deshacer y revocará su acceso al sistema.`}
+      textoConfirmar="Eliminar Usuario"
+      textoCancelar="Cancelar"
+      variante="peligro"
+      cargando={eliminandoUsuario}
+      onConfirm={confirmarEliminacionUsuario}
+      onCancel={() => setUsuarioAEliminar(null)}
+    />
+  </>
   );
 };

@@ -88,6 +88,20 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
     }
   }, [transaccion, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!guardando && !subiendo) {
+          e.preventDefault();
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, guardando, subiendo, onClose]);
+
   if (!isOpen || !transaccion) return null;
 
   const esPdf = (url: string | null, tipo: string | null) => {
@@ -184,8 +198,20 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !guardando && !subiendo) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-editar-gasto-titulo"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]"
+      >
         
         {/* Header Apple HIG */}
         <div className="bg-[#F9F9FB] border-b border-slate-200 px-5 py-4 flex items-center justify-between flex-shrink-0">
@@ -194,7 +220,7 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
               <DollarSign className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 leading-none">
+              <h3 id="modal-editar-gasto-titulo" className="text-sm font-bold text-slate-900 leading-none">
                 Editar Egreso / Gasto
               </h3>
               <span className="text-[11px] text-slate-500 font-medium">

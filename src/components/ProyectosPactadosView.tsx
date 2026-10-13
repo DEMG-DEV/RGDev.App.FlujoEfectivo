@@ -22,6 +22,7 @@ import { ProyectoPactado, PactoMiembro } from '../types';
 import { storageService } from '../services/storageService';
 import { formatearMoneda, formatearFechaCorta } from '../utils/dateUtils';
 import { ModalFinalizarProyecto } from './ModalFinalizarProyecto';
+import { ModalConfirmacion } from './ModalConfirmacion';
 
 interface ProyectosPactadosProps {
   onAbonarPacto?: (proyectoId: string, pactoId: string) => void;
@@ -63,6 +64,35 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [editCuota, setEditCuota] = useState('');
   const [editEstado, setEditEstado] = useState<'al_dia' | 'completado' | 'pendiente'>('al_dia');
   const [guardandoPacto, setGuardandoPacto] = useState(false);
+
+  // Estados para modales de confirmación accesibles
+  const [pactoAEliminar, setPactoAEliminar] = useState<{ id: string; nombre: string } | null>(null);
+  const [eliminandoPacto, setEliminandoPacto] = useState(false);
+  const [proyectoAReabrirId, setProyectoAReabrirId] = useState<string | null>(null);
+  const [reabriendoProyecto, setReabriendoProyecto] = useState(false);
+
+  // Manejador tecla Escape para modales activos
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (pactoAEliminar || proyectoAReabrirId) return;
+
+        if (mostrarModalEditarPacto) {
+          e.preventDefault();
+          setMostrarModalEditarPacto(false);
+          setPactoAEditar(null);
+        } else if (mostrarModalNuevoPacto) {
+          e.preventDefault();
+          setMostrarModalNuevoPacto(false);
+        } else if (mostrarModalNuevoProyecto) {
+          e.preventDefault();
+          setMostrarModalNuevoProyecto(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pactoAEliminar, proyectoAReabrirId, mostrarModalEditarPacto, mostrarModalNuevoPacto, mostrarModalNuevoProyecto]);
 
   // Sincronización con backend (PostgreSQL)
   const recargar = async () => {
@@ -227,31 +257,48 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     }
   };
 
-  // Eliminar pacto
-  const handleEliminarPacto = async (id: string, nombre: string) => {
-    if (!window.confirm(`¿Estás seguro de eliminar el pacto de "${nombre}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
-    await storageService.eliminarPacto(id);
-    await recargar();
-    if (pactoAEditar?.id === id) {
-      setMostrarModalEditarPacto(false);
-      setPactoAEditar(null);
+  // Eliminar pacto con ModalConfirmacion
+  const handleEliminarPacto = (id: string, nombre: string) => {
+    setPactoAEliminar({ id, nombre });
+  };
+
+  const confirmarEliminarPacto = async () => {
+    if (!pactoAEliminar) return;
+    setEliminandoPacto(true);
+    try {
+      await storageService.eliminarPacto(pactoAEliminar.id);
+      await recargar();
+      if (pactoAEditar?.id === pactoAEliminar.id) {
+        setMostrarModalEditarPacto(false);
+        setPactoAEditar(null);
+      }
+    } finally {
+      setEliminandoPacto(false);
+      setPactoAEliminar(null);
     }
   };
 
-  // Reabrir proyecto
-  const handleReabrirProyecto = async (id: string) => {
-    if (window.confirm('¿Deseas reactivar este proyecto para continuar capturando pactos?')) {
-      await storageService.editarProyecto(id, { activo: true, fecha_fin: undefined });
+  // Reabrir proyecto con ModalConfirmacion
+  const handleReabrirProyecto = (id: string) => {
+    setProyectoAReabrirId(id);
+  };
+
+  const confirmarReabrirProyecto = async () => {
+    if (!proyectoAReabrirId) return;
+    setReabriendoProyecto(true);
+    try {
+      await storageService.editarProyecto(proyectoAReabrirId, { activo: true, fecha_fin: undefined });
       await recargar();
+    } finally {
+      setReabriendoProyecto(false);
+      setProyectoAReabrirId(null);
     }
   };
 
   // Cálculos del proyecto activo
   const meta = proyectoSeleccionado?.meta_total || 1;
   const totalAportadoPactos = pactosDelProyecto.reduce((acc, p) => acc + (p.total_aportado || 0), 0);
-  const recaudado = Math.max(proyectoSeleccionado?.total_recaudado || 0, totalAportadoPactos);
+  const recaudado = totalAportadoPactos > 0 ? totalAportadoPactos : (proyectoSeleccionado?.total_recaudado || 0);
   const gastado = proyectoSeleccionado?.total_gastado || 0;
   const remanenteNoGastado = Math.max(0, recaudado - gastado);
   const porcentaje = Math.min(100, Math.round((recaudado / meta) * 100));
@@ -566,11 +613,28 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
       {/* Modal: Crear Nuevo Proyecto Apple HIG */}
       {mostrarModalNuevoProyecto && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setMostrarModalNuevoProyecto(false);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-nuevo-proyecto-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-slate-950">Nuevo Proyecto Pactado</h3>
-              <button onClick={() => setMostrarModalNuevoProyecto(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+              <h3 id="modal-nuevo-proyecto-titulo" className="text-base font-black text-slate-950">Nuevo Proyecto Pactado</h3>
+              <button 
+                type="button" 
+                onClick={() => setMostrarModalNuevoProyecto(false)} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -651,11 +715,28 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
       {/* Modal: Registrar Pacto de Hermano Apple HIG */}
       {mostrarModalNuevoPacto && proyectoSeleccionado && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setMostrarModalNuevoPacto(false);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-nuevo-pacto-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
+          >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-slate-950">Registrar Hermano Pactante</h3>
-              <button onClick={() => setMostrarModalNuevoPacto(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+              <h3 id="modal-nuevo-pacto-titulo" className="text-base font-black text-slate-950">Registrar Hermano Pactante</h3>
+              <button 
+                type="button" 
+                onClick={() => setMostrarModalNuevoPacto(false)} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -744,21 +825,39 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
       {/* Modal: Editar Datos del Pactante Apple HIG */}
       {mostrarModalEditarPacto && pactoAEditar && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setMostrarModalEditarPacto(false);
+              setPactoAEditar(null);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-editar-pacto-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
                   <Pencil className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-950">Editar Datos del Pactante</h3>
+                  <h3 id="modal-editar-pacto-titulo" className="text-base font-black text-slate-950">Editar Datos del Pactante</h3>
                   <p className="text-[11px] text-slate-500">
                     Modifica el monto, cuota semanal o contacto del hermano.
                   </p>
                 </div>
               </div>
-              <button onClick={() => { setMostrarModalEditarPacto(false); setPactoAEditar(null); }} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+              <button 
+                type="button"
+                onClick={() => { setMostrarModalEditarPacto(false); setPactoAEditar(null); }} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -887,6 +986,32 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           }}
         />
       )}
+
+      {/* Modal de Confirmación Accesible para Eliminar Pacto */}
+      <ModalConfirmacion
+        isOpen={!!pactoAEliminar}
+        titulo="Eliminar Pacto"
+        mensaje={`¿Estás seguro de que deseas eliminar permanentemente el pacto de "${pactoAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        textoConfirmar="Eliminar Pacto"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        cargando={eliminandoPacto}
+        onConfirm={confirmarEliminarPacto}
+        onCancel={() => setPactoAEliminar(null)}
+      />
+
+      {/* Modal de Confirmación Accesible para Reactivar Proyecto */}
+      <ModalConfirmacion
+        isOpen={!!proyectoAReabrirId}
+        titulo="Reactivar Proyecto"
+        mensaje="¿Deseas reactivar este proyecto para continuar capturando pactos y aportaciones de los hermanos?"
+        textoConfirmar="Reactivar Proyecto"
+        textoCancelar="Cancelar"
+        variante="primario"
+        cargando={reabriendoProyecto}
+        onConfirm={confirmarReabrirProyecto}
+        onCancel={() => setProyectoAReabrirId(null)}
+      />
 
     </div>
   );

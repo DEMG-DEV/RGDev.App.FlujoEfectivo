@@ -5,6 +5,51 @@
 
 ---
 
+## fix(proyectos): release v1.8.2 - fondeo automatico de compras en proyectos, correccion de recaudado y accesibilidad de elite
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-10-13 11:15:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Bugfix & Feature Release |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `api/proyectos.ts` | Modificado | Filtrado estricto `WHERE tipo = 'ingreso' AND subtipo = 'pacto'` para `total_recaudado` y exclusión de gastos ficticios de liquidación en `total_gastado` |
+| `src/components/ProyectosPactadosView.tsx` | Modificado | Priorización de `totalAportadoPactos` en `recaudado` para evitar cifras infladas; accesibilidad completa con `Escape` y focus rings |
+| `src/components/RegistroGastoView.tsx` | Modificado | Generación automática previa del movimiento de ingreso a Caja General por el monto del gasto al realizar compras asignadas a un proyecto |
+| `src/services/storageService.ts` | Modificado | Refactorización de `liquidarYMoverRestoProyecto` para fondear gastos pendientes de proyectos y transferir remanentes sin generar gastos artificiales |
+| `src/components/ModalConfirmacion.tsx` | Creado | Modal accesible Apple HIG (`role="alertdialog"`, focus trap, escape) sustituyendo los `window.confirm` bloqueantes del navegador |
+| `src/components/DashboardView.tsx` | Modificado | Accesibilidad por teclado en tarjetas KPI (`role="button"`, `tabIndex={0}`, `onKeyDown`), atributos `role="img"` en gráficos SVG y contraste WCAG AA |
+| `src/components/LibroCajaView.tsx` | Modificado | Estado vacío con botón para limpiar filtros, anillos de foco visibles y padding responsive para evitar solapamientos con el dock |
+| `src/components/FloatingActionsDock.tsx` | Modificado | Atributos semánticos `role="menuitem"`, navegación accesible por teclado y cierre con tecla `Escape` |
+| `src/components/ModalEvidencia.tsx` | Modificado | Soporte de tecla `Escape` y atributos de diálogo accesible |
+| `src/components/ModalEditarGasto.tsx` | Modificado | Soporte de tecla `Escape` y atributos de diálogo accesible |
+| `src/components/GestionUsuariosModal.tsx` | Modificado | Sustitución de `confirm` por `ModalConfirmacion`, soporte de tecla `Escape` |
+| `src/components/ModalFinalizarProyecto.tsx` | Modificado | Soporte de tecla `Escape` y atributos semánticos |
+| `scripts/backup-db-to-r2.js` | Creado | Script de exportación y respaldo integral de todas las tablas de PostgreSQL a Cloudflare R2 Bucket en formatos SQL y JSON |
+| `package.json` | Modificado | Bump de versión a `1.8.2` y comando `backup:r2` |
+| `README.md` | Modificado | Actualización de punto de referencia de versión a `v1.8.2` |
+| `.gitignore` | Modificado | Protección de volcados locales en `backups/` y `docker/*.sql` |
+
+### Detalle Técnico
+1. **Flujo Contable de Fondos de Proyectos y Caja General**:
+   - Anteriormente, al registrar un egreso de compra vinculado a un proyecto, el monto se deducía de la Caja General sin ingresar el recurso recaudado por el proyecto, causando saldos operativos negativos.
+   - Se estableció la secuencia contable estricta:
+     1. Movimiento de **Ingreso** a Caja General por el valor del gasto transferido del proyecto.
+     2. Movimiento de **Gasto** por la compra realizada con su respectivo soporte digital.
+     3. Movimiento de **Ingreso** por el saldo remanente al concluir el proyecto bajo el concepto de *Resto del proyecto*.
+2. **Corrección de Estadísticas de Proyectos Pactados**:
+   - En `api/proyectos.ts`, la consulta agregada sumaba cualquier transacción de ingreso con `proyecto_id`. Como la transferencia hacia caja era de tipo ingreso, se inflaba `total_recaudado` y consecuentemente `remanente_no_gastado`. Se restringió el cálculo a transacciones con `subtipo = 'pacto'`.
+3. **Elevación de Accesibilidad a Estándar WCAG 2.1 AA**:
+   - Se erradicaron todas las alertas bloqueantes del navegador (`window.confirm`) mediante `ModalConfirmacion.tsx`.
+   - Se agregaron eventos de teclado, roles ARIA y focus rings visibles en toda la plataforma.
+
+---
+
 ## fix(release): release v1.8.1 - correccion de pantalla en blanco al editar movimientos, normalizacion de fechas y error boundary
 
 | Campo | Detalle |

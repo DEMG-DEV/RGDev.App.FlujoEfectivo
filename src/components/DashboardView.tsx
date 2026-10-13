@@ -277,7 +277,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Activity className="w-3 h-3 text-emerald-600" />
             <span>Tesorería Eclesiástica</span>
             <span className="text-slate-300">•</span>
-            <span className="text-slate-400">Resumen Ejecutivo</span>
+            <span className="text-slate-500">Resumen Ejecutivo</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950 mt-0.5">
             Resumen General
@@ -287,24 +287,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Acciones Rápidas Compactas */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
+            type="button"
             onClick={() => onIrACaptura('miercoles_general')}
-            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:scale-[0.98] text-amber-800 text-xs font-bold transition-all border border-amber-500/20"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:scale-[0.98] text-amber-800 text-xs font-bold transition-all border border-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <Calendar className="w-3 h-3 text-amber-600" />
             <span>Miércoles</span>
           </button>
 
           <button
+            type="button"
             onClick={() => onIrACaptura('domingo_manana')}
-            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-[0.98] text-emerald-800 text-xs font-bold transition-all border border-emerald-500/20"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-[0.98] text-emerald-800 text-xs font-bold transition-all border border-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <Calendar className="w-3 h-3 text-emerald-600" />
             <span>Domingo</span>
           </button>
 
           <button
+            type="button"
             onClick={onIrAGastos}
-            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 active:scale-[0.98] text-rose-800 text-xs font-bold transition-all border border-rose-500/20"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 active:scale-[0.98] text-rose-800 text-xs font-bold transition-all border border-rose-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <ArrowUpRight className="w-3 h-3 text-rose-600" />
             <span>Gasto</span>
@@ -312,8 +315,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {onAbrirReportePDF && (
             <button
+              type="button"
               onClick={onAbrirReportePDF}
-              className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs"
+              className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               <FileText className="w-3 h-3" />
               <span>Reporte PDF</span>
@@ -327,8 +331,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         
         {/* Card 1: Fondo en Caja General (Destacada en Dark Slate) */}
         <div 
+          role="button"
+          tabIndex={0}
           onClick={onIrALibroCaja}
-          className="col-span-2 sm:col-span-1 bg-slate-950 text-white p-3.5 rounded-2xl shadow-sm border border-slate-800 relative overflow-hidden flex flex-col justify-between cursor-pointer group hover:border-slate-700 transition-all select-none active:scale-[0.99]"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIrALibroCaja();
+            }
+          }}
+          aria-label={`Fondo en Caja General: ${formatearMoneda(saldoCajaReal)}. Clic para abrir el Libro de Caja General.`}
+          className="col-span-2 sm:col-span-1 bg-slate-950 text-white p-3.5 rounded-2xl shadow-sm border border-slate-800 relative overflow-hidden flex flex-col justify-between cursor-pointer group hover:border-slate-700 transition-all select-none active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <div>
             <div className="flex items-center justify-between text-slate-400 mb-1">
@@ -352,8 +365,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Card 2: Total Recaudado */}
         <div 
+          role="button"
+          tabIndex={0}
           onClick={() => onIrACaptura()}
-          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-emerald-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIrACaptura();
+            }
+          }}
+          aria-label={`Total Recaudado: ${formatearMoneda(totalEntradas)}. Clic para registrar nueva entrada.`}
+          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-emerald-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <div>
             <div className="flex items-center justify-between text-slate-500 mb-1">
@@ -377,8 +399,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Card 3: Total Egresos */}
         <div 
+          role="button"
+          tabIndex={0}
           onClick={onIrAGastos}
-          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-rose-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIrAGastos();
+            }
+          }}
+          aria-label={`Total Egresos: ${formatearMoneda(totalGastos)}. Clic para registrar o revisar gastos.`}
+          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-rose-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <div>
             <div className="flex items-center justify-between text-slate-500 mb-1">
@@ -396,14 +427,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
             <span className="text-rose-700 font-semibold">Comprobantes R2</span>
-            <span className="text-slate-400">Salidas ↗</span>
+            <span className="text-slate-500">Salidas ↗</span>
           </div>
         </div>
 
         {/* Card 4: Diezmos y Ofrendas */}
         <div 
+          role="button"
+          tabIndex={0}
           onClick={() => onIrACaptura(undefined, 'diezmo')}
-          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-indigo-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIrACaptura(undefined, 'diezmo');
+            }
+          }}
+          aria-label={`Diezmos y Ofrendas: ${formatearMoneda(totalOfrendas + totalDiezmos)}. Clic para capturar diezmos.`}
+          className="bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-indigo-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <div>
             <div className="flex items-center justify-between text-slate-500 mb-1">
@@ -427,8 +467,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Card 5: Fondo Proyectos */}
         <div 
+          role="button"
+          tabIndex={0}
           onClick={onIrAPactos}
-          className="col-span-2 sm:col-span-1 bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-amber-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onIrAPactos();
+            }
+          }}
+          aria-label={`Fondo de Proyectos: ${formatearMoneda(totalProyectos)}. Clic para ver proyectos pactados.`}
+          className="col-span-2 sm:col-span-1 bg-white/95 backdrop-blur-xl border border-black/[0.06] hover:border-amber-300 p-3.5 rounded-2xl shadow-2xs flex flex-col justify-between cursor-pointer transition-all active:scale-[0.99] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <div>
             <div className="flex items-center justify-between text-slate-500 mb-1">
@@ -481,7 +530,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Gráfico de Barras Compacto */}
-          <div className="relative pt-3 pb-1 h-32 flex flex-col justify-end">
+          <div 
+            role="img"
+            aria-label={`Gráfica de barras mensual: Flujo comparativo de entradas versus gastos para ${datosMensuales.length} períodos.`}
+            className="relative pt-3 pb-1 h-32 flex flex-col justify-end"
+          >
             {/* Líneas guía sutiles */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-30">
               <div className="border-b border-dashed border-slate-200 w-full" />
@@ -499,9 +552,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 return (
                   <div 
                     key={item.mesClave}
+                    role="graphics-symbol"
+                    aria-label={`${item.nombreMes}: Entradas ${formatearMoneda(item.ingresos)}, Gastos ${formatearMoneda(item.gastos)}, Saldo Neto ${formatearMoneda(item.neto)}`}
+                    tabIndex={0}
+                    onFocus={() => setMesHover(item)}
+                    onBlur={() => setMesHover(null)}
                     onMouseEnter={() => setMesHover(item)}
                     onMouseLeave={() => setMesHover(null)}
-                    className="flex-1 max-w-[70px] flex flex-col items-center h-full justify-end cursor-pointer group relative"
+                    className="flex-1 max-w-[70px] flex flex-col items-center h-full justify-end cursor-pointer group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md"
                   >
                     {/* Tooltip flotante Apple */}
                     {isHovered && (
@@ -558,7 +616,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Distribución de Aportes
               </h3>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {totalEntradas > 0 ? '100% captado' : '0%'}
             </span>
           </div>
@@ -567,7 +625,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center justify-around gap-3 py-1">
             {/* Donut SVG */}
             <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center flex-shrink-0">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
+              <svg 
+                role="img"
+                aria-label={`Gráfico de distribución de aportes: Ofrendas ${pctOfrendas}% (${formatearMoneda(totalOfrendas)}), Diezmos ${pctDiezmos}% (${formatearMoneda(totalDiezmos)}), Pactos ${pctProyectos}% (${formatearMoneda(totalProyectos)}). Total general: ${formatearMoneda(totalEntradas)}.`}
+                className="w-full h-full transform -rotate-90" 
+                viewBox="0 0 140 140"
+              >
                 <circle
                   cx="70"
                   cy="70"
@@ -600,13 +663,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Centro dinámico */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1 pointer-events-none">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate max-w-[80px]">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 truncate max-w-[80px]">
                   {detalleCentroDonut.titulo}
                 </span>
                 <span className="text-sm sm:text-base font-black text-slate-950 tracking-tight tabular-nums">
                   {detalleCentroDonut.monto}
                 </span>
-                <span className="text-[9px] text-slate-500 font-medium">
+                <span className="text-[9px] text-slate-600 font-medium">
                   {detalleCentroDonut.sub}
                 </span>
               </div>
@@ -619,9 +682,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 return (
                   <div
                     key={seg.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${seg.nombre}: ${formatearMoneda(seg.monto)} (${seg.porcentaje}% del total)`}
+                    onFocus={() => setSegmentoActivoDonut(seg.id)}
+                    onBlur={() => setSegmentoActivoDonut(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSegmentoActivoDonut(segmentoActivoDonut === seg.id ? null : seg.id);
+                      }
+                    }}
                     onMouseEnter={() => setSegmentoActivoDonut(seg.id)}
                     onMouseLeave={() => setSegmentoActivoDonut(null)}
-                    className={`px-2.5 py-1 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-[11px] ${
+                    className={`px-2.5 py-1 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       isActive 
                         ? 'bg-slate-50 border-slate-300 shadow-2xs' 
                         : 'bg-white/60 border-slate-200/70 hover:bg-slate-50/70'
@@ -638,7 +712,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <span className="font-bold text-slate-900 tabular-nums">
                         {formatearMoneda(seg.monto)}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-semibold">
+                      <span className="text-[10px] text-slate-600 font-semibold">
                         {seg.porcentaje}%
                       </span>
                     </div>
@@ -773,8 +847,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Proyectos Pactados en Curso</h4>
           </div>
           <button
+            type="button"
             onClick={onIrAPactos}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-0.5"
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-0.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <span>Ver todos</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -782,7 +857,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {proyectos.length === 0 ? (
-          <div className="text-center py-4 text-slate-400 text-xs">
+          <div className="text-center py-4 text-slate-500 text-xs">
             No hay proyectos pactados activos registrados.
           </div>
         ) : (
@@ -826,8 +901,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onIrALibroCaja}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-0.5"
+            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-0.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <span>Ver Libro de Caja Completo</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -836,7 +912,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#F9F9FB] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
+            <thead className="bg-[#F9F9FB] text-slate-500 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
               <tr>
                 <th className="py-2 px-2.5">Fecha / Día</th>
                 <th className="py-2 px-2.5">Tipo</th>
@@ -878,7 +954,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </td>
 
                   <td className="py-2 px-2.5 text-xs font-semibold text-slate-800">
-                    {t.miembro_nombre || <span className="text-slate-400 italic">N/A</span>}
+                    {t.miembro_nombre || <span className="text-slate-500 italic">N/A</span>}
                   </td>
 
                   <td className="py-2 px-2.5">
@@ -886,13 +962,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
-                        className="inline-flex items-center space-x-1 text-[10px] font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded-md transition-colors"
+                        className="inline-flex items-center space-x-1 text-[10px] font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                       >
                         <Eye className="w-3 h-3 text-sky-600" />
                         <span>Recibo</span>
                       </button>
                     ) : (
-                      <span className="text-xs text-slate-400">-</span>
+                      <span className="text-xs text-slate-500">-</span>
                     )}
                   </td>
 

@@ -20,6 +20,7 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
 }) => {
   const [abierto, setAbierto] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
 
   // Cerrar al hacer clic fuera
   useEffect(() => {
@@ -33,6 +34,23 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
     }
     return () => {
       document.removeEventListener('mousedown', handleClickAfuera);
+    };
+  }, [abierto]);
+
+  // Cerrar con tecla Escape y devolver el foco al disparador
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && abierto) {
+        event.preventDefault();
+        setAbierto(false);
+        triggerButtonRef.current?.focus();
+      }
+    };
+    if (abierto) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [abierto]);
 
@@ -53,12 +71,24 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
           <button
             type="button"
             role="menuitem"
+            tabIndex={0}
             onClick={() => {
               setAbierto(false);
               onAbrirCapturaIngreso();
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setAbierto(false);
+                onAbrirCapturaIngreso();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setAbierto(false);
+                triggerButtonRef.current?.focus();
+              }
+            }}
             aria-label="Registrar nueva entrada de ofrenda o diezmo"
-            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border border-slate-200/90 hover:border-emerald-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
+            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 border border-slate-200/90 hover:border-emerald-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             title="Registrar nueva ofrenda o diezmo"
           >
             <span className="text-xs font-bold whitespace-nowrap">
@@ -73,12 +103,24 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
           <button
             type="button"
             role="menuitem"
+            tabIndex={0}
             onClick={() => {
               setAbierto(false);
               onAbrirRegistroGasto();
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setAbierto(false);
+                onAbrirRegistroGasto();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setAbierto(false);
+                triggerButtonRef.current?.focus();
+              }
+            }}
             aria-label="Registrar egreso o gasto operativo"
-            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-rose-50 text-slate-800 hover:text-rose-800 border border-slate-200/90 hover:border-rose-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
+            className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-rose-50 text-slate-800 hover:text-rose-800 border border-slate-200/90 hover:border-rose-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             title="Registrar un egreso o gasto operativo"
           >
             <span className="text-xs font-bold whitespace-nowrap">
@@ -94,12 +136,24 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
             <button
               type="button"
               role="menuitem"
+              tabIndex={0}
               onClick={() => {
                 setAbierto(false);
                 onAbrirReportePDF();
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAbierto(false);
+                  onAbrirReportePDF();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setAbierto(false);
+                  triggerButtonRef.current?.focus();
+                }
+              }}
               aria-label="Generar e imprimir informe financiero oficial en PDF"
-              className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-slate-800 hover:text-blue-800 border border-slate-200/90 hover:border-blue-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px]"
+              className="group flex items-center space-x-2.5 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-slate-800 hover:text-blue-800 border border-slate-200/90 hover:border-blue-300 py-2 px-3.5 rounded-2xl shadow-lg transition-all active:scale-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               title="Generar o imprimir reporte oficial en PDF"
             >
               <span className="text-xs font-bold whitespace-nowrap">
@@ -116,8 +170,15 @@ export const FloatingActionsDock: React.FC<FloatingActionsDockProps> = ({
 
       {/* Botón Principal Flotante (Apple HIG Floating Trigger 56x56) */}
       <button
+        ref={triggerButtonRef}
         type="button"
         onClick={() => setAbierto(!abierto)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && abierto) {
+            e.preventDefault();
+            setAbierto(false);
+          }
+        }}
         aria-label={abierto ? 'Cerrar menú de acciones rápidas' : 'Abrir menú de acciones rápidas'}
         aria-expanded={abierto}
         aria-haspopup="menu"

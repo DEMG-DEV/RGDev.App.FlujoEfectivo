@@ -1,7 +1,7 @@
 {
   "name": "rgdev-app-flujo-efectivo-iglesia",
   "private": true,
-  "version": "1.8.1",
+  "version": "1.8.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,8 @@
     "docker:db": "docker compose up -d db",
     "docker:logs": "docker compose logs -f",
     "docker:backup": "./docker/backup-from-prod.sh",
-    "docker:restore": "./docker/restore-to-local.sh"
+    "docker:restore": "./docker/restore-to-local.sh",
+    "backup:r2": "node --env-file=.env scripts/backup-db-to-r2.js"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",

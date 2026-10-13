@@ -32,3 +32,6 @@ dist-ssr
 # pnpm
 .pnpm-store
 
+# Database backups
+backups/
+docker/*.sql
