@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import busboy from 'busboy';
-import { s3Client, R2_BUCKET_NAME } from './r2.js';
+import { s3Client, R2_BUCKET_NAME } from './_lib/r2.js';
 
 export const config = {
   api: {

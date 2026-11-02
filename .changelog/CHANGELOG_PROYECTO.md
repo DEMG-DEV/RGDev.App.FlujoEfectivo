@@ -5,6 +5,21 @@
 
 ---
 
+## ✅ Optimización de Infraestructura v1.10.2: Ajuste de módulos del servidor para el plan gratuito de Vercel (Hobby)
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 00:48:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Reorganización de Archivos Internos del Servidor**: Se agruparon las utilidades internas de base de datos y almacenamiento en una carpeta protegida (`api/_lib/`). Esto evita que Vercel las confunda con rutas web independientes y reduce el conteo de funciones a 10 (por debajo del límite de 12 del plan gratuito de Vercel), permitiendo que el despliegue a producción se complete sin restricciones.
+
+### ¿Qué significa para el proyecto?
+- **Despliegue Sin Costo Adicional**: La aplicación se publica exitosamente en la nube dentro del plan gratuito de Vercel sin necesidad de contratar planes de pago para equipos.
+
+---
+
 ## ✅ Parche de Estabilidad v1.10.1: Compatibilidad de compilación y despliegue en Vercel para autenticación y evidencias R2
 
 | Campo | Detalle |

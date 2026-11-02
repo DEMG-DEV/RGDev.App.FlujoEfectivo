@@ -5,6 +5,30 @@
 
 ---
 
+## fix(architecture): encapsulación de utilidades api en _lib y reducción a 10 funciones serverless para límite vercel hobby
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 00:48:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Architecture Optimization & Vercel Limit Fix |
+
+### Archivos Modificados y Creados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `api/_lib/db.ts` | Movido | Reubicación de la inicialización del pool PostgreSQL dentro del directorio prefijado `api/_lib/`, excluyéndolo de la generación automática de Serverless Functions en Vercel |
+| `api/_lib/r2.ts` | Movido | Reubicación de la configuración de cliente S3 / Cloudflare R2 a `api/_lib/` |
+| `api/_lib/health.ts` | Movido | Reubicación del script de diagnóstico de salud a `api/_lib/` |
+| `api/*.ts` | Modificado | Actualización de rutas relativas de importación (`./_lib/db.js`, `./_lib/r2.js`) en todos los controladores REST |
+| `package.json` | Modificado | Incremento de versión de parche a `1.10.2` |
+
+### Resumen Técnico del Impacto
+- **Límite de Vercel Hobby (Max 12 funciones)**: La reubicación reduce el conteo total de funciones serverless de 13 a 10, solventando el error `"No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan"` durante la fase `Deploying outputs...`.
+
+---
+
 ## fix(api): corrección de compatibilidad de tipos typescript en endpoints serverless para vercel
 
 | Campo | Detalle |

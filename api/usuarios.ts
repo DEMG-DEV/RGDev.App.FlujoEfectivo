@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
-import { getDbPool } from './db.js';
+import { getDbPool } from './_lib/db.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pool = getDbPool();

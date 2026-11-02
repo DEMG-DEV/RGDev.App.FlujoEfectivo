@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Auth } from '@auth/core';
 import Credentials from '@auth/core/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { getDbPool } from '../db.js';
+import { getDbPool } from '../_lib/db.js';
 
 export const authConfig: any = {
   basePath: '/api/auth',

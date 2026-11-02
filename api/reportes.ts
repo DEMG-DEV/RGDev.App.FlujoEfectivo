@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDbPool } from './db.js';
+import { getDbPool } from './_lib/db.js';
 
 let tableChecked = false;
 

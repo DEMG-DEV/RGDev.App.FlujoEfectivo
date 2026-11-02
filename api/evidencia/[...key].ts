@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client, R2_BUCKET_NAME } from '../r2.js';
+import { s3Client, R2_BUCKET_NAME } from '../_lib/r2.js';
 import { Readable } from 'stream';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
