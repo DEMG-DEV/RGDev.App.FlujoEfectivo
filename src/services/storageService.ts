@@ -75,13 +75,104 @@ export const storageService = {
         if (json.data && Array.isArray(json.data)) {
           const normalizadas: Transaccion[] = json.data.map(normalizarTransaccion);
           localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(normalizadas));
+          this.repararYVincularPactos();
           return normalizadas;
         }
       }
     } catch (e) {
       console.warn('Operando con almacenamiento local:', e);
     }
+    this.repararYVincularPactos();
     return this.getTransacciones();
+  },
+
+  repararYVincularPactos(): void {
+    const rawTxs = localStorage.getItem(STORAGE_KEYS.TRANSACCIONES);
+    if (!rawTxs) return;
+    let txs: Transaccion[] = [];
+    try {
+      txs = JSON.parse(rawTxs).map(normalizarTransaccion);
+    } catch {
+      return;
+    }
+
+    const pactos = this.getPactos();
+    const proyectos = this.getProyectos();
+    let huboCambios = false;
+
+    for (const t of txs) {
+      // 1. Vincular aportes de pacto huérfanos que tengan proyecto_id pero no pacto_id
+      if (t.tipo === 'ingreso' && t.subtipo === 'pacto' && t.proyecto_id && !t.pacto_id) {
+        const pactosDelProj = pactos.filter(p => p.proyecto_id === t.proyecto_id);
+        let pactoAsignar: PactoMiembro | undefined;
+
+        if (t.miembro_nombre) {
+          const cleanNombre = t.miembro_nombre.trim().toLowerCase();
+          pactoAsignar = pactosDelProj.find(p => p.miembro_nombre.trim().toLowerCase() === cleanNombre);
+        }
+        if (!pactoAsignar && pactosDelProj.length === 1) {
+          pactoAsignar = pactosDelProj[0];
+        }
+
+        if (pactoAsignar) {
+          t.pacto_id = pactoAsignar.id;
+          huboCambios = true;
+          // Actualizar en backend para que persista
+          fetch('/api/movimientos', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: t.id, pacto_id: pactoAsignar.id })
+          }).catch(err => console.warn('Error vinculando pacto huérfano en backend:', err));
+        }
+      }
+
+      // 2. Si es egreso de caja por aporte de diezmo a proyecto y tenía proyecto_id, removerlo para no contar como gasto en obra
+      if (t.tipo === 'gasto' && t.categoria === 'Aporte de Diezmo a Proyecto' && t.proyecto_id) {
+        const idTransaccion = t.id;
+        t.proyecto_id = undefined;
+        huboCambios = true;
+        fetch('/api/movimientos', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: idTransaccion, proyecto_id: null })
+        }).catch(err => console.warn('Error limpiando proyecto_id de egreso de diezmo:', err));
+      }
+    }
+
+    // 3. Recalcular acumulados de pactos con base en las transacciones reales
+    for (const p of pactos) {
+      const aportado = txs
+        .filter(t => t.pacto_id === p.id && t.tipo === 'ingreso')
+        .reduce((sum, t) => sum + t.monto, 0);
+      if (p.total_aportado !== aportado) {
+        p.total_aportado = aportado;
+        p.saldo_pendiente = Math.max(0, p.monto_total_pactado - aportado);
+        p.semanas_pagadas = p.cuota_semanal > 0 ? Math.floor(aportado / p.cuota_semanal) : 0;
+        p.estado = p.saldo_pendiente <= 0 ? 'completado' : 'al_dia';
+        huboCambios = true;
+      }
+    }
+
+    // 4. Recalcular gastos y recaudación de proyectos
+    for (const proj of proyectos) {
+      const recaudado = txs
+        .filter(t => t.proyecto_id === proj.id && t.tipo === 'ingreso' && t.subtipo === 'pacto')
+        .reduce((sum, t) => sum + t.monto, 0);
+      const gastado = txs
+        .filter(t => t.proyecto_id === proj.id && t.tipo === 'gasto' && t.categoria !== 'Liquidación / Remanente de Proyecto' && t.categoria !== 'Aporte de Diezmo a Proyecto')
+        .reduce((sum, t) => sum + t.monto, 0);
+      if (proj.total_recaudado !== recaudado || proj.total_gastado !== gastado) {
+        proj.total_recaudado = recaudado;
+        proj.total_gastado = gastado;
+        huboCambios = true;
+      }
+    }
+
+    if (huboCambios) {
+      localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(txs));
+      localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(pactos));
+      localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+    }
   },
 
   async guardarTransaccion(transaccion: Omit<Transaccion, 'id' | 'created_at' | 'dia_semana'>): Promise<Transaccion> {
@@ -193,6 +284,18 @@ export const storageService = {
       id // Garantizar ID original
     });
 
+    // Si es aporte a proyecto pactado y cambió monto o proyecto o pacto, actualizar acumulados
+    if (txAnterior.subtipo === 'pacto' && txAnterior.proyecto_id) {
+      const nuevoProyectoId = cambiosCompletos.proyecto_id || txAnterior.proyecto_id;
+      const nuevoPactoId = cambiosCompletos.pacto_id !== undefined ? cambiosCompletos.pacto_id : txAnterior.pacto_id;
+      const nuevoMonto = cambiosCompletos.monto !== undefined ? cambiosCompletos.monto : txAnterior.monto;
+
+      if (nuevoMonto !== txAnterior.monto || nuevoPactoId !== txAnterior.pacto_id || nuevoProyectoId !== txAnterior.proyecto_id) {
+        this.revertirAportePacto(txAnterior.proyecto_id, txAnterior.pacto_id, txAnterior.monto);
+        this.actualizarAportePacto(nuevoProyectoId, nuevoPactoId, nuevoMonto);
+      }
+    }
+
     lista[idx] = txActualizada;
     localStorage.setItem(STORAGE_KEYS.TRANSACCIONES, JSON.stringify(lista));
 
@@ -262,12 +365,14 @@ export const storageService = {
             color_acento: p.color_acento || '#4f46e5'
           }));
           localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(projs));
-          return projs;
+          this.repararYVincularPactos();
+          return this.getProyectos();
         }
       }
     } catch (e) {
       console.warn('Operando proyectos localmente:', e);
     }
+    this.repararYVincularPactos();
     return this.getProyectos();
   },
 
@@ -460,12 +565,14 @@ export const storageService = {
             actuales.push(...pactos);
             localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(actuales));
           }
-          return pactos;
+          this.repararYVincularPactos();
+          return this.getPactos();
         }
       }
     } catch (e) {
       console.warn('Operando pactos localmente:', e);
     }
+    this.repararYVincularPactos();
     return this.getPactos();
   },
 

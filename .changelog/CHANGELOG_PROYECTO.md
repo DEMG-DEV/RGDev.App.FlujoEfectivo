@@ -5,6 +5,30 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.9.0: Desglose de diezmo a pactos, historial de fechas de entrega con edición y borrado, y blindaje de saldos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-01 22:15:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Desglose de Diezmo para Abonar a Pactos (*Split*)**: Ahora al capturar un sobre de diezmo, los tesoreros pueden activar una opción para tomar parte del dinero e ingresarlo como abono al pacto de un proyecto. El sistema genera con un solo clic el registro del diezmo general y la cuota del pacto, ahorrando doble captura y manteniendo el libro en perfecto orden.
+2. **Historial de Fechas de Entregas y Control de Abonos**: Se añadió una sección de *"Fechas y Registro de Entregas"* y un botón de entregas por miembro en la vista de proyectos pactados. Ahora es posible ver con exactitud en qué fecha aportó cada hermano, editar un monto si hubo algún error en la captura o eliminar una entrega recalculando al instante los saldos y metas.
+3. **Corrección de Dinero Gastado y Remanentes en Proyectos**: Se corrigió un problema donde las aportaciones trasladadas desde diezmos o caja general se contaban erróneamente como gasto de obra. Ahora el dinero queda disponible como remanente intacto para cuando se realicen compras de materiales.
+4. **Auto-vinculación de Aportes**: Si un proyecto tiene un solo pactante registrado (por ejemplo, "Iglesia") o coincide el nombre del hermano, el sistema asocia de inmediato el dinero al pacto correspondiente sin dejar movimientos huérfanos.
+
+### ¿Qué significa para el proyecto?
+- **Agilidad para los Tesoreros**: Simplifica el conteo y captura de sobres dominicales cuando los miembros combinan diezmos y cuotas de proyectos en una sola entrega.
+- **Claridad Histórica**: Capacidad total para auditar y consultar cuándo entregó cada miembro su aportación y realizar correcciones sin desajustar la contabilidad.
+
+### ¿Qué va a notar el usuario/cliente?
+- Al capturar diezmo, un nuevo interruptor permite seleccionar el proyecto y la cantidad a abonar al pacto.
+- En la pantalla de cada proyecto se puede consultar la lista de fechas de cada entrega, editarlas o borrarlas con un clic.
+- Cifras exactas de recaudado, gastado y remanente disponible sin confusiones contables.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.8.2: Fondeo automático de compras en proyectos, corrección de saldos y diálogo de confirmación accesible
 
 | Campo | Detalle |

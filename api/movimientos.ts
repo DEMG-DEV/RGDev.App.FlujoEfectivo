@@ -50,14 +50,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const proyectoId = sanitizeUUID(data.proyecto_id);
         let pactoId = sanitizeUUID(data.pacto_id);
 
-        // Si no se proporcionó pacto_id pero sí proyecto y miembro, buscar el pacto registrado
-        if (!pactoId && proyectoId && data.miembro_nombre) {
-          const matchPacto = await client.query(
-            'SELECT id FROM pactos_miembros WHERE proyecto_id = $1 AND LOWER(TRIM(miembro_nombre)) = LOWER(TRIM($2)) LIMIT 1;',
-            [proyectoId, data.miembro_nombre]
-          );
-          if (matchPacto.rows.length > 0) {
-            pactoId = matchPacto.rows[0].id;
+        // Si no se proporcionó pacto_id pero sí proyecto, buscar el pacto registrado
+        if (!pactoId && proyectoId) {
+          if (data.miembro_nombre) {
+            const matchPacto = await client.query(
+              'SELECT id FROM pactos_miembros WHERE proyecto_id = $1 AND LOWER(TRIM(miembro_nombre)) = LOWER(TRIM($2)) LIMIT 1;',
+              [proyectoId, data.miembro_nombre]
+            );
+            if (matchPacto.rows.length > 0) {
+              pactoId = matchPacto.rows[0].id;
+            }
+          }
+          // Si aún no hay pactoId y el proyecto solo tiene UN pactante registrado, asociarlo automáticamente
+          if (!pactoId) {
+            const singlePacto = await client.query(
+              'SELECT id FROM pactos_miembros WHERE proyecto_id = $1;',
+              [proyectoId]
+            );
+            if (singlePacto.rows.length === 1) {
+              pactoId = singlePacto.rows[0].id;
+            }
           }
         }
 
@@ -169,6 +181,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (data.miembro_nombre !== undefined) {
           fields.push(`miembro_nombre = $${idx++}`);
           values.push(data.miembro_nombre || null);
+        }
+        if (data.proyecto_id !== undefined) {
+          fields.push(`proyecto_id = $${idx++}`);
+          values.push(sanitizeUUID(data.proyecto_id));
+        }
+        if (data.pacto_id !== undefined) {
+          fields.push(`pacto_id = $${idx++}`);
+          values.push(sanitizeUUID(data.pacto_id));
         }
 
         if (fields.length === 0) {

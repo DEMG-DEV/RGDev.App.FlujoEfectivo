@@ -144,29 +144,34 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
   const proyectoDiezmoActivo = proyectos.find(p => p.id === proyectoPactoDiezmoId);
   const pactoDiezmoActivo = pactos.find(p => p.id === pactoDiezmoId);
 
-  // Inicializar proyecto de destino al activar el split de diezmo si está vacío
+  // Inicializar proyecto de destino y pacto al activar el split de diezmo
   useEffect(() => {
-    if (aplicarAPactoDesdeDiezmo && !proyectoPactoDiezmoId && proyectos.length > 0) {
-      setProyectoPactoDiezmoId(proyectos[0].id);
-    }
-  }, [aplicarAPactoDesdeDiezmo, proyectos, proyectoPactoDiezmoId]);
+    if (aplicarAPactoDesdeDiezmo) {
+      const projId = proyectoPactoDiezmoId || proyectos[0]?.id;
+      if (projId && !proyectoPactoDiezmoId) {
+        setProyectoPactoDiezmoId(projId);
+      }
+      if (projId) {
+        const pactosDelProj = pactos.filter(p => p.proyecto_id === projId);
+        let pactoMatch: PactoMiembro | undefined;
+        if (miembroNombre.trim()) {
+          const cleanNombre = miembroNombre.trim().toLowerCase();
+          pactoMatch = pactosDelProj.find(p => p.miembro_nombre.trim().toLowerCase() === cleanNombre);
+        }
+        // Si no hay coincidencia por nombre pero el proyecto tiene exactamente 1 pactante (ej. "Iglesia"), seleccionarlo por defecto
+        if (!pactoMatch && pactosDelProj.length === 1) {
+          pactoMatch = pactosDelProj[0];
+        }
 
-  // Autovincular si el miembroNombre coincide con algún pacto del proyecto seleccionado
-  useEffect(() => {
-    if (subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo && miembroNombre.trim()) {
-      const cleanNombre = miembroNombre.trim().toLowerCase();
-      const pactoCoincidente = pactos.find(
-        p => p.proyecto_id === (proyectoPactoDiezmoId || proyectos[0]?.id) && 
-             p.miembro_nombre.trim().toLowerCase() === cleanNombre
-      );
-      if (pactoCoincidente) {
-        setPactoDiezmoId(pactoCoincidente.id);
-        if (!montoAPacto && pactoCoincidente.cuota_semanal > 0) {
-          setMontoAPacto(String(pactoCoincidente.cuota_semanal));
+        if (pactoMatch && !pactoDiezmoId) {
+          setPactoDiezmoId(pactoMatch.id);
+          if (!montoAPacto && pactoMatch.cuota_semanal > 0) {
+            setMontoAPacto(String(pactoMatch.cuota_semanal));
+          }
         }
       }
     }
-  }, [miembroNombre, proyectoPactoDiezmoId, aplicarAPactoDesdeDiezmo, pactos, proyectos]);
+  }, [aplicarAPactoDesdeDiezmo, proyectos, proyectoPactoDiezmoId, pactos, pactoDiezmoId, miembroNombre, montoAPacto]);
 
   // Cálculos para la vista previa del desglose de diezmo a pacto
   const montoTotalNum = parseFloat(monto) || 0;
@@ -271,7 +276,16 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
       const montoDiezmoNeto = montoTotalNum - montoPactoNum;
       const projDestino = proyectos.find(p => p.id === proyectoPactoDiezmoId);
-      const pactoDestino = pactos.find(p => p.id === pactoDiezmoId);
+
+      // Si no se eligió un pacto individual pero el proyecto tiene solo 1 pactante (ej. "Iglesia"), asociarlo automáticamente
+      let finalPactoId = pactoDiezmoId;
+      if (!finalPactoId && projDestino) {
+        const pactosDelProj = pactos.filter(p => p.proyecto_id === projDestino.id);
+        if (pactosDelProj.length === 1) {
+          finalPactoId = pactosDelProj[0].id;
+        }
+      }
+      const pactoDestino = pactos.find(p => p.id === finalPactoId);
       const nombreMiembroFinal = miembroNombre.trim() || undefined;
 
       // 1. Guardar Transacción de Diezmo Neto (Caja General)
@@ -301,7 +315,7 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
         miembro_nombre: pactoDestino?.miembro_nombre || nombreMiembroFinal,
         proyecto_id: proyectoPactoDiezmoId,
         proyecto_nombre: projDestino?.nombre,
-        pacto_id: pactoDiezmoId || undefined,
+        pacto_id: finalPactoId || undefined,
         metodo_pago: metodoPago
       });
 

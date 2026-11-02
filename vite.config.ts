@@ -236,6 +236,17 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                     }
                   }
 
+                  // Si aún no se asignó pacto_id pero el proyecto tiene exactamente 1 pacto registrado (ej. "Iglesia"), asignarlo
+                  if (!pactoId && proyectoId) {
+                    const allPactos = await client.query(
+                      'SELECT id FROM pactos_miembros WHERE proyecto_id = $1;',
+                      [proyectoId]
+                    );
+                    if (allPactos.rows.length === 1) {
+                      pactoId = allPactos.rows[0].id;
+                    }
+                  }
+
                   const query = `
                     INSERT INTO transacciones (
                       tipo, subtipo, categoria, monto, fecha, dia_semana, 
@@ -358,6 +369,14 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                     fields.push(`miembro_nombre = $${idx++}`);
                     values.push(data.miembro_nombre || null);
                   }
+                  if (data.proyecto_id !== undefined) {
+                    fields.push(`proyecto_id = $${idx++}`);
+                    values.push(sanitizeDevUUID(data.proyecto_id));
+                  }
+                  if (data.pacto_id !== undefined) {
+                    fields.push(`pacto_id = $${idx++}`);
+                    values.push(sanitizeDevUUID(data.pacto_id));
+                  }
 
                   if (fields.length === 0) {
                     res.statusCode = 400;
@@ -425,7 +444,7 @@ function aivenDbDevPlugin(env: Record<string, string>) {
         }
 
         // 5. Proyectos en Aiven PostgreSQL
-        if (req.url === '/api/proyectos') {
+        if (req.url.startsWith('/api/proyectos')) {
           res.setHeader('Content-Type', 'application/json');
           if (req.method === 'GET') {
             try {
@@ -437,7 +456,8 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                   SELECT 
                     p.*,
                     COALESCE((SELECT SUM(monto_total_pactado) FROM pactos_miembros WHERE proyecto_id = p.id), 0) as total_pactado,
-                    COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'ingreso'), 0) as total_recaudado
+                    COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'ingreso'), 0) as total_recaudado,
+                    COALESCE((SELECT SUM(monto) FROM transacciones WHERE proyecto_id = p.id AND tipo = 'gasto' AND (categoria NOT IN ('Liquidación / Remanente de Proyecto', 'Aporte de Diezmo a Proyecto') OR categoria IS NULL)), 0) as total_gastado
                   FROM proyectos_pactados p
                   WHERE p.activo = true
                   ORDER BY p.fecha_inicio DESC;
@@ -490,6 +510,84 @@ function aivenDbDevPlugin(env: Record<string, string>) {
             });
             return;
           }
+
+          if (req.method === 'PATCH' || req.method === 'PUT') {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body);
+                const p = getPool();
+                if (!p) return res.end(JSON.stringify({ success: true, data }));
+                const client = await p.connect();
+                try {
+                  const id = sanitizeDevUUID(data.id);
+                  if (!id) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'ID de proyecto inválido' }));
+                  }
+
+                  const fields: string[] = [];
+                  const values: any[] = [];
+                  let idx = 1;
+
+                  if (data.nombre !== undefined) {
+                    fields.push(`nombre = $${idx++}`);
+                    values.push(data.nombre);
+                  }
+                  if (data.descripcion !== undefined) {
+                    fields.push(`descripcion = $${idx++}`);
+                    values.push(data.descripcion);
+                  }
+                  if (data.meta_total !== undefined) {
+                    fields.push(`meta_total = $${idx++}`);
+                    values.push(parseFloat(data.meta_total));
+                  }
+                  if (data.valor_semanal_sugerido !== undefined) {
+                    fields.push(`valor_semanal_sugerido = $${idx++}`);
+                    values.push(parseFloat(data.valor_semanal_sugerido));
+                  }
+                  if (data.color_acento !== undefined) {
+                    fields.push(`color_acento = $${idx++}`);
+                    values.push(data.color_acento);
+                  }
+                  if (data.activo !== undefined) {
+                    fields.push(`activo = $${idx++}`);
+                    values.push(Boolean(data.activo));
+                  }
+                  if (data.fecha_fin !== undefined) {
+                    fields.push(`fecha_fin = $${idx++}`);
+                    values.push(data.fecha_fin);
+                  }
+
+                  if (fields.length === 0) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'No se enviaron campos a actualizar' }));
+                  }
+
+                  values.push(id);
+                  const query = `
+                    UPDATE proyectos_pactados
+                    SET ${fields.join(', ')}
+                    WHERE id = $${idx}
+                    RETURNING *;
+                  `;
+                  const result = await client.query(query, values);
+                  if (result.rows.length === 0) {
+                    res.statusCode = 404;
+                    return res.end(JSON.stringify({ error: 'Proyecto no encontrado' }));
+                  }
+                  return res.end(JSON.stringify({ success: true, data: result.rows[0] }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
         }
 
         // 5.1. Pactos en Aiven PostgreSQL (/api/pactos)
@@ -506,6 +604,21 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               try {
                 const parsedUrl = new URL(req.url, 'http://localhost');
                 const proyectoId = sanitizeDevUUID(parsedUrl.searchParams.get('proyecto_id'));
+
+                // Auto-vincular aportes de pactos huérfanos que tengan proyecto_id pero no pacto_id
+                await client.query(`
+                  UPDATE transacciones t
+                  SET pacto_id = pm.id
+                  FROM pactos_miembros pm
+                  WHERE t.proyecto_id = pm.proyecto_id
+                    AND t.pacto_id IS NULL
+                    AND t.tipo = 'ingreso'
+                    AND t.subtipo = 'pacto'
+                    AND (
+                      LOWER(TRIM(COALESCE(t.miembro_nombre, ''))) = LOWER(TRIM(pm.miembro_nombre))
+                      OR (SELECT COUNT(*) FROM pactos_miembros WHERE proyecto_id = t.proyecto_id) = 1
+                    );
+                `);
 
                 let query = `
                   SELECT 

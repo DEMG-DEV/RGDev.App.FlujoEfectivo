@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Landmark, 
   PlusCircle, 
@@ -17,9 +17,12 @@ import {
   X,
   Coins,
   RotateCcw,
-  ArrowRightLeft
+  ArrowRightLeft,
+  CalendarDays,
+  History,
+  Filter
 } from 'lucide-react';
-import { ProyectoPactado, PactoMiembro } from '../types';
+import { ProyectoPactado, PactoMiembro, Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
 import { formatearMoneda, formatearFechaCorta } from '../utils/dateUtils';
 import { ModalFinalizarProyecto } from './ModalFinalizarProyecto';
@@ -36,8 +39,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 }) => {
   const [proyectos, setProyectos] = useState<ProyectoPactado[]>(() => storageService.getProyectos());
   const [pactos, setPactos] = useState<PactoMiembro[]>(() => storageService.getPactos());
+  const [transacciones, setTransacciones] = useState<Transaccion[]>(() => storageService.getTransacciones());
   const [proyectoActivoId, setProyectoActivoId] = useState<string>(() => proyectos[0]?.id || '');
   const [filtroEstado, setFiltroEstado] = useState<'activos' | 'finalizados' | 'todos'>('activos');
+  const [filtroPactoHistorial, setFiltroPactoHistorial] = useState<string>('todos');
 
   // Modales
   const [mostrarModalNuevoProyecto, setMostrarModalNuevoProyecto] = useState(false);
@@ -45,6 +50,23 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [mostrarModalEditarPacto, setMostrarModalEditarPacto] = useState(false);
   const [mostrarModalFinalizar, setMostrarModalFinalizar] = useState(false);
   const [mostrarModalAporteDiezmo, setMostrarModalAporteDiezmo] = useState(false);
+
+  // Modales de Entrega (Editar y Ver Historial)
+  const [mostrarModalEditarEntrega, setMostrarModalEditarEntrega] = useState(false);
+  const [entregaAEditar, setEntregaAEditar] = useState<Transaccion | null>(null);
+  const [formFechaEntrega, setFormFechaEntrega] = useState('');
+  const [formMontoEntrega, setFormMontoEntrega] = useState('');
+  const [formConceptoEntrega, setFormConceptoEntrega] = useState('');
+  const [formMetodoPagoEntrega, setFormMetodoPagoEntrega] = useState<MetodoPago>('efectivo');
+  const [formPactoIdEntrega, setFormPactoIdEntrega] = useState('');
+  const [guardandoEntrega, setGuardandoEntrega] = useState(false);
+
+  // Eliminación de Entrega
+  const [entregaAEliminar, setEntregaAEliminar] = useState<Transaccion | null>(null);
+  const [eliminandoEntrega, setEliminandoEntrega] = useState(false);
+
+  // Modal de Historial de Hermano Específico
+  const [pactoParaVerHistorial, setPactoParaVerHistorial] = useState<PactoMiembro | null>(null);
 
   // Formulario Aportar desde Diezmos
   const [montoAporteDiezmo, setMontoAporteDiezmo] = useState('');
@@ -105,6 +127,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
   // Sincronización con backend (PostgreSQL)
   const recargar = async () => {
+    setTransacciones(storageService.getTransacciones());
     setProyectos(storageService.getProyectos());
     setPactos(storageService.getPactos());
     try {
@@ -114,6 +137,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
       ]);
       setProyectos(projs);
       setPactos(pcts);
+      setTransacciones(storageService.getTransacciones());
       if (!proyectoActivoId && projs.length > 0) {
         setProyectoActivoId(projs[0].id);
       }
@@ -133,6 +157,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
         if (montado) {
           setProyectos(projs);
           setPactos(pcts);
+          setTransacciones(storageService.getTransacciones());
           if (projs.length > 0) {
             setProyectoActivoId(actual => actual || projs[0].id);
           }
@@ -142,7 +167,20 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
       }
     };
     inicializar();
-    return () => { montado = false; };
+
+    const handleStorageUpdate = () => {
+      if (montado) {
+        setTransacciones(storageService.getTransacciones());
+        setProyectos(storageService.getProyectos());
+        setPactos(storageService.getPactos());
+      }
+    };
+    window.addEventListener('storage', handleStorageUpdate);
+
+    return () => { 
+      montado = false; 
+      window.removeEventListener('storage', handleStorageUpdate);
+    };
   }, []);
 
   // Filtrado de proyectos por estado
@@ -158,6 +196,25 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     || proyectos[0];
 
   const pactosDelProyecto = pactos.filter(p => p.proyecto_id === proyectoSeleccionado?.id);
+
+  // Entregas registradas para el proyecto activo (ordenadas de la más reciente a la más antigua)
+  const entregasDelProyecto = useMemo(() => {
+    if (!proyectoSeleccionado) return [];
+    return transacciones
+      .filter(t => t.proyecto_id === proyectoSeleccionado.id && t.tipo === 'ingreso' && t.subtipo === 'pacto')
+      .sort((a, b) => {
+        const compFecha = b.fecha.localeCompare(a.fecha);
+        if (compFecha !== 0) return compFecha;
+        return (b.created_at || '').localeCompare(a.created_at || '');
+      });
+  }, [transacciones, proyectoSeleccionado]);
+
+  // Entregas filtradas según selector de pactante
+  const entregasFiltradas = useMemo(() => {
+    if (filtroPactoHistorial === 'todos') return entregasDelProyecto;
+    if (filtroPactoHistorial === 'sin_pacto') return entregasDelProyecto.filter(e => !e.pacto_id);
+    return entregasDelProyecto.filter(e => e.pacto_id === filtroPactoHistorial);
+  }, [entregasDelProyecto, filtroPactoHistorial]);
 
   // Crear nuevo Proyecto
   const handleCrearProyecto = (e: React.FormEvent) => {
@@ -318,10 +375,16 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
     setGuardandoAporteDiezmo(true);
     try {
-      const pactoSel = pactos.find(p => p.id === pactoAporteDiezmoId);
+      // Si no se seleccionó pacto explícito pero el proyecto tiene exactamente 1 pactante (ej. "Iglesia"), asignarlo
+      let finalPactoId = pactoAporteDiezmoId;
+      if (!finalPactoId && pactosDelProyecto.length === 1) {
+        finalPactoId = pactosDelProyecto[0].id;
+      }
+
+      const pactoSel = pactos.find(p => p.id === finalPactoId);
       const conceptoFinal = conceptoAporteDiezmo.trim() || `Fondo de Diezmos asignado a: ${proyectoSeleccionado.nombre}`;
 
-      // 1. Ingreso al Proyecto Pactado
+      // 1. Ingreso al Proyecto Pactado (se suma al proyecto y amortiza el pacto)
       await storageService.guardarTransaccion({
         tipo: 'ingreso',
         subtipo: 'pacto',
@@ -333,11 +396,11 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
         miembro_nombre: pactoSel?.miembro_nombre || 'Fondo General de Diezmos',
         proyecto_id: proyectoSeleccionado.id,
         proyecto_nombre: proyectoSeleccionado.nombre,
-        pacto_id: pactoAporteDiezmoId || undefined,
+        pacto_id: finalPactoId || undefined,
         metodo_pago: 'efectivo'
       });
 
-      // 2. Egreso compensatorio opcional de Caja General
+      // 2. Egreso contable de Caja General (NO lleva proyecto_id para no inflar "Gastado en Obra")
       if (registrarEgresoCaja) {
         await storageService.guardarTransaccion({
           tipo: 'gasto',
@@ -346,8 +409,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           fecha: fechaAporteDiezmo,
           tipo_culto: 'no_aplica',
           concepto: `Egreso de Caja General por aporte a proyecto: ${proyectoSeleccionado.nombre}`,
-          proyecto_id: proyectoSeleccionado.id,
-          proyecto_nombre: proyectoSeleccionado.nombre,
           metodo_pago: 'efectivo'
         });
       }
@@ -362,6 +423,67 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
       alert('Error al registrar el aporte desde diezmos.');
     } finally {
       setGuardandoAporteDiezmo(false);
+    }
+  };
+
+  // Abrir modal para editar una entrega
+  const handleAbrirEditarEntrega = (entrega: Transaccion) => {
+    setEntregaAEditar(entrega);
+    setFormFechaEntrega(entrega.fecha);
+    setFormMontoEntrega(String(entrega.monto));
+    setFormConceptoEntrega(entrega.concepto || '');
+    setFormMetodoPagoEntrega(entrega.metodo_pago || 'efectivo');
+    setFormPactoIdEntrega(entrega.pacto_id || '');
+    setMostrarModalEditarEntrega(true);
+  };
+
+  // Guardar cambios de una entrega editada
+  const handleGuardarEdicionEntrega = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!entregaAEditar || !proyectoSeleccionado) return;
+    const montoNum = parseFloat(formMontoEntrega);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      alert('Por favor ingrese un monto válido mayor a $0');
+      return;
+    }
+
+    setGuardandoEntrega(true);
+    try {
+      const pactoSel = pactos.find(p => p.id === formPactoIdEntrega);
+      const nombreMiembroFinal = pactoSel?.miembro_nombre || entregaAEditar.miembro_nombre || 'Aporte General';
+
+      await storageService.editarTransaccion(entregaAEditar.id, {
+        fecha: formFechaEntrega,
+        monto: montoNum,
+        concepto: formConceptoEntrega.trim() || entregaAEditar.concepto,
+        metodo_pago: formMetodoPagoEntrega,
+        pacto_id: formPactoIdEntrega || undefined,
+        miembro_nombre: nombreMiembroFinal,
+        proyecto_id: proyectoSeleccionado.id,
+        proyecto_nombre: proyectoSeleccionado.nombre
+      });
+
+      await recargar();
+      setMostrarModalEditarEntrega(false);
+      setEntregaAEditar(null);
+      alert('¡Entrega actualizada con éxito!');
+    } catch (err) {
+      alert('Error al actualizar la entrega.');
+    } finally {
+      setGuardandoEntrega(false);
+    }
+  };
+
+  // Confirmar eliminación de una entrega
+  const confirmarEliminarEntrega = async () => {
+    if (!entregaAEliminar) return;
+    setEliminandoEntrega(true);
+    try {
+      storageService.eliminarTransaccion(entregaAEliminar.id);
+      await recargar();
+      setEntregaAEliminar(null);
+    } finally {
+      setEliminandoEntrega(false);
     }
   };
 
@@ -492,7 +614,8 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   <button
                     onClick={() => {
                       setMontoAporteDiezmo('');
-                      setPactoAporteDiezmoId('');
+                      const unicoPacto = pactosDelProyecto.length === 1 ? pactosDelProyecto[0].id : '';
+                      setPactoAporteDiezmoId(unicoPacto);
                       setConceptoAporteDiezmo(`Fondo institucional aportado de Diezmos a: ${proyectoSeleccionado.nombre}`);
                       setMostrarModalAporteDiezmo(true);
                     }}
@@ -665,9 +788,18 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                             <div className="flex items-center justify-end space-x-1.5">
                               <button
                                 type="button"
+                                onClick={() => setPactoParaVerHistorial(p)}
+                                className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 font-bold px-2.5 py-1 rounded-xl transition-colors inline-flex items-center space-x-1"
+                                title="Ver fechas y entregas registradas para este hermano"
+                              >
+                                <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Entregas ({entregasDelProyecto.filter(e => e.pacto_id === p.id).length})</span>
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleAbrirEditarPacto(p)}
                                 className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold px-2.5 py-1 rounded-xl transition-colors inline-flex items-center space-x-1"
-                                title="Editar datos"
+                                title="Editar datos del pactante"
                               >
                                 <Pencil className="w-3 h-3 text-slate-500" />
                                 <span>Editar</span>
@@ -687,6 +819,132 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Historial Cronológico de Fechas y Entregas al Proyecto */}
+          <div className="pt-6 border-t border-slate-200/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700">
+                    <CalendarDays className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-slate-950 text-sm sm:text-base">
+                    Fechas y Registro de Entregas ({entregasDelProyecto.length})
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Consulta cuándo se entregó cada aporte al proyecto, edita fechas/montos o elimina registros erróneos.
+                </p>
+              </div>
+
+              {/* Filtro por Hermano Pactante */}
+              {pactosDelProyecto.length > 0 && (
+                <div className="flex items-center space-x-2 self-start sm:self-auto">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={filtroPactoHistorial}
+                    onChange={(e) => setFiltroPactoHistorial(e.target.value)}
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
+                  >
+                    <option value="todos">Todos los aportes ({entregasDelProyecto.length})</option>
+                    {pactosDelProyecto.map(p => {
+                      const count = entregasDelProyecto.filter(e => e.pacto_id === p.id).length;
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.miembro_nombre} ({count})
+                        </option>
+                      );
+                    })}
+                    <option value="sin_pacto">Aportes institucionales / Fondos Diezmo</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {entregasFiltradas.length === 0 ? (
+              <div className="text-center py-8 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                <Calendar className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-700">No hay entregas registradas para este criterio.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Al capturar o abonar al proyecto, aquí se listarán todas las entregas con sus fechas para consulta, edición o borrado.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-[#F9F9FB] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Fecha de Entrega</th>
+                      <th className="py-2.5 px-3">Hermano / Aportante</th>
+                      <th className="py-2.5 px-3">Concepto / Motivo</th>
+                      <th className="py-2.5 px-3">Método</th>
+                      <th className="py-2.5 px-3 text-right">Monto Aportado</th>
+                      <th className="py-2.5 px-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {entregasFiltradas.map((entrega) => (
+                      <tr key={entrega.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-slate-900 block text-xs">
+                            {formatearFechaCorta(entrega.fecha)}
+                          </span>
+                          <span className="text-[10px] text-slate-400 capitalize">
+                            {entrega.dia_semana || 'Movimiento'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="font-semibold text-slate-800 text-xs block">
+                            {entrega.miembro_nombre || 'Aporte General al Proyecto'}
+                          </span>
+                          {entrega.pacto_id ? (
+                            <span className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md font-medium inline-block mt-0.5">
+                              Pacto Vinculado
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Aporte Institucional / Libre
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-xs text-slate-600 max-w-[240px] truncate" title={entrega.concepto}>
+                          {entrega.concepto}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg capitalize">
+                            {entrega.metodo_pago}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right font-extrabold text-emerald-600 text-xs tabular-nums">
+                          {formatearMoneda(entrega.monto)}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditarEntrega(entrega)}
+                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              title="Editar fecha, monto o concepto de esta entrega"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEntregaAEliminar(entrega)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                              title="Borrar esta entrega del proyecto"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1226,6 +1484,303 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           }}
         />
       )}
+
+      {/* Modal: Editar Entrega / Aporte al Proyecto Apple HIG */}
+      {mostrarModalEditarEntrega && entregaAEditar && proyectoSeleccionado && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setMostrarModalEditarEntrega(false);
+              setEntregaAEditar(null);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-editar-entrega-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="modal-editar-entrega-titulo" className="text-base font-black text-slate-950">
+                    Editar Entrega al Proyecto
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setMostrarModalEditarEntrega(false);
+                  setEntregaAEditar(null);
+                }} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarEdicionEntrega} className="space-y-4 pt-1">
+              {/* Fecha y Monto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Fecha de Entrega *
+                  </label>
+                  <input
+                    type="date"
+                    value={formFechaEntrega}
+                    onChange={(e) => setFormFechaEntrega(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Monto Entregado ($ MXN) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="1"
+                    value={formMontoEntrega}
+                    onChange={(e) => setFormMontoEntrega(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 tabular-nums"
+                  />
+                </div>
+              </div>
+
+              {/* Hermano / Pacto Vinculado */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Pacto del Hermano Asignado
+                </label>
+                <select
+                  value={formPactoIdEntrega}
+                  onChange={(e) => setFormPactoIdEntrega(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                >
+                  <option value="">Aporte general al proyecto (sin hermano específico)</option>
+                  {pactosDelProyecto.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.miembro_nombre} - Cuota: {formatearMoneda(p.cuota_semanal)}/sem (Resta: {formatearMoneda(p.saldo_pendiente)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Concepto / Motivo */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Concepto / Motivo de la Entrega
+                </label>
+                <input
+                  type="text"
+                  value={formConceptoEntrega}
+                  onChange={(e) => setFormConceptoEntrega(e.target.value)}
+                  placeholder="Ej. Aporte a pacto semanal"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Método de Pago */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Método de Entrega
+                </label>
+                <select
+                  value={formMetodoPagoEntrega}
+                  onChange={(e) => setFormMetodoPagoEntrega(e.target.value as MetodoPago)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia Bancaria / SPEI</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="tarjeta">Terminal / Tarjeta</option>
+                </select>
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarModalEditarEntrega(false);
+                    setEntregaAEditar(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoEntrega}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                >
+                  {guardandoEntrega ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Historial Detallado de Entregas por Hermano Apple HIG */}
+      {pactoParaVerHistorial && proyectoSeleccionado && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setPactoParaVerHistorial(null);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-historial-pacto-titulo"
+            className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4 max-h-[90vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700">
+                  <CalendarDays className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="modal-historial-pacto-titulo" className="text-base font-black text-slate-950">
+                    Entregas de {pactoParaVerHistorial.miembro_nombre}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setPactoParaVerHistorial(null)} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Resumen del Pacto */}
+            <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-2xl text-center">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Pacto Total:</span>
+                <span className="text-xs font-bold text-slate-900">{formatearMoneda(pactoParaVerHistorial.monto_total_pactado)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-emerald-700 block">Aportado:</span>
+                <span className="text-xs font-bold text-emerald-600">{formatearMoneda(pactoParaVerHistorial.total_aportado)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-amber-800 block">Saldo Restante:</span>
+                <span className="text-xs font-bold text-amber-800">{formatearMoneda(pactoParaVerHistorial.saldo_pendiente)}</span>
+              </div>
+            </div>
+
+            {/* Lista de Entregas */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {entregasDelProyecto.filter(e => e.pacto_id === pactoParaVerHistorial.id).length === 0 ? (
+                <div className="text-center py-10 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                  <Clock className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-slate-700">Aún no hay entregas registradas para este hermano.</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Haz clic en "Abonar" para registrar una entrega de cuota.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {entregasDelProyecto.filter(e => e.pacto_id === pactoParaVerHistorial.id).map((entrega) => (
+                    <div 
+                      key={entrega.id}
+                      className="p-3.5 bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-900">
+                            {formatearFechaCorta(entrega.fecha)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded-md capitalize">
+                            {entrega.metodo_pago}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          {entrega.concepto || 'Aporte a pacto'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-black text-emerald-600 tabular-nums">
+                          {formatearMoneda(entrega.monto)}
+                        </span>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPactoParaVerHistorial(null);
+                              handleAbrirEditarEntrega(entrega);
+                            }}
+                            className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-200 text-slate-700 transition-colors"
+                            title="Editar entrega"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPactoParaVerHistorial(null);
+                              setEntregaAEliminar(entrega);
+                            }}
+                            className="p-1.5 rounded-lg bg-rose-50 border border-rose-200/60 hover:bg-rose-100 text-rose-600 transition-colors"
+                            title="Borrar entrega"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPactoParaVerHistorial(null)}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación para Eliminar Entrega */}
+      <ModalConfirmacion
+        isOpen={!!entregaAEliminar}
+        titulo="Eliminar Entrega del Proyecto"
+        mensaje={`¿Estás seguro de que deseas eliminar la entrega de ${formatearMoneda(entregaAEliminar?.monto || 0)} registrada el ${entregaAEliminar ? formatearFechaCorta(entregaAEliminar.fecha) : ''} por "${entregaAEliminar?.miembro_nombre || 'Hermano'}"? El total recaudado del proyecto y el saldo del pacto se actualizarán automáticamente.`}
+        textoConfirmar="Eliminar Entrega"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        cargando={eliminandoEntrega}
+        onConfirm={confirmarEliminarEntrega}
+        onCancel={() => setEntregaAEliminar(null)}
+      />
 
       {/* Modal de Confirmación Accesible para Eliminar Pacto */}
       <ModalConfirmacion

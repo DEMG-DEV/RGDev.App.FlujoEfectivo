@@ -6,6 +6,7 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.9.0** | 2026-11-01 22:15:00 | David Méndez | Producción / Estable |
 | **v1.8.2** | 2026-10-13 11:15:00 | David Méndez | Producción / Estable |
 | **v1.8.1** | 2026-10-11 10:51:00 | David Méndez | Producción / Estable |
 | **v1.8.0** | 2026-10-11 09:58:00 | David Méndez | Producción / Estable |
@@ -22,7 +23,11 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 
 ## 🌟 Características Principales
 
-### 1. Resiliencia en Edición de Movimientos, Normalización de Fechas y Error Boundary Global
+### 1. Split Diezmo a Pacto, Fechas de Entregas con Edición/Borrado y Auto-vinculación de Fondos
+- **Desglose de Diezmo a Pacto (Split)**: Posibilidad de tomar un importe determinado de un sobre de diezmo y asignarlo como abono al compromiso de un proyecto pactado directamente en `CapturaIngresosView`. Genera automáticamente dos transacciones limpias y trazables (Diezmo General en Caja y Aporte a Pacto en Proyecto) con vinculación del donante y proyecto.
+- **Historial Completo de Fechas de Entregas y Gestión de Abonos**: Nueva tabla de *"Fechas y Registro de Entregas"* y botón *"📅 Entregas (N)"* por pactante en `ProyectosPactadosView` para visualizar con exactitud en qué fecha se entregó cada aportación, con modales intuitivos para editar montos, fechas, comprobantes o eliminar entregas recalculando saldos al instante.
+- **Auto-vinculación Inteligente (*Self-Healing*)**: Mecanismo que asocia transacciones huérfanas al pacto correspondiente en proyectos de un solo pactante (como *"Iglesia"*) o coincidencia por nombre de miembro, tanto en el frontend como en endpoints de PostgreSQL.
+- **Blindaje Contable de Remanentes de Proyecto**: Exclusión de transferencias y egresos de Caja General del cómputo de `total_gastado`, evitando que los fondeos se resten incorrectamente como dinero gastado en materiales de obra.
 - **Blindaje contra Pantalla en Blanco**: Corrección del error de tiempo inválido (`RangeError: Invalid time value`) al editar movimientos en Caja General o gastos en `ModalEditarGasto`, garantizando que respuestas de PostgreSQL con marcas de tiempo ISO o strings numéricos se procesen de forma transparente.
 - **Normalización Universal de Transacciones (`extraerFechaYYYYMMDD` y `normalizarTransaccion`)**: Extracción limpia del formato `YYYY-MM-DD` y conversión a float numérico tanto en cliente como en APIs serverless (`api/movimientos.ts`) y dev server (`vite.config.ts`), auto-reparando registros antiguos en `localStorage`.
 - **Componente de Resiliencia `ErrorBoundary` Global**: Envoltura de nivel raíz en `main.tsx` que previene cualquier pantalla blanca ante excepciones de renderizado imprevistas, ofreciendo botones de recuperación y recarga segura.

@@ -19,6 +19,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const proyectoId = sanitizeUUID(req.query?.proyecto_id as string);
 
+        // Auto-vincular aportes de pactos que tengan proyecto_id pero no pacto_id
+        await client.query(`
+          UPDATE transacciones t
+          SET pacto_id = pm.id
+          FROM pactos_miembros pm
+          WHERE t.proyecto_id = pm.proyecto_id
+            AND t.pacto_id IS NULL
+            AND t.tipo = 'ingreso'
+            AND t.subtipo = 'pacto'
+            AND (
+              LOWER(TRIM(COALESCE(t.miembro_nombre, ''))) = LOWER(TRIM(pm.miembro_nombre))
+              OR (SELECT COUNT(*) FROM pactos_miembros WHERE proyecto_id = t.proyecto_id) = 1
+            );
+        `);
+
         let query = `
           SELECT 
             pm.id,

@@ -5,6 +5,42 @@
 
 ---
 
+## feat(pactos): release v1.9.0 - split diezmo a pactos, historial de fechas de entregas con edicion y borrado, y auto-vinculacion contable
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-01 22:15:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release & Bugfix |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `src/components/CapturaIngresosView.tsx` | Modificado | Selector e interruptor interactivo Apple HIG para dividir diezmos hacia pactos (*Split*), cálculo en tiempo real de saldo de diezmo y aporte a pacto, y auto-selección de pactante |
+| `src/components/ProyectosPactadosView.tsx` | Modificado | Sección y tabla *"Fechas y Registro de Entregas"*, botón *"📅 Entregas (N)"* por fila de pacto, modales de historial individual y edición de entrega con reversión contable, y desacoplamiento de `proyecto_id` en egresos de Caja General |
+| `src/services/storageService.ts` | Modificado | Rutina `repararYVincularPactos()` de auto-curación (*self-healing*) de aportes huérfanos, actualización bidireccional en `editarTransaccion` para revertir y aplicar abonos a proyectos/pactos, y recálculo de recaudado y gastado sin transferencias internas |
+| `api/pactos.ts` | Modificado | Consulta `UPDATE` automática en `GET` para vincular aportes huérfanos con coincidencia de miembro o proyectos de un solo pactante |
+| `api/proyectos.ts` | Modificado | Exclusión de `Aporte de Diezmo a Proyecto` en el cálculo de `total_gastado` para no inflar compras de obra |
+| `api/movimientos.ts` | Modificado | Soporte de `proyecto_id` y `pacto_id` en endpoint `PATCH` y auto-asignación de pacto único en `POST` |
+| `vite.config.ts` | Modificado | Replicación de lógica de backend en dev server (`POST`/`PATCH /api/movimientos`, `GET`/`PATCH /api/proyectos` con `total_gastado`, y auto-vinculación en `GET /api/pactos`) |
+| `package.json` | Modificado | Incremento de versión semántica a `1.9.0` |
+| `README.md` | Modificado | Actualización de tabla de versiones y documentación de nuevas funcionalidades |
+
+### Detalle Técnico
+1. **Desglose de Diezmo hacia Proyectos Pactados (Split en Captura)**:
+   - Se diseñó un interruptor en `CapturaIngresosView` que permite a los tesoreros capturar un sobre total y destinar una cuota semanal al proyecto pactado.
+   - Crea atómicamente dos transacciones en el Libro de Caja: una entrada neta a Caja General (`subtipo = 'diezmo'`) y una entrada al fondo del proyecto (`subtipo = 'pacto'`).
+2. **Historial de Fechas de Entregas y Gestión de Abonos**:
+   - Se implementó un listado cronológico de cada abono recibido por proyecto con fecha, miembro, método de pago e importe.
+   - Cuenta con modal de edición (`ModalEditarEntrega`) y confirmación de eliminación con ajuste matemático automático de `total_recaudado` y saldos de cada pactante.
+3. **Auto-curación (*Self-Healing*) y Blindaje Contable**:
+   - Corrección del bug donde transferencias institucionales desde Caja General aparecían en "Gastado en Obra" debido a la presencia de `proyecto_id` en egresos.
+   - Enlace automático de transacciones huérfanas al pactante del proyecto cuando éste es único (ej. "Iglesia") o concuerda por nombre.
+
+---
+
 ## fix(proyectos): release v1.8.2 - fondeo automatico de compras en proyectos, correccion de recaudado y accesibilidad de elite
 
 | Campo | Detalle |
