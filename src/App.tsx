@@ -177,6 +177,7 @@ const AppContent: React.FC = () => {
 
         {vistaActiva === 'pactos' && (
           <ProyectosPactadosView
+            onVerEvidencia={handleVerEvidencia}
             onAbonarPacto={(proyectoId, pactoId) => {
               setCultoPreseleccionado('domingo_manana');
               setSubtipoPreseleccionado('pacto');

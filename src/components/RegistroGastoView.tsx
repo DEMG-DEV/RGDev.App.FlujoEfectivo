@@ -49,6 +49,7 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
   const [proveedor, setProveedor] = useState<string>('');
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
   const [proyectoSeleccionadoId, setProyectoSeleccionadoId] = useState<string>('');
+  const [origenFondos, setOrigenFondos] = useState<'general' | 'proyecto'>('general');
   const [proyectos, setProyectos] = useState(() => storageService.getProyectos().filter(p => p.activo));
 
   useEffect(() => {
@@ -128,9 +129,10 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
 
     const proyecto = proyectos.find(p => p.id === proyectoSeleccionadoId);
 
-    // 1. Si el gasto es financiado por un proyecto pactado, generar primero el movimiento
-    // de ingreso a Caja General por el monto del gasto para fondear la compra con los recursos del proyecto.
-    if (proyecto) {
+    // 1. Si el gasto es financiado con fondos acumulados previamente en el proyecto,
+    // transferir el fondo a Caja General. Si se paga con fondos generales (diezmos/ofrendas en parcialidades),
+    // sale directamente como egreso de Caja General asignado al proyecto.
+    if (proyecto && origenFondos === 'proyecto') {
       await storageService.guardarTransaccion({
         tipo: 'ingreso',
         subtipo: 'ofrenda',
@@ -329,9 +331,48 @@ export const RegistroGastoView: React.FC<RegistroGastoProps> = ({
                 ))}
               </select>
               {proyectoSeleccionadoId && (
-                <p className="text-[11px] text-amber-800 mt-1">
-                  Se trasladará automáticamente el recurso del proyecto a Caja General para fondear esta compra.
-                </p>
+                <div className="mt-2.5 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-700 block">
+                    Origen de los recursos para este pago:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label className={`flex items-start space-x-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      origenFondos === 'general' ? 'bg-blue-50/80 border-blue-300 text-blue-900 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="origenFondos"
+                        checked={origenFondos === 'general'}
+                        onChange={() => setOrigenFondos('general')}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <span className="block font-bold">Caja General (Diezmos / Ofrendas)</span>
+                        <span className="text-[10px] text-slate-500 font-normal">
+                          Pago en parcialidades directo desde fondos generales.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start space-x-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      origenFondos === 'proyecto' ? 'bg-blue-50/80 border-blue-300 text-blue-900 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="origenFondos"
+                        checked={origenFondos === 'proyecto'}
+                        onChange={() => setOrigenFondos('proyecto')}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <span className="block font-bold">Fondo Acumulado del Proyecto</span>
+                        <span className="text-[10px] text-slate-500 font-normal">
+                          Se toma del remanente ahorrado en el proyecto.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
               )}
             </div>
           )}

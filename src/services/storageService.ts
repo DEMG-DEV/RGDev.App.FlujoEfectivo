@@ -212,6 +212,10 @@ export const storageService = {
     if (transaccion.tipo === 'ingreso' && transaccion.subtipo === 'pacto' && transaccion.proyecto_id) {
       this.actualizarAportePacto(transaccion.proyecto_id, transaccion.pacto_id, montoNum);
     }
+    // Si es gasto asignado a un proyecto, actualizar lo gastado en el proyecto
+    if (transaccion.tipo === 'gasto' && transaccion.proyecto_id) {
+      this.actualizarGastoProyecto(transaccion.proyecto_id, montoNum);
+    }
 
     // Si incluye nombre de miembro, guardarlo como frecuente
     if (transaccion.miembro_nombre) {
@@ -254,6 +258,10 @@ export const storageService = {
     // Revertir aporte de pacto si aplica
     if (transaccion && transaccion.subtipo === 'pacto' && transaccion.proyecto_id) {
       this.revertirAportePacto(transaccion.proyecto_id, transaccion.pacto_id, transaccion.monto);
+    }
+    // Revertir gasto de proyecto si aplica
+    if (transaccion && transaccion.tipo === 'gasto' && transaccion.proyecto_id) {
+      this.revertirGastoProyecto(transaccion.proyecto_id, transaccion.monto);
     }
 
     const filtrada = lista.filter(t => t.id !== id);
@@ -309,6 +317,20 @@ export const storageService = {
         this.revertirAportePacto(txAnterior.proyecto_id, txAnterior.pacto_id, txAnterior.monto);
         this.actualizarAportePacto(nuevoProyectoId, nuevoPactoId, nuevoMonto);
       }
+    }
+
+    // Si es gasto y cambió de proyecto o de monto
+    if (txAnterior.tipo === 'gasto' && txAnterior.proyecto_id) {
+      const nuevoProyectoId = cambiosCompletos.proyecto_id !== undefined ? cambiosCompletos.proyecto_id : txAnterior.proyecto_id;
+      const nuevoMonto = cambiosCompletos.monto !== undefined ? cambiosCompletos.monto : txAnterior.monto;
+      if (nuevoMonto !== txAnterior.monto || nuevoProyectoId !== txAnterior.proyecto_id) {
+        this.revertirGastoProyecto(txAnterior.proyecto_id, txAnterior.monto);
+        if (nuevoProyectoId) {
+          this.actualizarGastoProyecto(nuevoProyectoId, nuevoMonto);
+        }
+      }
+    } else if (txActualizada.tipo === 'gasto' && txActualizada.proyecto_id && !txAnterior.proyecto_id) {
+      this.actualizarGastoProyecto(txActualizada.proyecto_id, txActualizada.monto);
     }
 
     lista[idx] = txActualizada;
@@ -762,6 +784,24 @@ export const storageService = {
         item.estado = item.saldo_pendiente <= 0 ? 'completado' : 'al_dia';
         localStorage.setItem(STORAGE_KEYS.PACTOS, JSON.stringify(pactos));
       }
+    }
+  },
+
+  actualizarGastoProyecto(proyectoId: string, monto: number = 0): void {
+    const proyectos = this.getProyectos();
+    const pIndex = proyectos.findIndex(p => p.id === proyectoId);
+    if (pIndex >= 0) {
+      proyectos[pIndex].total_gastado = (proyectos[pIndex].total_gastado || 0) + monto;
+      localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
+    }
+  },
+
+  revertirGastoProyecto(proyectoId: string, monto: number = 0): void {
+    const proyectos = this.getProyectos();
+    const pIndex = proyectos.findIndex(p => p.id === proyectoId);
+    if (pIndex >= 0) {
+      proyectos[pIndex].total_gastado = Math.max(0, (proyectos[pIndex].total_gastado || 0) - monto);
+      localStorage.setItem(STORAGE_KEYS.PROYECTOS, JSON.stringify(proyectos));
     }
   },
 

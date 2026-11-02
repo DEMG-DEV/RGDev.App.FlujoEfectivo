@@ -14,7 +14,8 @@ import {
   Tag, 
   Loader2, 
   Cloud,
-  Check
+  Check,
+  Building2
 } from 'lucide-react';
 import { Transaccion, MetodoPago } from '../types';
 import { storageService } from '../services/storageService';
@@ -55,6 +56,8 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
   const [categoria, setCategoria] = useState<string>(CATEGORIAS_GASTOS[0]);
   const [fecha, setFecha] = useState<string>('');
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
+  const [proyectos, setProyectos] = useState(() => storageService.getProyectos());
+  const [proyectoId, setProyectoId] = useState<string>('');
 
   // Estado de la evidencia / comprobante
   const [evidenciaUrl, setEvidenciaUrl] = useState<string | null>(null);
@@ -78,6 +81,8 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
       setCategoria(transaccion.categoria || CATEGORIAS_GASTOS[0]);
       setFecha(extraerFechaYYYYMMDD(transaccion.fecha));
       setMetodoPago(transaccion.metodo_pago || 'efectivo');
+      setProyectoId(transaccion.proyecto_id || '');
+      setProyectos(storageService.getProyectos());
       setEvidenciaUrl(transaccion.evidencia_url || null);
       setEvidenciaNombre(transaccion.evidencia_nombre || null);
       setEvidenciaTipo(transaccion.evidencia_tipo || null);
@@ -175,12 +180,15 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
     setGuardando(true);
 
     try {
+      const proyectoSel = proyectos.find(p => p.id === proyectoId);
       const txActualizada = await storageService.editarTransaccion(transaccion.id, {
         monto: montoNumerico,
         concepto: concepto.trim(),
         categoria,
         fecha: extraerFechaYYYYMMDD(fecha),
         metodo_pago: metodoPago,
+        proyecto_id: proyectoId || undefined,
+        proyecto_nombre: proyectoSel ? proyectoSel.nombre : undefined,
         evidencia_url: evidenciaUrl || undefined,
         evidencia_nombre: evidenciaNombre || undefined,
         evidencia_tipo: evidenciaTipo || undefined
@@ -378,6 +386,34 @@ export const ModalEditarGasto: React.FC<ModalEditarGastoProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ASOCIACIÓN A PROYECTO PACTADO O COMPRA EN PARCIALIDADES */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+              <span className="flex items-center space-x-1">
+                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                <span>Vincular a Proyecto (opcional)</span>
+              </span>
+              <span className="text-[10px] text-slate-400">Parcialidades / Obras</span>
+            </label>
+            <select
+              value={proyectoId}
+              onChange={(e) => setProyectoId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none cursor-pointer"
+            >
+              <option value="">Gasto Operativo General (Sin proyecto asociado)</option>
+              {proyectos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre} {p.activo === false ? '(Concluido)' : `(Meta: ${formatearMoneda(p.meta_total)})`}
+                </option>
+              ))}
+            </select>
+            {proyectoId && (
+              <p className="text-[11px] text-blue-700 font-medium mt-1">
+                ✓ Este egreso se computará como gasto/pago parcial del proyecto seleccionado.
+              </p>
+            )}
           </div>
 
           {/* SECCIÓN COMPROBANTE / EVIDENCIA DIGITAL */}

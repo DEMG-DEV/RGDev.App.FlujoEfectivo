@@ -5,6 +5,36 @@
 
 ---
 
+## feat(release): release v1.11.0 - compras en parcialidades, registro directo de pagos a proveedores y gestión inteligente de gastos en proyectos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 08:47:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release (Minor) |
+
+### Archivos Modificados y Creados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `src/types/index.ts` | Modificado | Incorporación del campo opcional `modalidad?: 'pactos' \| 'parcialidades'` en la interfaz `ProyectoPactado` |
+| `src/components/ProyectosPactadosView.tsx` | Modificado | Botón y modal "Registrar Pago / Gasto de Proyecto", subvista dedicada "Pagos / Gastos", tarjetas KPI adaptativas (Costo Total, Pagado, Resta por Pagar, Estado/Remanente), selector de modalidad en modales de creación y edición de proyecto |
+| `src/components/ModalEditarGasto.tsx` | Modificado | Inclusión del selector desplegable "Vincular a Proyecto (opcional)" para asociar o reclasificar cualquier egreso a un proyecto activo |
+| `src/components/RegistroGastoView.tsx` | Modificado | Opción de selección de origen de recursos ("Caja General (Diezmos/Ofrendas)" vs "Fondo Acumulado del Proyecto") al financiar un gasto con un proyecto |
+| `src/services/storageService.ts` | Modificado | Métodos `actualizarGastoProyecto` y `revertirGastoProyecto`, sincronización de `total_gastado` en creación, edición y eliminación de gastos de proyectos |
+| `src/App.tsx` | Modificado | Paso de la prop `onVerEvidencia` hacia `ProyectosPactadosView` para previsualización modal de comprobantes de compras |
+| `package.json` | Modificado | Incremento de versión semántica a `1.11.0` |
+| `README.md` | Modificado | Actualización de badge a `v1.11.0`, tabla de puntos de referencia y documentación del módulo de proyectos en parcialidades |
+
+### Detalle Técnico
+- **Modelo de Compras a Plazos (Parcialidades)**: El sistema anteriormente asumía de forma estricta que todo proyecto correspondía a una recaudación acumulativa previa por pactos personales, calculando el remanente como `recaudado - gastado`. En compras directas pagadas en parcialidades con fondos de diezmos y ofrendas (como la compra de bocinas por $1,300), se generaba un remanente ficticio de $1,000 mientras que lo gastado figuraba en $0.00.
+- **Cómputo Adaptativo de Avance y Saldos**: Se implementó una lógica reactiva en `ProyectosPactadosView` donde, si el proyecto está configurado como `parcialidades` o cuenta con gastos registrados, las tarjetas de métricas visualizan `Costo Total`, `Total Pagado`, `Resta por Pagar` (`meta - gastado`) y el porcentaje de avance se basa en lo efectivamente pagado al proveedor.
+- **Auditoría e Historial de Gastos por Obra**: Se habilitó la 3ª subvista en el control segmentado Apple HIG (`Pagos y Gastos Realizados`), desplegando en tabla desktop y tarjetas móviles cada desembolso con fecha, concepto, categoría, método de pago, comprobante Cloudflare R2 con lightbox interactivo, y opciones completas de edición y eliminación con recálculo automático de balances.
+- **Sincronización Bidireccional de Egresos**: Mediante `ModalEditarGasto`, egresos preexistentes pueden ser reclasificados e imputados a un proyecto sin necesidad de recrear la transacción.
+
+---
+
 ## fix(architecture): encapsulación de utilidades api en _lib y reducción a 10 funciones serverless para límite vercel hobby
 
 | Campo | Detalle |

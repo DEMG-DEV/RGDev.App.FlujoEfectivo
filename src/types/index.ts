@@ -41,6 +41,7 @@ export interface ProyectoPactado {
   total_gastado?: number;
   activo: boolean;
   color_acento?: string;
+  modalidad?: 'pactos' | 'parcialidades';
 }
 
 export interface PactoMiembro {

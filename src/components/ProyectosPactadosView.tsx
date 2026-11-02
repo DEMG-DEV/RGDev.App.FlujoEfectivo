@@ -20,23 +20,32 @@ import {
   Filter,
   Search,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Receipt,
+  UploadCloud,
+  Eye,
+  Tag,
+  FileText
 } from 'lucide-react';
 import { ProyectoPactado, PactoMiembro, Transaccion, MetodoPago, MiembroIglesia } from '../types';
 import { storageService } from '../services/storageService';
 import { SelectorHermano } from './SelectorHermano';
-import { formatearMoneda, formatearFechaCorta } from '../utils/dateUtils';
+import { formatearMoneda, formatearFechaCorta, getFechaHoy } from '../utils/dateUtils';
 import { ModalFinalizarProyecto } from './ModalFinalizarProyecto';
 import { ModalConfirmacion } from './ModalConfirmacion';
+import { ModalEditarGasto } from './ModalEditarGasto';
+import { subirEvidenciaACloudflare, UploadResult } from '../services/cloudflareService';
 
 interface ProyectosPactadosProps {
   onAbonarPacto?: (proyectoId: string, pactoId: string) => void;
   onProyectoFinalizado?: () => void;
+  onVerEvidencia?: (url: string, nombre?: string) => void;
 }
 
 export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({ 
   onAbonarPacto,
-  onProyectoFinalizado 
+  onProyectoFinalizado,
+  onVerEvidencia
 }) => {
   const [proyectos, setProyectos] = useState<ProyectoPactado[]>(() => storageService.getProyectos());
   const [pactos, setPactos] = useState<PactoMiembro[]>(() => storageService.getPactos());
@@ -46,8 +55,8 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [filtroEstado, setFiltroEstado] = useState<'activos' | 'finalizados' | 'todos'>('activos');
   const [filtroPactoHistorial, setFiltroPactoHistorial] = useState<string>('todos');
   
-  // Subvista interna del proyecto (Pactantes vs Historial) y búsqueda rápida
-  const [subvistaProyecto, setSubvistaProyecto] = useState<'pactantes' | 'entregas'>('pactantes');
+  // Subvista interna del proyecto (Pactantes vs Historial vs Gastos) y búsqueda rápida
+  const [subvistaProyecto, setSubvistaProyecto] = useState<'pactantes' | 'entregas' | 'gastos'>('pactantes');
   const [busquedaPactante, setBusquedaPactante] = useState<string>('');
 
   // Modales
@@ -56,6 +65,34 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [mostrarModalEditarPacto, setMostrarModalEditarPacto] = useState(false);
   const [mostrarModalFinalizar, setMostrarModalFinalizar] = useState(false);
   const [mostrarModalAporteDiezmo, setMostrarModalAporteDiezmo] = useState(false);
+
+  // Modal Registrar Pago / Gasto de Proyecto (Parcialidades o Compras)
+  const [mostrarModalGastoProyecto, setMostrarModalGastoProyecto] = useState(false);
+  const [montoGastoProyecto, setMontoGastoProyecto] = useState('');
+  const [conceptoGastoProyecto, setConceptoGastoProyecto] = useState('');
+  const [proveedorGastoProyecto, setProveedorGastoProyecto] = useState('');
+  const [categoriaGastoProyecto, setCategoriaGastoProyecto] = useState('Sonido, Multimedia e Instrumentos');
+  const [metodoPagoGastoProyecto, setMetodoPagoGastoProyecto] = useState<MetodoPago>('efectivo');
+  const [fechaGastoProyecto, setFechaGastoProyecto] = useState(() => getFechaHoy());
+  const [origenFondosGasto, setOrigenFondosGasto] = useState<'caja_general' | 'fondos_proyecto'>('caja_general');
+  const [guardandoGastoProyecto, setGuardandoGastoProyecto] = useState(false);
+  const [evidenciaGastoResult, setEvidenciaGastoResult] = useState<UploadResult | null>(null);
+  const [subiendoEvidenciaGasto, setSubiendoEvidenciaGasto] = useState(false);
+  const [progresoEvidenciaGasto, setProgresoEvidenciaGasto] = useState(0);
+
+  // Edición y Eliminación de Gastos del Proyecto
+  const [gastoAEditar, setGastoAEditar] = useState<Transaccion | null>(null);
+  const [gastoAEliminar, setGastoAEliminar] = useState<Transaccion | null>(null);
+  const [eliminandoGasto, setEliminandoGasto] = useState(false);
+
+  // Modal Editar Proyecto
+  const [mostrarModalEditarProyecto, setMostrarModalEditarProyecto] = useState(false);
+  const [editNombreProyecto, setEditNombreProyecto] = useState('');
+  const [editDescProyecto, setEditDescProyecto] = useState('');
+  const [editMetaProyecto, setEditMetaProyecto] = useState('');
+  const [editValorSemanalSugerido, setEditValorSemanalSugerido] = useState('');
+  const [editModalidadProyecto, setEditModalidadProyecto] = useState<'pactos' | 'parcialidades'>('pactos');
+  const [guardandoEditProyecto, setGuardandoEditProyecto] = useState(false);
 
   // Modales de Entrega (Editar y Ver Historial)
   const [mostrarModalEditarEntrega, setMostrarModalEditarEntrega] = useState(false);
@@ -86,6 +123,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [descProyecto, setDescProyecto] = useState('');
   const [metaProyecto, setMetaProyecto] = useState('');
   const [valorSemanalSugerido, setValorSemanalSugerido] = useState('');
+  const [modalidadNuevoProyecto, setModalidadNuevoProyecto] = useState<'pactos' | 'parcialidades'>('pactos');
 
   // Formulario Nuevo Pacto
   const [miembroPacto, setMiembroPacto] = useState('');
@@ -241,6 +279,18 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     return entregasDelProyecto.filter(e => e.pacto_id === filtroPactoHistorial);
   }, [entregasDelProyecto, filtroPactoHistorial]);
 
+  // Gastos y pagos registrados para el proyecto activo (ordenados cronológicamente descendente)
+  const gastosDelProyecto = useMemo(() => {
+    if (!proyectoSeleccionado) return [];
+    return transacciones
+      .filter(t => t.proyecto_id === proyectoSeleccionado.id && t.tipo === 'gasto' && t.categoria !== 'Liquidación / Remanente de Proyecto' && t.categoria !== 'Aporte de Diezmo a Proyecto')
+      .sort((a, b) => {
+        const compFecha = b.fecha.localeCompare(a.fecha);
+        if (compFecha !== 0) return compFecha;
+        return (b.created_at || '').localeCompare(a.created_at || '');
+      });
+  }, [transacciones, proyectoSeleccionado]);
+
   // Iniciales de nombre para avatar Apple HIG
   const getInitials = (name: string) => {
     return name
@@ -269,7 +319,8 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
       valor_semanal_sugerido: isNaN(semanalNum) ? 0 : semanalNum,
       fecha_inicio: new Date().toISOString().slice(0, 10),
       activo: true,
-      color_acento: '#4f46e5'
+      color_acento: '#4f46e5',
+      modalidad: modalidadNuevoProyecto
     });
 
     recargar();
@@ -519,13 +570,133 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     }
   };
 
+  // Guardar un nuevo gasto / pago de parcialidad asignado al proyecto
+  const handleGuardarGastoProyecto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proyectoSeleccionado) return;
+    const montoNum = parseFloat(montoGastoProyecto);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      alert('Por favor ingrese un monto válido mayor a $0');
+      return;
+    }
+    if (!conceptoGastoProyecto.trim()) {
+      alert('Por favor ingrese un concepto o motivo del pago');
+      return;
+    }
+
+    setGuardandoGastoProyecto(true);
+    try {
+      const descFinal = proveedorGastoProyecto.trim()
+        ? `${conceptoGastoProyecto.trim()} (Proveedor: ${proveedorGastoProyecto.trim()})`
+        : conceptoGastoProyecto.trim();
+
+      // Si se indicó pagar con fondos acumulados previamente en el proyecto,
+      // primero registrar la transferencia compensatoria a Caja General.
+      if (origenFondosGasto === 'fondos_proyecto') {
+        await storageService.guardarTransaccion({
+          tipo: 'ingreso',
+          subtipo: 'ofrenda',
+          categoria: 'Ofrenda General',
+          monto: montoNum,
+          fecha: fechaGastoProyecto,
+          tipo_culto: 'no_aplica',
+          concepto: `Fondo transferido del proyecto: ${proyectoSeleccionado.nombre} para compra`,
+          proyecto_id: proyectoSeleccionado.id,
+          proyecto_nombre: proyectoSeleccionado.nombre,
+          metodo_pago: metodoPagoGastoProyecto
+        });
+      }
+
+      // Registrar el egreso / pago de parcialidad
+      await storageService.guardarTransaccion({
+        tipo: 'gasto',
+        categoria: categoriaGastoProyecto,
+        monto: montoNum,
+        fecha: fechaGastoProyecto,
+        tipo_culto: 'no_aplica',
+        concepto: descFinal,
+        proyecto_id: proyectoSeleccionado.id,
+        proyecto_nombre: proyectoSeleccionado.nombre,
+        metodo_pago: metodoPagoGastoProyecto,
+        evidencia_url: evidenciaGastoResult?.url,
+        evidencia_nombre: evidenciaGastoResult?.name,
+        evidencia_tipo: evidenciaGastoResult?.type
+      });
+
+      await recargar();
+      setMostrarModalGastoProyecto(false);
+      setMontoGastoProyecto('');
+      setConceptoGastoProyecto('');
+      setProveedorGastoProyecto('');
+      setEvidenciaGastoResult(null);
+      setSubvistaProyecto('gastos');
+      alert(`¡Pago de ${formatearMoneda(montoNum)} registrado con éxito para "${proyectoSeleccionado.nombre}"!`);
+    } catch (err: any) {
+      alert('Error al registrar el pago del proyecto: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setGuardandoGastoProyecto(false);
+    }
+  };
+
+  // Confirmar eliminación de un gasto del proyecto
+  const confirmarEliminarGasto = async () => {
+    if (!gastoAEliminar) return;
+    setEliminandoGasto(true);
+    try {
+      storageService.eliminarTransaccion(gastoAEliminar.id);
+      await recargar();
+      setGastoAEliminar(null);
+    } finally {
+      setEliminandoGasto(false);
+    }
+  };
+
+  // Guardar edición de datos del proyecto
+  const handleGuardarEditarProyecto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proyectoSeleccionado) return;
+    const metaNum = parseFloat(editMetaProyecto);
+    if (isNaN(metaNum) || metaNum <= 0) {
+      alert('Por favor ingrese una meta válida mayor a $0');
+      return;
+    }
+
+    setGuardandoEditProyecto(true);
+    try {
+      await storageService.editarProyecto(proyectoSeleccionado.id, {
+        nombre: editNombreProyecto.trim() || proyectoSeleccionado.nombre,
+        descripcion: editDescProyecto.trim(),
+        meta_total: metaNum,
+        valor_semanal_sugerido: parseFloat(editValorSemanalSugerido) || 0,
+        modalidad: editModalidadProyecto
+      });
+      await recargar();
+      setMostrarModalEditarProyecto(false);
+      alert('¡Proyecto actualizado con éxito!');
+    } catch (err) {
+      alert('Error al actualizar el proyecto');
+    } finally {
+      setGuardandoEditProyecto(false);
+    }
+  };
+
   // Cálculos del proyecto activo
   const meta = proyectoSeleccionado?.meta_total || 1;
   const totalAportadoPactos = pactosDelProyecto.reduce((acc, p) => acc + (p.total_aportado || 0), 0);
   const recaudado = totalAportadoPactos > 0 ? totalAportadoPactos : (proyectoSeleccionado?.total_recaudado || 0);
   const gastado = proyectoSeleccionado?.total_gastado || 0;
   const remanenteNoGastado = Math.max(0, recaudado - gastado);
-  const porcentaje = Math.min(100, Math.round((recaudado / meta) * 100));
+
+  // Determinar si el proyecto se maneja como compra en parcialidades (pagos directos a proveedor)
+  const esCompraParcialidades = 
+    proyectoSeleccionado?.modalidad === 'parcialidades' || 
+    gastosDelProyecto.length > 0 || 
+    pactosDelProyecto.some(p => p.miembro_nombre.toLowerCase() === 'iglesia');
+
+  const restaPorPagar = Math.max(0, meta - gastado);
+  const porcentajePagado = Math.min(100, Math.round((gastado / meta) * 100));
+  const porcentajeRecaudado = Math.min(100, Math.round((recaudado / meta) * 100));
+  const porcentaje = esCompraParcialidades ? (porcentajePagado || porcentajeRecaudado) : porcentajeRecaudado;
 
   return (
     <div className="max-w-6xl mx-auto space-y-3.5 animate-in fade-in duration-200">
@@ -627,9 +798,31 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
               }`}>
                 {proyectoSeleccionado.activo !== false ? 'En Curso' : 'Concluido'}
               </span>
-              <h2 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
-                {proyectoSeleccionado.nombre}
+              <h2 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight flex items-center gap-1.5">
+                <span>{proyectoSeleccionado.nombre}</span>
+                {proyectoSeleccionado.modalidad === 'parcialidades' && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                    Compra a Parcialidades
+                  </span>
+                )}
               </h2>
+              {proyectoSeleccionado.activo !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditNombreProyecto(proyectoSeleccionado.nombre);
+                    setEditDescProyecto(proyectoSeleccionado.descripcion || '');
+                    setEditMetaProyecto(String(proyectoSeleccionado.meta_total));
+                    setEditValorSemanalSugerido(String(proyectoSeleccionado.valor_semanal_sugerido || 0));
+                    setEditModalidadProyecto(proyectoSeleccionado.modalidad || (esCompraParcialidades ? 'parcialidades' : 'pactos'));
+                    setMostrarModalEditarProyecto(true);
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Editar nombre, meta o modalidad del proyecto"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
               {proyectoSeleccionado.fecha_fin && (
                 <span className="text-[11px] text-slate-400">
                   (Concluido el {formatearFechaCorta(proyectoSeleccionado.fecha_fin)})
@@ -641,6 +834,25 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             <div className="flex items-center space-x-1.5 flex-wrap self-start sm:self-auto">
               {proyectoSeleccionado.activo !== false ? (
                 <>
+                  <button
+                    onClick={() => {
+                      setMontoGastoProyecto('');
+                      setConceptoGastoProyecto(`Pago parcial ${gastosDelProyecto.length + 1}: ${proyectoSeleccionado.nombre}`);
+                      setProveedorGastoProyecto('');
+                      setCategoriaGastoProyecto('Sonido, Multimedia e Instrumentos');
+                      setMetodoPagoGastoProyecto('efectivo');
+                      setFechaGastoProyecto(getFechaHoy());
+                      setOrigenFondosGasto('caja_general');
+                      setEvidenciaGastoResult(null);
+                      setMostrarModalGastoProyecto(true);
+                    }}
+                    className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs shadow-rose-600/20"
+                    title="Registrar una parcialidad o compra directa de este proyecto"
+                  >
+                    <Receipt className="w-3.5 h-3.5" />
+                    <span>Registrar Pago / Gasto</span>
+                  </button>
+
                   <button
                     onClick={() => setMostrarModalNuevoPacto(true)}
                     className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs shadow-blue-600/20"
@@ -658,7 +870,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                       setMostrarModalAporteDiezmo(true);
                     }}
                     className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 border border-slate-200 text-xs font-semibold transition-all"
-                    title="Tomar fondos de diezmos e ingresarlos al proyecto"
+                    title="Tomar fondos de diezmos e ingresarlos a la recaudación del proyecto"
                   >
                     <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
                     <span>Aportar de Diezmos</span>
@@ -696,13 +908,17 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             {/* Avance y Barra en una sola línea */}
             <div className="flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center space-x-1.5 text-slate-600 font-semibold min-w-0">
-                <span className="text-xs font-bold text-slate-800">Avance</span>
-                <span className="text-[11px] text-slate-400">({pactosDelProyecto.length} participantes)</span>
+                <span className="text-xs font-bold text-slate-800">
+                  {esCompraParcialidades ? 'Avance de Pago' : 'Avance de Recaudación'}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  ({esCompraParcialidades ? `${gastosDelProyecto.length} pagos realizados` : `${pactosDelProyecto.length} participantes`})
+                </span>
               </div>
               <div className="flex items-center space-x-2.5 flex-1 max-w-sm">
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                   <div 
-                    className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                    className={`h-full rounded-full transition-all duration-500 ${porcentaje >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
                     style={{ width: `${porcentaje}%` }}
                   />
                 </div>
@@ -715,50 +931,105 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             {/* 4 Cifras Clave Compactas */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60">
               <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Meta Total</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                  {esCompraParcialidades ? 'Costo Total' : 'Meta Total'}
+                </span>
                 <span className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
                   {formatearMoneda(proyectoSeleccionado.meta_total)}
                 </span>
               </div>
 
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
-                <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Recaudado</span>
-                <span className="text-sm sm:text-base font-black text-emerald-700 tabular-nums">
-                  {formatearMoneda(recaudado)}
-                </span>
-              </div>
+              {esCompraParcialidades ? (
+                <>
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] uppercase font-bold text-rose-500 block tracking-wider">Total Pagado</span>
+                    <span className="text-sm sm:text-base font-black text-rose-700 tabular-nums">
+                      {formatearMoneda(gastado)}
+                    </span>
+                  </div>
 
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
-                <span className="text-[10px] uppercase font-bold text-rose-500 block tracking-wider">Gastado</span>
-                <span className="text-sm sm:text-base font-black text-rose-700 tabular-nums">
-                  {formatearMoneda(gastado)}
-                </span>
-              </div>
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] uppercase font-bold text-amber-600 block tracking-wider">Resta por Pagar</span>
+                    <span className={`text-sm sm:text-base font-black tabular-nums ${restaPorPagar <= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {formatearMoneda(restaPorPagar)}
+                    </span>
+                  </div>
 
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-blue-600 block tracking-wider">Remanente</span>
-                  {remanenteNoGastado > 0 && proyectoSeleccionado.activo !== false && (
-                    <button
-                      onClick={() => setMostrarModalFinalizar(true)}
-                      className="text-[10px] text-amber-700 font-bold hover:underline inline-flex items-center"
-                      title="Mover remanente a ofrenda general"
-                    >
-                      Mover →
-                    </button>
-                  )}
-                </div>
-                <span className="text-sm sm:text-base font-black text-slate-950 tabular-nums">
-                  {formatearMoneda(remanenteNoGastado)}
-                </span>
-              </div>
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold text-blue-600 block tracking-wider">
+                        {remanenteNoGastado > 0 ? 'Remanente' : 'Estado'}
+                      </span>
+                      {remanenteNoGastado > 0 && proyectoSeleccionado.activo !== false && (
+                        <button
+                          onClick={() => setMostrarModalFinalizar(true)}
+                          className="text-[10px] text-amber-700 font-bold hover:underline inline-flex items-center"
+                          title="Mover remanente a ofrenda general"
+                        >
+                          Mover →
+                        </button>
+                      )}
+                    </div>
+                    <span className="text-sm sm:text-base font-black text-slate-950 tabular-nums">
+                      {remanenteNoGastado > 0 ? formatearMoneda(remanenteNoGastado) : (restaPorPagar <= 0 ? '✓ Liquidado' : 'En Parcialidades')}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Recaudado</span>
+                    <span className="text-sm sm:text-base font-black text-emerald-700 tabular-nums">
+                      {formatearMoneda(recaudado)}
+                    </span>
+                  </div>
+
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <span className="text-[10px] uppercase font-bold text-rose-500 block tracking-wider">Gastado</span>
+                    <span className="text-sm sm:text-base font-black text-rose-700 tabular-nums">
+                      {formatearMoneda(gastado)}
+                    </span>
+                  </div>
+
+                  <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold text-blue-600 block tracking-wider">Remanente</span>
+                      {remanenteNoGastado > 0 && proyectoSeleccionado.activo !== false && (
+                        <button
+                          onClick={() => setMostrarModalFinalizar(true)}
+                          className="text-[10px] text-amber-700 font-bold hover:underline inline-flex items-center"
+                          title="Mover remanente a ofrenda general"
+                        >
+                          Mover →
+                        </button>
+                      )}
+                    </div>
+                    <span className="text-sm sm:text-base font-black text-slate-950 tabular-nums">
+                      {formatearMoneda(remanenteNoGastado)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Segmented Control Interno Apple HIG: Pactantes vs Historial de Entregas */}
+          {/* Segmented Control Interno Apple HIG: Pagos vs Hermanos vs Entregas */}
           <div className="pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div className="apple-segmented-group">
+                <button
+                  type="button"
+                  onClick={() => setSubvistaProyecto('gastos')}
+                  className={`apple-segmented-item px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 ${
+                    subvistaProyecto === 'gastos'
+                      ? 'apple-segmented-active text-slate-950'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Pagos / Gastos ({gastosDelProyecto.length})</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setSubvistaProyecto('pactantes')}
@@ -769,7 +1040,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>Hermanos en el Proyecto ({pactosDelProyecto.length})</span>
+                  <span>Hermanos ({pactosDelProyecto.length})</span>
                 </button>
 
                 <button
@@ -782,7 +1053,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   }`}
                 >
                   <CalendarDays className="w-3.5 h-3.5" />
-                  <span>Historial de Entregas ({entregasDelProyecto.length})</span>
+                  <span>Aportes Recibidos ({entregasDelProyecto.length})</span>
                 </button>
               </div>
 
@@ -1212,6 +1483,192 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 )}
               </div>
             )}
+
+            {/* CONTENIDO SUBVISTA 3: PAGOS Y GASTOS REALIZADOS (Parcialidades / Compras) */}
+            {subvistaProyecto === 'gastos' && (
+              <div className="pt-2">
+                {gastosDelProyecto.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                    <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-bold text-slate-800">No hay pagos ni gastos registrados para este proyecto</p>
+                    <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                      Registra los pagos a proveedores o parcialidades pagadas con diezmos, ofrendas o fondos del proyecto.
+                    </p>
+                    {proyectoSeleccionado.activo !== false && (
+                      <button
+                        onClick={() => {
+                          setMontoGastoProyecto('');
+                          setConceptoGastoProyecto(`Pago parcial 1: ${proyectoSeleccionado.nombre}`);
+                          setProveedorGastoProyecto('');
+                          setCategoriaGastoProyecto('Sonido, Multimedia e Instrumentos');
+                          setMetodoPagoGastoProyecto('efectivo');
+                          setFechaGastoProyecto(getFechaHoy());
+                          setOrigenFondosGasto('caja_general');
+                          setEvidenciaGastoResult(null);
+                          setMostrarModalGastoProyecto(true);
+                        }}
+                        className="mt-1 inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-500 shadow-sm"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>Registrar Primer Pago</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Tabla Desktop (md en adelante) */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-[#F8F9FA] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100">
+                          <tr>
+                            <th className="py-2.5 px-3">Fecha</th>
+                            <th className="py-2.5 px-3">Concepto / Parcialidad</th>
+                            <th className="py-2.5 px-3">Categoría</th>
+                            <th className="py-2.5 px-3">Método</th>
+                            <th className="py-2.5 px-3 text-center">Comprobante</th>
+                            <th className="py-2.5 px-3 text-right">Monto Pagado</th>
+                            <th className="py-2.5 px-3 text-right">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100/80">
+                          {gastosDelProyecto.map((gasto) => (
+                            <tr key={gasto.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-slate-900 block text-xs">
+                                  {formatearFechaCorta(gasto.fecha)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 capitalize">
+                                  {gasto.dia_semana || 'Pago'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-slate-800 text-xs block">
+                                  {gasto.concepto}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-xs text-slate-600">
+                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                                  {gasto.categoria}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md capitalize">
+                                  {gasto.metodo_pago}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {gasto.evidencia_url ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onVerEvidencia?.(gasto.evidencia_url!, gasto.evidencia_nombre || gasto.concepto)}
+                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 text-[11px] font-bold transition-all"
+                                    title="Ver comprobante digital"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>Ver</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-300">Sin archivo</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-extrabold text-rose-600 text-xs tabular-nums">
+                                -{formatearMoneda(gasto.monto)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end space-x-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setGastoAEditar(gasto)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                                    title="Editar gasto"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setGastoAEliminar(gasto)}
+                                    className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                    title="Eliminar gasto"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Vista Móvil Nativa de Gastos (md:hidden) */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {gastosDelProyecto.map((gasto) => (
+                        <div key={gasto.id} className="p-3.5 space-y-2 hover:bg-slate-50/70 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-slate-900 text-xs">
+                                {formatearFechaCorta(gasto.fecha)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 capitalize ml-1.5">
+                                ({gasto.dia_semana || 'Pago'})
+                              </span>
+                            </div>
+                            <span className="font-extrabold text-rose-600 text-sm tabular-nums">
+                              -{formatearMoneda(gasto.monto)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-bold text-slate-800 block">
+                                {gasto.concepto}
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {gasto.categoria}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded capitalize">
+                                {gasto.metodo_pago}
+                              </span>
+                              {gasto.evidencia_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => onVerEvidencia?.(gasto.evidencia_url!, gasto.evidencia_nombre || gasto.concepto)}
+                                  className="p-1 rounded bg-sky-50 text-sky-700 border border-sky-200"
+                                  title="Ver comprobante"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end space-x-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setGastoAEditar(gasto)}
+                              className="px-2.5 py-1 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium inline-flex items-center space-x-1"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGastoAEliminar(gasto)}
+                              className="px-2.5 py-1 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg font-medium inline-flex items-center space-x-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1295,6 +1752,50 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     onChange={(e) => setValorSemanalSugerido(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* Modalidad de Proyecto */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+                <span className="text-[11px] font-bold text-slate-700 block">
+                  Modelo o Modalidad de Gestión:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    modalidadNuevoProyecto === 'parcialidades' ? 'bg-amber-50 border-amber-300 text-amber-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="modalidadNuevoProyecto"
+                      checked={modalidadNuevoProyecto === 'parcialidades'}
+                      onChange={() => setModalidadNuevoProyecto('parcialidades')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Compra a Parcialidades</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Se adquiere un bien y se cubre en pagos/abonos a proveedor. El dinero se maneja como pagado.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    modalidadNuevoProyecto === 'pactos' ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="modalidadNuevoProyecto"
+                      checked={modalidadNuevoProyecto === 'pactos'}
+                      onChange={() => setModalidadNuevoProyecto('pactos')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Pactos y Aportes Colectivos</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Los hermanos recaudan cuotas hasta juntar la meta requerida.
+                      </span>
+                    </div>
+                  </label>
                 </div>
               </div>
 
@@ -2072,6 +2573,473 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
         cargando={reabriendoProyecto}
         onConfirm={confirmarReabrirProyecto}
         onCancel={() => setProyectoAReabrirId(null)}
+      />
+
+      {/* Modal: Registrar Pago / Gasto de Proyecto (Parcialidades / Compras) */}
+      {mostrarModalGastoProyecto && proyectoSeleccionado && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoGastoProyecto && !subiendoEvidenciaGasto) {
+              setMostrarModalGastoProyecto(false);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-gasto-proyecto-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4 max-h-[92vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200/60">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="modal-gasto-proyecto-titulo" className="text-base font-black text-slate-950">
+                    Registrar Pago / Gasto de Proyecto
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proyecto: <strong className="text-rose-600">{proyectoSeleccionado.nombre}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setMostrarModalGastoProyecto(false)} 
+                disabled={guardandoGastoProyecto || subiendoEvidenciaGasto}
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarGastoProyecto} className="space-y-4 pt-1">
+              {/* Importe Hero */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Importe del Pago / Parcialidad ($ MXN) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-base font-black text-rose-500">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={montoGastoProyecto}
+                    onChange={(e) => setMontoGastoProyecto(e.target.value)}
+                    placeholder="0.00"
+                    autoFocus
+                    required
+                    className="w-full pl-8 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+
+                {/* Chips de montos rápidos */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  {[100, 200, 500, 1000].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setMontoGastoProyecto(String(val))}
+                      className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-[11px] font-bold text-slate-600 transition-colors"
+                    >
+                      +${val}
+                    </button>
+                  ))}
+                  {restaPorPagar > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setMontoGastoProyecto(String(restaPorPagar))}
+                      className="px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-[11px] font-bold text-amber-800 transition-colors"
+                    >
+                      Restante (${restaPorPagar})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Fecha y Método */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Fecha del Pago *
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaGastoProyecto}
+                    onChange={(e) => setFechaGastoProyecto(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Método de Pago
+                  </label>
+                  <select
+                    value={metodoPagoGastoProyecto}
+                    onChange={(e) => setMetodoPagoGastoProyecto(e.target.value as MetodoPago)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia SPEI</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Categoría y Proveedor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Categoría del Gasto *
+                  </label>
+                  <select
+                    value={categoriaGastoProyecto}
+                    onChange={(e) => setCategoriaGastoProyecto(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  >
+                    <option value="Sonido, Multimedia e Instrumentos">Sonido, Multimedia e Instrumentos</option>
+                    <option value="Mantenimiento y Reparaciones del Templo">Mantenimiento y Reparaciones del Templo</option>
+                    <option value="Eventos Especiales, Vigilias y Retiros">Eventos Especiales, Vigilias y Retiros</option>
+                    <option value="Obra Social, Misericordia y Canasta Básica">Obra Social, Misericordia y Canasta Básica</option>
+                    <option value="Servicios Básicos (Luz, Agua, Gas)">Servicios Básicos (Luz, Agua, Gas)</option>
+                    <option value="Papelería, Limpieza y Administración">Papelería, Limpieza y Administración</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Proveedor / Tienda (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Tienda de Audio, Ferretería..."
+                    value={proveedorGastoProyecto}
+                    onChange={(e) => setProveedorGastoProyecto(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* Concepto / Motivo */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Concepto / Detalle de la Parcialidad *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. 1er pago parcial de bocinas, abono 2/3..."
+                  value={conceptoGastoProyecto}
+                  onChange={(e) => setConceptoGastoProyecto(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+
+              {/* Origen de los Fondos */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+                <span className="text-[11px] font-bold text-slate-700 block">
+                  ¿De dónde sale el dinero para pagar?
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    origenFondosGasto === 'caja_general' ? 'bg-rose-50 border-rose-300 text-rose-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="origenFondosGasto"
+                      checked={origenFondosGasto === 'caja_general'}
+                      onChange={() => setOrigenFondosGasto('caja_general')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Caja General (Diezmos / Ofrendas)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Se paga en parcialidades directamente con los fondos generales reunidos.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    origenFondosGasto === 'fondos_proyecto' ? 'bg-rose-50 border-rose-300 text-rose-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="origenFondosGasto"
+                      checked={origenFondosGasto === 'fondos_proyecto'}
+                      onChange={() => setOrigenFondosGasto('fondos_proyecto')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Fondo Acumulado del Proyecto</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Se toma del remanente ahorrado en este proyecto.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Comprobante Digital */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Comprobante Digital / Factura (Opcional)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="file"
+                    id="archivo-gasto-proyecto"
+                    accept="image/*,application/pdf"
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setSubiendoEvidenciaGasto(true);
+                        setProgresoEvidenciaGasto(10);
+                        try {
+                          const res = await subirEvidenciaACloudflare(file, (pct) => setProgresoEvidenciaGasto(pct));
+                          setEvidenciaGastoResult(res);
+                        } catch (err: any) {
+                          alert('Error al subir comprobante: ' + (err.message || 'Error'));
+                        } finally {
+                          setSubiendoEvidenciaGasto(false);
+                        }
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="archivo-gasto-proyecto"
+                    className="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{subiendoEvidenciaGasto ? `Subiendo (${progresoEvidenciaGasto}%)...` : (evidenciaGastoResult ? 'Cambiar Comprobante' : 'Adjuntar Foto / Recibo')}</span>
+                  </label>
+                  {evidenciaGastoResult && (
+                    <span className="text-[11px] font-semibold text-emerald-700 flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-[180px]">{evidenciaGastoResult.name}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalGastoProyecto(false)}
+                  disabled={guardandoGastoProyecto || subiendoEvidenciaGasto}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoGastoProyecto || subiendoEvidenciaGasto}
+                  className="px-5 py-2 text-xs font-bold bg-rose-600 text-white rounded-xl hover:bg-rose-500 active:scale-[0.98] shadow-sm shadow-rose-600/20 disabled:opacity-50 transition-all flex items-center space-x-1.5"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>{guardandoGastoProyecto ? 'Guardando Pago...' : 'Registrar Pago / Gasto'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Editar Proyecto Apple HIG */}
+      {mostrarModalEditarProyecto && proyectoSeleccionado && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoEditProyecto) {
+              setMostrarModalEditarProyecto(false);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-editar-proyecto-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4 max-h-[92vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="modal-editar-proyecto-titulo" className="text-base font-black text-slate-950">
+                    Editar Proyecto
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ajusta el nombre, la meta o el modelo de pago del proyecto
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setMostrarModalEditarProyecto(false)} 
+                disabled={guardandoEditProyecto}
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarEditarProyecto} className="space-y-4 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Nombre del Proyecto *
+                </label>
+                <input
+                  type="text"
+                  value={editNombreProyecto}
+                  onChange={(e) => setEditNombreProyecto(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Descripción / Propósito
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDescProyecto}
+                  onChange={(e) => setEditDescProyecto(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Meta / Costo Total ($ MXN) *
+                  </label>
+                  <input
+                    type="number"
+                    step="50"
+                    min="1"
+                    value={editMetaProyecto}
+                    onChange={(e) => setEditMetaProyecto(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Cuota Sugerida ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="50"
+                    value={editValorSemanalSugerido}
+                    onChange={(e) => setEditValorSemanalSugerido(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Modalidad de Proyecto */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+                <span className="text-[11px] font-bold text-slate-700 block">
+                  Modelo o Modalidad de Gestión:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    editModalidadProyecto === 'parcialidades' ? 'bg-amber-50 border-amber-300 text-amber-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="editModalidadProyecto"
+                      checked={editModalidadProyecto === 'parcialidades'}
+                      onChange={() => setEditModalidadProyecto('parcialidades')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Compra a Parcialidades</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Se adquiere un bien y se cubre en pagos/abonos a proveedor. El dinero se maneja como pagado.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start space-x-2 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    editModalidadProyecto === 'pactos' ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold' : 'bg-white border-slate-200 text-slate-600'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="editModalidadProyecto"
+                      checked={editModalidadProyecto === 'pactos'}
+                      onChange={() => setEditModalidadProyecto('pactos')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="block font-bold">Pactos y Aportes Colectivos</span>
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        Los hermanos recaudan cuotas hasta juntar la meta requerida.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalEditarProyecto(false)}
+                  disabled={guardandoEditProyecto}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoEditProyecto}
+                  className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-500 active:scale-[0.98] shadow-sm shadow-blue-600/20 disabled:opacity-50 transition-all"
+                >
+                  {guardandoEditProyecto ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Gasto del Proyecto */}
+      {gastoAEditar && (
+        <ModalEditarGasto
+          isOpen={!!gastoAEditar}
+          transaccion={gastoAEditar}
+          onClose={() => setGastoAEditar(null)}
+          onGuardado={async () => {
+            await recargar();
+            setGastoAEditar(null);
+          }}
+          onVerEvidencia={onVerEvidencia}
+        />
+      )}
+
+      {/* Modal Confirmación Eliminar Gasto del Proyecto */}
+      <ModalConfirmacion
+        isOpen={!!gastoAEliminar}
+        titulo="Eliminar Pago / Gasto de Proyecto"
+        mensaje={`¿Estás seguro de que deseas eliminar este gasto de ${formatearMoneda(gastoAEliminar?.monto || 0)} ("${gastoAEliminar?.concepto}")? Esta acción revertirá el egreso de caja y recalculará lo pagado en el proyecto.`}
+        textoConfirmar="Eliminar Pago"
+        textoCancelar="Cancelar"
+        variante="peligro"
+        cargando={eliminandoGasto}
+        onConfirm={confirmarEliminarGasto}
+        onCancel={() => setGastoAEliminar(null)}
       />
 
     </div>

@@ -1,7 +1,7 @@
 {
   "name": "rgdev-app-flujo-efectivo-iglesia",
   "private": true,
-  "version": "1.10.2",
+  "version": "1.11.0",
   "description": "Sistema moderno de tesorería y mayordomía financiera eclesiástica con React, TypeScript, Vite, Tailwind CSS, PostgreSQL en Aiven Cloud y Cloudflare R2 bajo Apple Human Interface Guidelines (HIG).",
   "author": "David Méndez <DEMG-DEV>",
   "license": "MIT",

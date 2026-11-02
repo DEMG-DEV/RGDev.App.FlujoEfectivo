@@ -5,6 +5,32 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.11.0: Compras en parcialidades, registro de pagos directos a proveedores y control de deuda en proyectos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 08:47:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Nuevo Módulo de Pagos a Plazos en Proyectos**: Ahora los proyectos de la iglesia no sólo sirven para juntar dinero antes de comprar, sino también para compras y compromisos que se pagan en parcialidades o abonos directos al proveedor (como equipo de sonido, instrumentos o mejoras).
+2. **Botón y Formulario "Registrar Pago / Gasto"**: Dentro del proyecto puedes registrar cada parcialidad entregada al proveedor con su fecha, monto, recibo/factura digital y método de pago, indicando si los fondos salieron de los diezmos y ofrendas generales o de un ahorro del proyecto.
+3. **Métricas Claras sin Falsos Remanentes**: Cuando un proyecto se paga a plazos, el sistema ya no muestra el dinero como si estuviera guardado en caja esperando a gastarse. Muestra con total transparencia: **Costo Total**, **Total Pagado a la Fecha** y **Resta por Pagar** (lo que falta para liquidar la cuenta).
+4. **Historial de Pagos Realizados**: Nueva pestaña dentro del proyecto que lista cada abono hecho al proveedor con su comprobante digital en pantalla completa y opciones para corregir o borrar pagos.
+5. **Reclasificación de Gastos en Libro de Caja**: Puedes tomar cualquier gasto registrado previamente y asignarlo al proyecto correspondiente con un solo clic.
+
+### ¿Qué significa para el proyecto?
+- **Claridad Total en Finanzas**: Se elimina la confusión entre dinero ahorrado en caja y dinero ya pagado a proveedores. El liderazgo sabe exactamente cuánto se ha pagado y cuánto resta por liquidar en cada obra o adquisición.
+- **Flexibilidad Operativa**: La iglesia puede gestionar tanto proyectos de recaudación comunitaria previa como compras a plazos financiadas con la ofrenda y diezmo corriente.
+
+### ¿Qué va a notar el usuario/cliente?
+- Botón frambuesa **"Registrar Pago / Gasto"** visible en la parte superior del proyecto.
+- Tarjetas con **Total Pagado** y **Resta por Pagar** en lugar de remanentes confusos.
+- Selector para vincular gastos a proyectos desde el formulario de edición de gastos.
+- Nueva pestaña **"Pagos / Gastos"** junto a "Hermanos" y "Aportes".
+
+---
+
 ## ✅ Optimización de Infraestructura v1.10.2: Ajuste de módulos del servidor para el plan gratuito de Vercel (Hobby)
 
 | Campo | Detalle |

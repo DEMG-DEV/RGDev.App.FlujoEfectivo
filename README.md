@@ -4,7 +4,7 @@
 
 ### *Plataforma de Tesorería, Mayordomía Financiera y Rendición de Cuentas para Iglesias y Ministerios*
 
-[![Version](https://img.shields.io/badge/version-1.10.0-emerald.svg?style=for-the-badge&logo=semver&logoColor=white)](package.json)
+[![Version](https://img.shields.io/badge/version-1.11.0-emerald.svg?style=for-the-badge&logo=semver&logoColor=white)](package.json)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.2-646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -52,6 +52,7 @@
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.11.0** | 2026-11-02 08:47:00 | David Méndez | Producción / Estable |
 | **v1.10.0** | 2026-11-02 00:35:00 | David Méndez | Producción / Estable |
 | **v1.9.0** | 2026-11-01 22:15:00 | David Méndez | Producción / Estable |
 | **v1.8.2** | 2026-10-13 11:15:00 | David Méndez | Producción / Estable |
@@ -150,7 +151,11 @@ graph TD
 - **Asignación Opcional a Proyectos:** Permite que un gasto se aplique directamente a los fondos de una obra específica.
 
 ### 5. Proyectos Pactados & Metas de Fe
-- **Gestión Integral de Proyectos:** Creación de obras (ej. *"Adquisición de Bocinas"*, *"Construcción Templo"*) con meta financiera y cuota sugerida.
+- **Gestión Dual de Proyectos (Ahorro vs Compras en Parcialidades):** Soporte integral para metas de ahorro colectivo y compras a plazos donde cada abono periódico es un pago/egreso directo al proveedor, evitando mostrar falsos remanentes acumulados.
+- **Registro Ágil de Pagos y Parcialidades:** Modal dedicado en el proyecto para registrar parcialidades con importe, proveedor, método de pago, comprobante Cloudflare R2 y selección de origen de recursos (Caja General / Diezmos vs Fondos del Proyecto).
+- **Subvista de Pagos y Gastos Realizados:** Pestaña auditable que consolida cada desembolso realizado para el proyecto con previsualización de comprobantes, edición y reversión.
+- **Métricas Clave de Deuda y Liquidación:** Tarjetas inteligentes que calculan en tiempo real **Costo Total**, **Total Pagado**, **Resta por Pagar** y **Avance de Pago**.
+- **Vinculación Flexible de Gastos:** Posibilidad de asignar o reasignar cualquier egreso existente en el Libro de Caja a un proyecto activo.
 - **Registro de Hermanos Pactantes:** Ficha por creyente con cuota acordada, semanas pagadas, semanas estimadas y saldo restante.
 - **Historial Completo de Entregas:** Subvista dedicada de entregas por fecha con capacidad de editar montos, recibos o eliminar entregas recalculando balances al instante.
 - **Liquidación con Traspaso Contable Neutral:** Al concluir una meta con remanente no utilizado, el sistema permite transferir el saldo sobrante a la Ofrenda General con balance neto neutral ($0.00 de discrepancia contable).
