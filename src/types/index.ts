@@ -59,6 +59,20 @@ export interface PactoMiembro {
   estado: 'al_dia' | 'completado' | 'pendiente';
 }
 
+export interface MiembroIglesia {
+  id: string;
+  nombre: string;
+  telefono?: string;
+  email?: string;
+  notas?: string;
+  activo: boolean;
+  created_at: string;
+  total_aportaciones?: number;
+  total_aportado?: number;
+  total_diezmos?: number;
+  total_pactos?: number;
+}
+
 export interface MiembroFrecuente {
   id: string;
   nombre: string;
@@ -100,5 +114,105 @@ export interface AuthUser {
   name: string;
   email: string;
   role: RolUsuario;
+}
+
+export interface SnapshotMovimiento {
+  id: string;
+  tipo: TipoTransaccion;
+  subtipo?: SubtipoIngreso;
+  categoria: string;
+  monto: number;
+  fecha: string;
+  dia_semana: string;
+  tipo_culto: TipoCulto;
+  concepto: string;
+  miembro_id?: string;
+  miembro_nombre?: string;
+  metodo_pago: MetodoPago;
+  evidencia_url?: string;
+  evidencia_nombre?: string;
+  created_at?: string;
+}
+
+export interface ReporteHistorico {
+  id: string;
+  folio: string;
+  fecha_emision: string; // ISO string
+  periodo_tipo: 'por_mes' | 'todo' | 'este_ano' | 'personalizado';
+  periodo_descripcion: string;
+  mes_seleccionado?: string;
+  fecha_desde: string;
+  fecha_hasta: string;
+  nombre_iglesia: string;
+  logo_iglesia?: string;
+  secciones_incluidas: {
+    incluirResumenMensual: boolean;
+    incluirIngresos: boolean;
+    incluirGastos: boolean;
+    incluirProyectos: boolean;
+    incluirLibroCaja: boolean;
+    incluirAnexos: boolean;
+  };
+  totales: {
+    totalEntradasCaja: number;
+    totalGastosCaja: number;
+    balanceNetoCaja: number;
+    totalOfrendas: number;
+    totalDiezmos: number;
+    totalOtros: number;
+    totalProyectosRecaudado: number;
+    totalProyectosMeta: number;
+  };
+  desglose_categorias_gastos?: Array<{
+    categoria: string;
+    total: number;
+    porcentaje: number;
+  }>;
+  movimientos_snapshot: SnapshotMovimiento[];
+  proyectos_snapshot?: Array<{
+    id: string;
+    nombre: string;
+    meta_total: number;
+    total_recaudado: number;
+  }>;
+  creado_por?: string;
+  created_at?: string;
+}
+
+export type TipoCambioAuditoria = 'modificado' | 'eliminado' | 'agregado_posteriormente';
+
+export interface ItemAuditoriaMovimiento {
+  id: string;
+  tipoCambio: TipoCambioAuditoria;
+  tipo: TipoTransaccion;
+  subtipo?: SubtipoIngreso;
+  conceptoOriginal?: string;
+  conceptoActual?: string;
+  categoriaOriginal?: string;
+  categoriaActual?: string;
+  fechaOriginal?: string;
+  fechaActual?: string;
+  montoOriginal?: number;
+  montoActual?: number;
+  diferenciaMonto: number; // montoActual - montoOriginal
+  miembroOriginal?: string;
+  miembroActual?: string;
+  detallesCambio: string[];
+}
+
+export interface ResultadoAuditoriaReporte {
+  reporteId: string;
+  folio: string;
+  fechaEmision: string;
+  tieneCambios: boolean;
+  totalModificados: number;
+  totalEliminados: number;
+  totalAgregados: number;
+  diferenciaEntradas: number;
+  diferenciaGastos: number;
+  diferenciaBalanceNeto: number;
+  balanceOriginal: number;
+  balanceActualizado: number;
+  items: ItemAuditoriaMovimiento[];
 }
 

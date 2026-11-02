@@ -5,6 +5,32 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.10.0: Rediseño Apple HIG del tablero, experiencia móvil nativa, reportes históricos auditados y directorio de hermanos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 00:35:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Rediseño Completo del Tablero Principal (Apple HIG)**: Se simplificó la vista de resumen general con 4 pilares financieros claros (Caja Operativa, Ingresos Totales, Gastos y Fondo de Proyectos), una gráfica de barras mensual interactiva y un nuevo anillo visual de distribución de aportes con gradientes de color que muestran con total nitidez cómo se componen los ingresos. Además, se eliminó la tabla inferior de últimos movimientos para que el tablero sea 100% ejecutivo y libre de redundancia.
+2. **Experiencia Móvil de Primera Clase sin Modificar Desktop**: Se renovó toda la vista móvil de la aplicación. En teléfonos celulares, las tablas anchas (Libro de Caja y Proyectos) ahora se presentan como tarjetas táctiles elegantes estilo Apple Wallet, facilitando consultar transacciones, abonos y saldos en la palma de la mano con botones cómodos para el pulgar, dejando intacta y perfecta la vista para computadoras de escritorio.
+3. **Historial de Reportes Inmutables y Detección de Cambios**: Ahora, al generar un informe financiero oficial, se guarda una copia idéntica y congelada en el tiempo (snapshot histórico). Si en el futuro alguien vuelve a imprimir ese reporte y algún movimiento de ese período fue modificado o eliminado, el sistema detecta de inmediato el cambio y muestra un aviso de auditoría con la diferencia exacta.
+4. **Directorio Integral de Hermanos de la Iglesia**: Nuevo módulo para registrar a los miembros de la congregación con sus teléfonos, notas pastorales y seguimiento de fidelidad en diezmos y pactos, incluyendo botón directo de WhatsApp para compartir recibos y notas de gratitud.
+5. **Estándares Comunitarios y Documentación Mundial**: Se integraron todos los archivos oficiales de GitHub (Licencia MIT, Política de Seguridad, Guía de Contribución, Código de Conducta, plantillas de problemas y pipeline de validación automática).
+
+### ¿Qué significa para el proyecto?
+- **Claridad e Imagen Profesional**: Eleva la presentación de las finanzas de la iglesia al nivel estético y de usabilidad de las aplicaciones más modernas de Apple y fintech.
+- **Transparencia Incorruptible**: El archivo histórico de reportes garantiza que los estados financieros presentados en asambleas no puedan ser alterados retroactivamente sin dejar huella de auditoría.
+- **Accesibilidad Total**: Los pastores y líderes pueden consultar finanzas y registrar movimientos con total comodidad desde su celular durante los cultos.
+
+### ¿Qué va a notar el usuario/cliente?
+- Una vista móvil sumamente ágil, limpia y rápida con tarjetas en vez de tablas difíciles de leer en pantallas chicas.
+- Gráficas hermosas, modernas y fáciles de comprender en el resumen.
+- La tranquilidad de poder reimprimir cualquier reporte ministerial pasado sabiendo si los números se mantuvieron fieles o si sufrieron modificaciones posteriores.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.9.0: Desglose de diezmo a pactos, historial de fechas de entrega con edición y borrado, y blindaje de saldos
 
 | Campo | Detalle |

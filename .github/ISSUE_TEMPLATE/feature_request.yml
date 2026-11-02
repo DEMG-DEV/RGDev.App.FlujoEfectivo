@@ -1,0 +1,39 @@
+name: "💡 Propuesta de Mejora (Feature Request)"
+description: "Sugiere una nueva función o mejora para el sistema eclesiástico"
+title: "[FEATURE]: "
+labels: ["enhancement", "idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¿Tienes una idea para hacer más eficiente la mayordomía financiera de la congregación? Nos encantaría conocerla.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "¿Qué necesidad o problema aborda esta propuesta?"
+      description: "Explica la situación ministerial o contable actual y por qué sería valioso resolverla."
+      placeholder: "Actualmente los comités de damas necesitan un fondo separado para..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Solución Propuesta"
+      description: "Describe cómo te gustaría que funcionara esta nueva característica."
+      placeholder: "Agregar una opción de etiquetado por departamentos o ministerios..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternativas Consideradas"
+      description: "Si has pensado en otras formas de lograr esto o soluciones intermedias, descríbelas aquí."
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: "Contexto o Bocetos Adicionales"
+      description: "Añade cualquier otro contexto, capturas, bocetos o referencias de diseño (Apple HIG, reportes impresos, etc.)."

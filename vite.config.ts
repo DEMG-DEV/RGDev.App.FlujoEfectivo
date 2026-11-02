@@ -225,6 +225,17 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                 try {
                   const proyectoId = sanitizeDevUUID(data.proyecto_id);
                   let pactoId = sanitizeDevUUID(data.pacto_id);
+                  let miembroId = sanitizeDevUUID(data.miembro_id);
+
+                  if (!miembroId && data.miembro_nombre && data.miembro_nombre.trim().toLowerCase() !== 'anónimo' && data.miembro_nombre.trim().toLowerCase() !== 'anonimo') {
+                    const mMatch = await client.query(
+                      'SELECT id FROM miembros WHERE LOWER(TRIM(nombre)) = LOWER(TRIM($1)) LIMIT 1;',
+                      [data.miembro_nombre]
+                    );
+                    if (mMatch.rows.length > 0) {
+                      miembroId = mMatch.rows[0].id;
+                    }
+                  }
 
                   if (!pactoId && proyectoId && data.miembro_nombre) {
                     const matchPacto = await client.query(
@@ -250,9 +261,9 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                   const query = `
                     INSERT INTO transacciones (
                       tipo, subtipo, categoria, monto, fecha, dia_semana, 
-                      tipo_culto, concepto, miembro_nombre, proyecto_id, 
+                      tipo_culto, concepto, miembro_id, miembro_nombre, proyecto_id, 
                       pacto_id, metodo_pago, evidencia_url, evidencia_nombre
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                     RETURNING *;
                   `;
                   const values = [
@@ -264,6 +275,7 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                     data.dia_semana,
                     data.tipo_culto || 'no_aplica',
                     data.concepto,
+                    miembroId,
                     data.miembro_nombre || null,
                     proyectoId,
                     pactoId,
@@ -364,6 +376,10 @@ function aivenDbDevPlugin(env: Record<string, string>) {
                   if (data.evidencia_tipo !== undefined) {
                     fields.push(`evidencia_tipo = $${idx++}`);
                     values.push(data.evidencia_tipo || null);
+                  }
+                  if (data.miembro_id !== undefined) {
+                    fields.push(`miembro_id = $${idx++}`);
+                    values.push(sanitizeDevUUID(data.miembro_id));
                   }
                   if (data.miembro_nombre !== undefined) {
                     fields.push(`miembro_nombre = $${idx++}`);
@@ -1189,6 +1205,344 @@ function aivenDbDevPlugin(env: Record<string, string>) {
               }
             });
             return;
+          }
+        }
+
+        // 9. Directorio de Hermanos de la Iglesia (/api/miembros)
+        if (req.url.startsWith('/api/miembros')) {
+          res.setHeader('Content-Type', 'application/json');
+          const p = getPool();
+          if (!p) {
+            res.statusCode = 500;
+            return res.end(JSON.stringify({ error: 'Base de datos no conectada' }));
+          }
+
+          const parsedUrl = new URL(req.url, 'http://localhost');
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const sanitizeDevUUID = (val: any) => (val && typeof val === 'string' && uuidRegex.test(val.trim())) ? val.trim() : null;
+
+          if (req.method === 'GET') {
+            try {
+              const client = await p.connect();
+              try {
+                const idParam = parsedUrl.searchParams.get('id');
+                const aportaciones = parsedUrl.searchParams.get('aportaciones');
+
+                if (idParam && aportaciones === 'true') {
+                  const miembroId = sanitizeDevUUID(idParam);
+                  if (!miembroId) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'ID de miembro inválido' }));
+                  }
+
+                  const mRes = await client.query('SELECT * FROM miembros WHERE id = $1;', [miembroId]);
+                  if (mRes.rows.length === 0) {
+                    res.statusCode = 404;
+                    return res.end(JSON.stringify({ error: 'Miembro no encontrado' }));
+                  }
+                  const miembro = mRes.rows[0];
+
+                  const txQuery = `
+                    SELECT 
+                      t.*,
+                      p.nombre as proyecto_nombre
+                    FROM transacciones t
+                    LEFT JOIN proyectos_pactados p ON t.proyecto_id = p.id
+                    WHERE (t.miembro_id = $1 OR LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM($2)))
+                    ORDER BY t.fecha DESC, t.created_at DESC;
+                  `;
+                  const txRes = await client.query(txQuery, [miembro.id, miembro.nombre]);
+
+                  const pactosQuery = `
+                    SELECT 
+                      pm.*,
+                      p.nombre as proyecto_nombre,
+                      COALESCE((
+                        SELECT SUM(t.monto) 
+                        FROM transacciones t 
+                        WHERE t.pacto_id = pm.id OR (t.proyecto_id = pm.proyecto_id AND LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM(pm.miembro_nombre)))
+                      ), 0)::numeric as total_aportado
+                    FROM pactos_miembros pm
+                    JOIN proyectos_pactados p ON pm.proyecto_id = p.id
+                    WHERE LOWER(TRIM(pm.miembro_nombre)) = LOWER(TRIM($1))
+                    ORDER BY pm.created_at DESC;
+                  `;
+                  const pactosRes = await client.query(pactosQuery, [miembro.nombre]);
+
+                  return res.end(JSON.stringify({
+                    success: true,
+                    data: {
+                      miembro,
+                      aportaciones: txRes.rows.map(r => ({
+                        ...r,
+                        monto: parseFloat(r.monto) || 0,
+                        fecha: r.fecha ? String(r.fecha).slice(0, 10) : ''
+                      })),
+                      pactos: pactosRes.rows.map(p => {
+                        const totalAportado = parseFloat(p.total_aportado) || 0;
+                        const totalPactado = parseFloat(p.monto_total_pactado) || 0;
+                        const cuotaSemanal = parseFloat(p.cuota_semanal) || 1;
+                        const saldoPendiente = Math.max(0, totalPactado - totalAportado);
+                        const semanasPagadas = Math.floor(totalAportado / cuotaSemanal);
+                        return {
+                          ...p,
+                          monto_total_pactado: totalPactado,
+                          cuota_semanal: cuotaSemanal,
+                          total_aportado: totalAportado,
+                          saldo_pendiente: saldoPendiente,
+                          semanas_pagadas: semanasPagadas,
+                          estado: saldoPendiente <= 0 ? 'completado' : 'al_dia'
+                        };
+                      })
+                    }
+                  }));
+                }
+
+                const query = `
+                  SELECT 
+                    m.id,
+                    m.nombre,
+                    m.telefono,
+                    m.email,
+                    m.notas,
+                    m.activo,
+                    m.created_at,
+                    COALESCE((
+                      SELECT COUNT(*)::int 
+                      FROM transacciones t 
+                      WHERE (t.miembro_id = m.id OR LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM(m.nombre)))
+                    ), 0) as total_aportaciones,
+                    COALESCE((
+                      SELECT SUM(t.monto) 
+                      FROM transacciones t 
+                      WHERE (t.miembro_id = m.id OR LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM(m.nombre)))
+                        AND t.tipo = 'ingreso'
+                    ), 0)::numeric as total_aportado,
+                    COALESCE((
+                      SELECT SUM(t.monto) 
+                      FROM transacciones t 
+                      WHERE (t.miembro_id = m.id OR LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM(m.nombre)))
+                        AND t.tipo = 'ingreso' AND t.subtipo = 'diezmo'
+                    ), 0)::numeric as total_diezmos,
+                    COALESCE((
+                      SELECT SUM(t.monto) 
+                      FROM transacciones t 
+                      WHERE (t.miembro_id = m.id OR LOWER(TRIM(t.miembro_nombre)) = LOWER(TRIM(m.nombre)))
+                        AND t.tipo = 'ingreso' AND t.subtipo = 'pacto'
+                    ), 0)::numeric as total_pactos
+                  FROM miembros m
+                  ORDER BY m.nombre ASC;
+                `;
+                const result = await client.query(query);
+
+                return res.end(JSON.stringify({
+                  success: true,
+                  data: result.rows.map(r => ({
+                    ...r,
+                    total_aportaciones: parseInt(r.total_aportaciones) || 0,
+                    total_aportado: parseFloat(r.total_aportado) || 0,
+                    total_diezmos: parseFloat(r.total_diezmos) || 0,
+                    total_pactos: parseFloat(r.total_pactos) || 0,
+                  }))
+                }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message, data: [] }));
+            }
+          }
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (c: any) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const { nombre, telefono, email, notas, activo = true } = JSON.parse(body || '{}');
+                if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
+                  res.statusCode = 400;
+                  return res.end(JSON.stringify({ error: 'El nombre del hermano es obligatorio.' }));
+                }
+
+                const client = await p.connect();
+                try {
+                  const query = `
+                    INSERT INTO miembros (nombre, telefono, email, notas, activo)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING *;
+                  `;
+                  const values = [
+                    nombre.trim(),
+                    telefono?.trim() || null,
+                    email?.trim() || null,
+                    notas?.trim() || null,
+                    activo !== false
+                  ];
+                  const result = await client.query(query, values);
+                  const nuevo = result.rows[0];
+
+                  await client.query(`
+                    UPDATE transacciones 
+                    SET miembro_id = $1 
+                    WHERE miembro_id IS NULL AND LOWER(TRIM(miembro_nombre)) = LOWER(TRIM($2));
+                  `, [nuevo.id, nuevo.nombre]);
+
+                  res.statusCode = 201;
+                  return res.end(JSON.stringify({
+                    success: true,
+                    data: {
+                      ...nuevo,
+                      total_aportaciones: 0,
+                      total_aportado: 0,
+                      total_diezmos: 0,
+                      total_pactos: 0
+                    }
+                  }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'PUT' || req.method === 'PATCH') {
+            let body = '';
+            req.on('data', (c: any) => { body += c; });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body || '{}');
+                let targetId = sanitizeDevUUID(data.id || parsedUrl.searchParams.get('id'));
+
+                const client = await p.connect();
+                try {
+                  if (!targetId && data.nombre) {
+                    const match = await client.query('SELECT id FROM miembros WHERE LOWER(TRIM(nombre)) = LOWER(TRIM($1)) LIMIT 1;', [data.nombre]);
+                    if (match.rows.length > 0) {
+                      targetId = match.rows[0].id;
+                    }
+                  }
+
+                  if (!targetId) {
+                    const insertRes = await client.query(`
+                      INSERT INTO miembros (nombre, telefono, email, notas, activo)
+                      VALUES ($1, $2, $3, $4, $5)
+                      RETURNING *;
+                    `, [
+                      data.nombre?.trim() || 'Hermano',
+                      data.telefono?.trim() || null,
+                      data.email?.trim() || null,
+                      data.notas?.trim() || null,
+                      data.activo !== false
+                    ]);
+                    return res.end(JSON.stringify({ success: true, data: insertRes.rows[0] }));
+                  }
+
+                  const fields: string[] = [];
+                  const values: any[] = [];
+                  let idx = 1;
+
+                  if (data.nombre !== undefined && typeof data.nombre === 'string') {
+                    fields.push(`nombre = $${idx++}`);
+                    values.push(data.nombre.trim());
+                  }
+                  if (data.telefono !== undefined) {
+                    fields.push(`telefono = $${idx++}`);
+                    values.push(data.telefono ? String(data.telefono).trim() : null);
+                  }
+                  if (data.email !== undefined) {
+                    fields.push(`email = $${idx++}`);
+                    values.push(data.email ? String(data.email).trim() : null);
+                  }
+                  if (data.notas !== undefined) {
+                    fields.push(`notas = $${idx++}`);
+                    values.push(data.notas ? String(data.notas).trim() : null);
+                  }
+                  if (data.activo !== undefined) {
+                    fields.push(`activo = $${idx++}`);
+                    values.push(Boolean(data.activo));
+                  }
+
+                  if (fields.length === 0) {
+                    res.statusCode = 400;
+                    return res.end(JSON.stringify({ error: 'No se enviaron campos para actualizar.' }));
+                  }
+
+                  values.push(targetId);
+                  const query = `
+                    UPDATE miembros 
+                    SET ${fields.join(', ')}
+                    WHERE id = $${idx}
+                    RETURNING *;
+                  `;
+                  const result = await client.query(query, values);
+                  if (result.rows.length === 0) {
+                    res.statusCode = 404;
+                    return res.end(JSON.stringify({ error: 'Miembro no encontrado' }));
+                  }
+                  const updated = result.rows[0];
+
+                  if (data.nombre) {
+                    await client.query(`
+                      UPDATE transacciones 
+                      SET miembro_nombre = $1 
+                      WHERE miembro_id = $2;
+                    `, [updated.nombre, updated.id]);
+                  }
+
+                  return res.end(JSON.stringify({ success: true, data: updated }));
+                } finally {
+                  client.release();
+                }
+              } catch (err: any) {
+                res.statusCode = 500;
+                return res.end(JSON.stringify({ error: err.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'DELETE') {
+            try {
+              const rawId = parsedUrl.searchParams.get('id');
+              const validId = sanitizeDevUUID(rawId);
+              if (!validId) {
+                res.statusCode = 400;
+                return res.end(JSON.stringify({ error: 'ID de miembro inválido o ausente.' }));
+              }
+
+              const client = await p.connect();
+              try {
+                const txCheck = await client.query('SELECT count(*)::int as count FROM transacciones WHERE miembro_id = $1;', [validId]);
+                const tieneTxs = (txCheck.rows[0]?.count || 0) > 0;
+
+                if (tieneTxs) {
+                  const result = await client.query('UPDATE miembros SET activo = false WHERE id = $1 RETURNING *;', [validId]);
+                  return res.end(JSON.stringify({
+                    success: true,
+                    archived: true,
+                    message: 'El hermano tiene historial contable, por lo que fue desactivado/archivado.',
+                    data: result.rows[0]
+                  }));
+                }
+
+                const result = await client.query('DELETE FROM miembros WHERE id = $1 RETURNING *;', [validId]);
+                return res.end(JSON.stringify({
+                  success: true,
+                  deleted: true,
+                  data: result.rows[0]
+                }));
+              } finally {
+                client.release();
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
+            }
           }
         }
 

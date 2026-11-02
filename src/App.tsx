@@ -5,6 +5,7 @@ import { CapturaIngresosView } from './components/CapturaIngresosView';
 import { RegistroGastoView } from './components/RegistroGastoView';
 import { ProyectosPactadosView } from './components/ProyectosPactadosView';
 import { LibroCajaView } from './components/LibroCajaView';
+import { HermanosView } from './components/HermanosView';
 import { ModalEvidencia } from './components/ModalEvidencia';
 import { AuthView } from './components/AuthView';
 import { GestionUsuariosModal } from './components/GestionUsuariosModal';
@@ -68,7 +69,8 @@ const AppContent: React.FC = () => {
       const [txsRemotas, projsRemotos, pctsRemotos] = await Promise.all([
         storageService.cargarTransaccionesRemotas(),
         storageService.cargarProyectosRemotos(),
-        storageService.cargarPactosRemotos()
+        storageService.cargarPactosRemotos(),
+        storageService.cargarMiembrosRemotos()
       ]);
       setTransacciones(txsRemotas);
       setProyectos(projsRemotos);
@@ -193,6 +195,17 @@ const AppContent: React.FC = () => {
             onTransaccionActualizada={recargarTodo}
             onVerEvidencia={handleVerEvidencia}
             onAbrirReportePDF={() => setMostrarModalReporte(true)}
+          />
+        )}
+
+        {vistaActiva === 'hermanos' && (
+          <HermanosView
+            onVerEvidencia={handleVerEvidencia}
+            onIrACapturaDiezmo={(miembroId, miembroNombre) => {
+              setCultoPreseleccionado('domingo_manana');
+              setSubtipoPreseleccionado('diezmo');
+              setVistaActiva('ingresos');
+            }}
           />
         )}
       </main>

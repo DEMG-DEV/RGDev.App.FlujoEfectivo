@@ -1,6 +1,19 @@
 // Servicio central de almacenamiento y gestión de datos de tesorería eclesiástica
 // Conectado directamente a Aiven PostgreSQL y Cloudflare R2
-import { Transaccion, ProyectoPactado, PactoMiembro, ResumenFinanciero, MiembroFrecuente, TipoCulto, MetodoPago } from '../types';
+import { 
+  Transaccion, 
+  ProyectoPactado, 
+  PactoMiembro, 
+  ResumenFinanciero, 
+  MiembroFrecuente, 
+  MiembroIglesia, 
+  TipoCulto, 
+  MetodoPago,
+  ReporteHistorico,
+  SnapshotMovimiento,
+  ResultadoAuditoriaReporte,
+  ItemAuditoriaMovimiento
+} from '../types';
 import { identificarDiaSemana, extraerFechaYYYYMMDD } from '../utils/dateUtils';
 
 const STORAGE_KEYS = {
@@ -8,6 +21,7 @@ const STORAGE_KEYS = {
   PROYECTOS: 'iglesia_flujo_proyectos_v2',
   PACTOS: 'iglesia_flujo_pactos_v2',
   MIEMBROS: 'iglesia_flujo_miembros_v2',
+  REPORTES: 'iglesia_flujo_reportes_v1',
 };
 
 // Limpieza de residuos seed antiguos en navegador
@@ -37,6 +51,7 @@ export function normalizarTransaccion(row: any): Transaccion {
     dia_semana: row.dia_semana || identificarDiaSemana(fechaLimpia),
     tipo_culto: row.tipo_culto || 'no_aplica',
     concepto: String(row.concepto || ''),
+    miembro_id: row.miembro_id || undefined,
     miembro_nombre: row.miembro_nombre || undefined,
     proyecto_id: row.proyecto_id || undefined,
     proyecto_nombre: row.proyecto_nombre || undefined,
@@ -750,30 +765,208 @@ export const storageService = {
     }
   },
 
-  // Miembros Frecuentes
-  getMiembros(): MiembroFrecuente[] {
+  // Directorio de Hermanos de la Iglesia
+  getMiembros(): MiembroIglesia[] {
     const raw = localStorage.getItem(STORAGE_KEYS.MIEMBROS);
-    if (!raw) {
-      return [];
-    }
+    if (!raw) return [];
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((m: any) => ({
+        id: String(m.id || ''),
+        nombre: String(m.nombre || ''),
+        telefono: m.telefono || undefined,
+        email: m.email || undefined,
+        notas: m.notas || undefined,
+        activo: m.activo !== false,
+        created_at: m.created_at || new Date().toISOString(),
+        total_aportaciones: typeof m.total_aportaciones === 'number' ? m.total_aportaciones : 0,
+        total_aportado: typeof m.total_aportado === 'number' ? m.total_aportado : 0,
+        total_diezmos: typeof m.total_diezmos === 'number' ? m.total_diezmos : 0,
+        total_pactos: typeof m.total_pactos === 'number' ? m.total_pactos : 0,
+      }));
     } catch {
       return [];
     }
   },
 
+  async cargarMiembrosRemotos(): Promise<MiembroIglesia[]> {
+    try {
+      const res = await fetch('/api/miembros');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const remotos: MiembroIglesia[] = json.data.map((m: any) => ({
+            id: String(m.id || ''),
+            nombre: String(m.nombre || ''),
+            telefono: m.telefono || undefined,
+            email: m.email || undefined,
+            notas: m.notas || undefined,
+            activo: m.activo !== false,
+            created_at: m.created_at || new Date().toISOString(),
+            total_aportaciones: parseInt(m.total_aportaciones) || 0,
+            total_aportado: parseFloat(m.total_aportado) || 0,
+            total_diezmos: parseFloat(m.total_diezmos) || 0,
+            total_pactos: parseFloat(m.total_pactos) || 0,
+          }));
+          localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(remotos));
+          return remotos;
+        }
+      }
+    } catch (e) {
+      console.warn('Operando miembros localmente:', e);
+    }
+    return this.getMiembros();
+  },
+
+  async guardarMiembro(datos: { nombre: string; telefono?: string; email?: string; notas?: string; activo?: boolean }): Promise<MiembroIglesia> {
+    const lista = this.getMiembros();
+    const tempId = 'm-' + Date.now();
+    const nuevo: MiembroIglesia = {
+      id: tempId,
+      nombre: datos.nombre.trim(),
+      telefono: datos.telefono?.trim() || undefined,
+      email: datos.email?.trim() || undefined,
+      notas: datos.notas?.trim() || undefined,
+      activo: datos.activo !== false,
+      created_at: new Date().toISOString(),
+      total_aportaciones: 0,
+      total_aportado: 0,
+      total_diezmos: 0,
+      total_pactos: 0
+    };
+
+    lista.unshift(nuevo);
+    localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(lista));
+
+    try {
+      const res = await fetch('/api/miembros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id) {
+          nuevo.id = json.data.id;
+          const actuales = this.getMiembros();
+          const idx = actuales.findIndex(m => m.id === tempId);
+          if (idx >= 0) {
+            actuales[idx] = { ...actuales[idx], ...json.data };
+            localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(actuales));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error al sincronizar hermano con backend:', err);
+    }
+
+    return nuevo;
+  },
+
+  async editarMiembro(id: string, datos: Partial<MiembroIglesia>): Promise<MiembroIglesia | null> {
+    const lista = this.getMiembros();
+    const idx = lista.findIndex(m => m.id === id);
+    if (idx < 0) return null;
+
+    const actualizado: MiembroIglesia = {
+      ...lista[idx],
+      ...datos
+    };
+    lista[idx] = actualizado;
+    localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(lista));
+
+    try {
+      await fetch('/api/miembros', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...datos }),
+      });
+    } catch (err) {
+      console.warn('Error al editar hermano en backend:', err);
+    }
+
+    return actualizado;
+  },
+
+  async eliminarMiembro(id: string): Promise<boolean> {
+    const lista = this.getMiembros();
+    const filtrada = lista.filter(m => m.id !== id);
+    localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(filtrada));
+
+    try {
+      const res = await fetch(`/api/miembros?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.archived && json.data) {
+          const actuales = this.getMiembros();
+          const existIdx = actuales.findIndex(m => m.id === id);
+          if (existIdx >= 0) {
+            actuales[existIdx].activo = false;
+          } else {
+            actuales.push({ ...json.data, activo: false });
+          }
+          localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(actuales));
+        }
+      }
+    } catch (err) {
+      console.warn('Error al eliminar hermano en backend:', err);
+    }
+    return true;
+  },
+
+  async obtenerDetalleAportacionesMiembro(miembroId: string): Promise<{
+    miembro: MiembroIglesia;
+    aportaciones: Transaccion[];
+    pactos: PactoMiembro[];
+  } | null> {
+    const miembro = this.getMiembros().find(m => m.id === miembroId);
+    if (!miembro) return null;
+
+    try {
+      const res = await fetch(`/api/miembros?id=${encodeURIComponent(miembroId)}&aportaciones=true`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          return {
+            miembro: { ...miembro, ...json.data.miembro },
+            aportaciones: json.data.aportaciones?.map(normalizarTransaccion) || [],
+            pactos: json.data.pactos || []
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Cargando aportaciones del miembro localmente:', e);
+    }
+
+    // Fallback local
+    const nombreLower = miembro.nombre.toLowerCase().trim();
+    const txs = this.getTransacciones().filter(t => 
+      t.miembro_id === miembroId || 
+      (t.miembro_nombre && t.miembro_nombre.toLowerCase().trim() === nombreLower)
+    );
+    const pactos = this.getPactos().filter(p => 
+      p.miembro_nombre && p.miembro_nombre.toLowerCase().trim() === nombreLower
+    );
+
+    return { miembro, aportaciones: txs, pactos };
+  },
+
   registrarMiembroFrecuente(nombre: string, telefono?: string): void {
     if (!nombre || nombre.trim().length < 2) return;
+    const cleanNombre = nombre.trim();
+    if (cleanNombre.toLowerCase() === 'anónimo' || cleanNombre.toLowerCase() === 'anonimo') return;
+
     const miembros = this.getMiembros();
-    const existe = miembros.some(m => m.nombre.toLowerCase().trim() === nombre.toLowerCase().trim());
+    const existe = miembros.some(m => m.nombre.toLowerCase().trim() === cleanNombre.toLowerCase());
     if (!existe) {
-      miembros.push({
-        id: 'm-' + Date.now(),
-        nombre: nombre.trim(),
-        telefono: telefono?.trim()
+      this.guardarMiembro({
+        nombre: cleanNombre,
+        telefono: telefono?.trim(),
+        activo: true
       });
-      localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(miembros));
     }
   },
 
@@ -837,6 +1030,229 @@ export const storageService = {
       totalOtrosIngresos,
       totalProyectosMeta,
       totalProyectosRecaudado
+    };
+  },
+
+  // ==========================================
+  // GESTIÓN DE HISTORIAL DE REPORTES EMITIDOS
+  // ==========================================
+  getReportesHistoricos(): ReporteHistorico[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.REPORTES);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async cargarReportesHistoricosRemotos(): Promise<ReporteHistorico[]> {
+    try {
+      const res = await fetch('/api/reportes');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const list: ReporteHistorico[] = json.data.map((r: any) => ({
+            ...r,
+            secciones_incluidas: typeof r.secciones_incluidas === 'string' ? JSON.parse(r.secciones_incluidas) : (r.secciones_incluidas || {}),
+            totales: typeof r.totales === 'string' ? JSON.parse(r.totales) : (r.totales || {}),
+            desglose_categorias_gastos: typeof r.desglose_categorias_gastos === 'string' ? JSON.parse(r.desglose_categorias_gastos) : (r.desglose_categorias_gastos || []),
+            movimientos_snapshot: typeof r.movimientos_snapshot === 'string' ? JSON.parse(r.movimientos_snapshot) : (r.movimientos_snapshot || []),
+            proyectos_snapshot: typeof r.proyectos_snapshot === 'string' ? JSON.parse(r.proyectos_snapshot) : (r.proyectos_snapshot || [])
+          }));
+          localStorage.setItem(STORAGE_KEYS.REPORTES, JSON.stringify(list));
+          return list;
+        }
+      }
+    } catch (e) {
+      console.warn('Operando reportes históricos localmente:', e);
+    }
+    return this.getReportesHistoricos();
+  },
+
+  async guardarReporteHistorico(reporte: ReporteHistorico): Promise<ReporteHistorico> {
+    const list = this.getReportesHistoricos();
+    const idx = list.findIndex(r => r.id === reporte.id || r.folio === reporte.folio);
+    if (idx >= 0) {
+      list[idx] = reporte;
+    } else {
+      list.unshift(reporte);
+    }
+    localStorage.setItem(STORAGE_KEYS.REPORTES, JSON.stringify(list));
+
+    // Sincronizar con PostgreSQL
+    try {
+      fetch('/api/reportes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reporte)
+      }).catch(err => console.warn('Error al sincronizar reporte histórico:', err));
+    } catch {}
+
+    return reporte;
+  },
+
+  async eliminarReporteHistorico(id: string): Promise<boolean> {
+    const list = this.getReportesHistoricos().filter(r => r.id !== id);
+    localStorage.setItem(STORAGE_KEYS.REPORTES, JSON.stringify(list));
+
+    try {
+      fetch(`/api/reportes?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      }).catch(err => console.warn('Error al eliminar reporte remoto:', err));
+    } catch {}
+
+    return true;
+  },
+
+  auditarReporteHistorico(reporte: ReporteHistorico, transaccionesActuales: Transaccion[]): ResultadoAuditoriaReporte {
+    const items: ItemAuditoriaMovimiento[] = [];
+    let diferenciaEntradas = 0;
+    let diferenciaGastos = 0;
+    let totalModificados = 0;
+    let totalEliminados = 0;
+    let totalAgregados = 0;
+
+    const mapActuales = new Map<string, Transaccion>();
+    transaccionesActuales.forEach(t => mapActuales.set(t.id, t));
+
+    const idsEnSnapshot = new Set<string>();
+
+    // 1. Auditar movimientos presentes en el snapshot original
+    for (const snap of (reporte.movimientos_snapshot || [])) {
+      idsEnSnapshot.add(snap.id);
+      const actual = mapActuales.get(snap.id);
+
+      if (!actual) {
+        // El movimiento fue eliminado de la base de datos con posterioridad
+        totalEliminados++;
+        const dif = -snap.monto;
+        if (snap.tipo === 'ingreso') {
+          diferenciaEntradas -= snap.monto;
+        } else {
+          diferenciaGastos -= snap.monto;
+        }
+        items.push({
+          id: snap.id,
+          tipoCambio: 'eliminado',
+          tipo: snap.tipo,
+          subtipo: snap.subtipo,
+          conceptoOriginal: snap.concepto,
+          categoriaOriginal: snap.categoria,
+          fechaOriginal: snap.fecha,
+          montoOriginal: snap.monto,
+          diferenciaMonto: dif,
+          miembroOriginal: snap.miembro_nombre,
+          detallesCambio: ['Movimiento eliminado con posterioridad a la emisión del reporte']
+        });
+      } else {
+        // El movimiento existe, verificar si hubo cambios en monto, fecha, categoría, concepto o subtipo
+        const detalles: string[] = [];
+        const difMonto = actual.monto - snap.monto;
+
+        if (Math.abs(difMonto) > 0.001) {
+          detalles.push(`Monto modificado: antes ${snap.monto.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}, ahora ${actual.monto.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}`);
+        }
+        if (actual.concepto !== snap.concepto) {
+          detalles.push(`Concepto modificado: antes "${snap.concepto}", ahora "${actual.concepto}"`);
+        }
+        if (actual.categoria !== snap.categoria) {
+          detalles.push(`Categoría modificada: antes "${snap.categoria}", ahora "${actual.categoria}"`);
+        }
+        if (actual.fecha !== snap.fecha) {
+          detalles.push(`Fecha modificada: antes "${snap.fecha}", ahora "${actual.fecha}"`);
+        }
+        if (actual.subtipo !== snap.subtipo) {
+          detalles.push(`Subtipo modificado: antes "${snap.subtipo || 'general'}", ahora "${actual.subtipo || 'general'}"`);
+        }
+        if (actual.miembro_nombre !== snap.miembro_nombre && (actual.miembro_nombre || snap.miembro_nombre)) {
+          detalles.push(`Hermano/Donante modificado: antes "${snap.miembro_nombre || 'N/A'}", ahora "${actual.miembro_nombre || 'N/A'}"`);
+        }
+
+        if (detalles.length > 0) {
+          totalModificados++;
+          if (snap.tipo === 'ingreso') {
+            diferenciaEntradas += difMonto;
+          } else {
+            diferenciaGastos += difMonto;
+          }
+          items.push({
+            id: snap.id,
+            tipoCambio: 'modificado',
+            tipo: actual.tipo,
+            subtipo: actual.subtipo,
+            conceptoOriginal: snap.concepto,
+            conceptoActual: actual.concepto,
+            categoriaOriginal: snap.categoria,
+            categoriaActual: actual.categoria,
+            fechaOriginal: snap.fecha,
+            fechaActual: actual.fecha,
+            montoOriginal: snap.monto,
+            montoActual: actual.monto,
+            diferenciaMonto: difMonto,
+            miembroOriginal: snap.miembro_nombre,
+            miembroActual: actual.miembro_nombre,
+            detallesCambio: detalles
+          });
+        }
+      }
+    }
+
+    // 2. Verificar si se agregaron nuevos movimientos con fecha dentro del período que no estaban en el reporte
+    const txsRangoActuales = transaccionesActuales.filter(t => {
+      if (reporte.periodo_tipo === 'todo') return true;
+      return t.fecha >= reporte.fecha_desde && t.fecha <= reporte.fecha_hasta;
+    }).filter(t => {
+      if (t.subtipo === 'pacto') return false;
+      if (t.tipo === 'gasto' && t.categoria === 'Liquidación / Remanente de Proyecto') return false;
+      return true;
+    });
+
+    for (const actual of txsRangoActuales) {
+      if (!idsEnSnapshot.has(actual.id)) {
+        totalAgregados++;
+        if (actual.tipo === 'ingreso') {
+          diferenciaEntradas += actual.monto;
+        } else {
+          diferenciaGastos += actual.monto;
+        }
+        items.push({
+          id: actual.id,
+          tipoCambio: 'agregado_posteriormente',
+          tipo: actual.tipo,
+          subtipo: actual.subtipo,
+          conceptoActual: actual.concepto,
+          categoriaActual: actual.categoria,
+          fechaActual: actual.fecha,
+          montoActual: actual.monto,
+          diferenciaMonto: actual.monto,
+          miembroActual: actual.miembro_nombre,
+          detallesCambio: ['Movimiento registrado posteriormente con fecha contable dentro de este período']
+        });
+      }
+    }
+
+    const diferenciaBalanceNeto = diferenciaEntradas - diferenciaGastos;
+    const balanceOriginal = reporte.totales?.balanceNetoCaja !== undefined 
+      ? reporte.totales.balanceNetoCaja 
+      : ((reporte.totales?.totalEntradasCaja || 0) - (reporte.totales?.totalGastosCaja || 0));
+    const balanceActualizado = balanceOriginal + diferenciaBalanceNeto;
+
+    return {
+      reporteId: reporte.id,
+      folio: reporte.folio,
+      fechaEmision: reporte.fecha_emision,
+      tieneCambios: items.length > 0,
+      totalModificados,
+      totalEliminados,
+      totalAgregados,
+      diferenciaEntradas,
+      diferenciaGastos,
+      diferenciaBalanceNeto,
+      balanceOriginal,
+      balanceActualizado,
+      items
     };
   }
 };

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Landmark, 
-  PlusCircle, 
-  TrendingUp, 
+  Plus, 
   Users, 
   Calendar, 
   DollarSign, 
@@ -10,7 +9,6 @@ import {
   UserPlus, 
   Clock, 
   AlertCircle,
-  Sparkles,
   ArrowRight,
   Pencil,
   Trash2,
@@ -19,11 +17,14 @@ import {
   RotateCcw,
   ArrowRightLeft,
   CalendarDays,
-  History,
-  Filter
+  Filter,
+  Search,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
-import { ProyectoPactado, PactoMiembro, Transaccion, MetodoPago } from '../types';
+import { ProyectoPactado, PactoMiembro, Transaccion, MetodoPago, MiembroIglesia } from '../types';
 import { storageService } from '../services/storageService';
+import { SelectorHermano } from './SelectorHermano';
 import { formatearMoneda, formatearFechaCorta } from '../utils/dateUtils';
 import { ModalFinalizarProyecto } from './ModalFinalizarProyecto';
 import { ModalConfirmacion } from './ModalConfirmacion';
@@ -39,10 +40,15 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 }) => {
   const [proyectos, setProyectos] = useState<ProyectoPactado[]>(() => storageService.getProyectos());
   const [pactos, setPactos] = useState<PactoMiembro[]>(() => storageService.getPactos());
+  const [miembros, setMiembros] = useState<MiembroIglesia[]>(() => storageService.getMiembros());
   const [transacciones, setTransacciones] = useState<Transaccion[]>(() => storageService.getTransacciones());
   const [proyectoActivoId, setProyectoActivoId] = useState<string>(() => proyectos[0]?.id || '');
   const [filtroEstado, setFiltroEstado] = useState<'activos' | 'finalizados' | 'todos'>('activos');
   const [filtroPactoHistorial, setFiltroPactoHistorial] = useState<string>('todos');
+  
+  // Subvista interna del proyecto (Pactantes vs Historial) y búsqueda rápida
+  const [subvistaProyecto, setSubvistaProyecto] = useState<'pactantes' | 'entregas'>('pactantes');
+  const [busquedaPactante, setBusquedaPactante] = useState<string>('');
 
   // Modales
   const [mostrarModalNuevoProyecto, setMostrarModalNuevoProyecto] = useState(false);
@@ -130,13 +136,16 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     setTransacciones(storageService.getTransacciones());
     setProyectos(storageService.getProyectos());
     setPactos(storageService.getPactos());
+    setMiembros(storageService.getMiembros());
     try {
-      const [projs, pcts] = await Promise.all([
+      const [projs, pcts, ms] = await Promise.all([
         storageService.cargarProyectosRemotos(),
-        storageService.cargarPactosRemotos()
+        storageService.cargarPactosRemotos(),
+        storageService.cargarMiembrosRemotos()
       ]);
       setProyectos(projs);
       setPactos(pcts);
+      setMiembros(ms);
       setTransacciones(storageService.getTransacciones());
       if (!proyectoActivoId && projs.length > 0) {
         setProyectoActivoId(projs[0].id);
@@ -184,20 +193,36 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   }, []);
 
   // Filtrado de proyectos por estado
-  const proyectosFiltrados = proyectos.filter(p => {
-    if (filtroEstado === 'activos') return p.activo !== false;
-    if (filtroEstado === 'finalizados') return p.activo === false;
-    return true;
-  });
+  const proyectosFiltrados = useMemo(() => {
+    return proyectos.filter(p => {
+      if (filtroEstado === 'activos') return p.activo !== false;
+      if (filtroEstado === 'finalizados') return p.activo === false;
+      return true;
+    });
+  }, [proyectos, filtroEstado]);
 
-  const proyectoSeleccionado = proyectosFiltrados.find(p => p.id === proyectoActivoId) 
-    || proyectosFiltrados[0] 
-    || proyectos.find(p => p.id === proyectoActivoId) 
-    || proyectos[0];
+  const proyectoSeleccionado = useMemo(() => {
+    return proyectosFiltrados.find(p => p.id === proyectoActivoId) 
+      || proyectosFiltrados[0] 
+      || proyectos.find(p => p.id === proyectoActivoId) 
+      || proyectos[0];
+  }, [proyectosFiltrados, proyectoActivoId, proyectos]);
 
-  const pactosDelProyecto = pactos.filter(p => p.proyecto_id === proyectoSeleccionado?.id);
+  const pactosDelProyecto = useMemo(() => {
+    return pactos.filter(p => p.proyecto_id === proyectoSeleccionado?.id);
+  }, [pactos, proyectoSeleccionado]);
 
-  // Entregas registradas para el proyecto activo (ordenadas de la más reciente a la más antigua)
+  // Pactantes filtrados por búsqueda
+  const pactosFiltradosPorBusqueda = useMemo(() => {
+    if (!busquedaPactante.trim()) return pactosDelProyecto;
+    const q = busquedaPactante.toLowerCase();
+    return pactosDelProyecto.filter(p => 
+      p.miembro_nombre.toLowerCase().includes(q) || 
+      (p.miembro_telefono && p.miembro_telefono.includes(q))
+    );
+  }, [pactosDelProyecto, busquedaPactante]);
+
+  // Entregas registradas para el proyecto activo (ordenadas cronológicamente descendente)
   const entregasDelProyecto = useMemo(() => {
     if (!proyectoSeleccionado) return [];
     return transacciones
@@ -215,6 +240,16 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     if (filtroPactoHistorial === 'sin_pacto') return entregasDelProyecto.filter(e => !e.pacto_id);
     return entregasDelProyecto.filter(e => e.pacto_id === filtroPactoHistorial);
   }, [entregasDelProyecto, filtroPactoHistorial]);
+
+  // Iniciales de nombre para avatar Apple HIG
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(p => p[0].toUpperCase())
+      .join('');
+  };
 
   // Crear nuevo Proyecto
   const handleCrearProyecto = (e: React.FormEvent) => {
@@ -375,7 +410,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
 
     setGuardandoAporteDiezmo(true);
     try {
-      // Si no se seleccionó pacto explícito pero el proyecto tiene exactamente 1 pactante (ej. "Iglesia"), asignarlo
       let finalPactoId = pactoAporteDiezmoId;
       if (!finalPactoId && pactosDelProyecto.length === 1) {
         finalPactoId = pactosDelProyecto[0].id;
@@ -384,7 +418,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
       const pactoSel = pactos.find(p => p.id === finalPactoId);
       const conceptoFinal = conceptoAporteDiezmo.trim() || `Fondo de Diezmos asignado a: ${proyectoSeleccionado.nombre}`;
 
-      // 1. Ingreso al Proyecto Pactado (se suma al proyecto y amortiza el pacto)
       await storageService.guardarTransaccion({
         tipo: 'ingreso',
         subtipo: 'pacto',
@@ -400,7 +433,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
         metodo_pago: 'efectivo'
       });
 
-      // 2. Egreso contable de Caja General (NO lleva proyecto_id para no inflar "Gastado en Obra")
       if (registrarEgresoCaja) {
         await storageService.guardarTransaccion({
           tipo: 'gasto',
@@ -496,119 +528,125 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const porcentaje = Math.min(100, Math.round((recaudado / meta) * 100));
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-3.5 animate-in fade-in duration-200">
       
-      {/* Encabezado Apple HIG */}
-      <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-6 sm:p-7 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-indigo-600 text-[11px] font-bold uppercase tracking-wider mb-1">
-            <Landmark className="w-3.5 h-3.5" />
-            <span>Fe & Compromiso Financiero</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
-            Proyectos Pactados
-          </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 max-w-xl">
-            Proyectos de edificación, instrumentos y terreno donde cada miembro pacta una meta personal y una cuota periódica.
-          </p>
+      {/* Barra de Herramientas Compacta Apple HIG */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-0.5">
+        {/* Izquierda: Título y Selector de Proyectos */}
+        <div className="flex items-center space-x-2.5 overflow-x-auto min-w-0">
+          <h1 className="text-xl font-black text-slate-950 tracking-tight flex-shrink-0">
+            Proyectos
+          </h1>
+          
+          {proyectosFiltrados.length > 0 && (
+            <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
+              {proyectosFiltrados.map((p) => {
+                const esActivo = proyectoSeleccionado?.id === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setProyectoActivoId(p.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+                      esActivo
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${p.activo !== false ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                    <span>{p.nombre}</span>
+                    {p.activo === false && (
+                      <span className="text-[10px] opacity-70">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <button
-          onClick={() => setMostrarModalNuevoProyecto(true)}
-          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 self-start md:self-auto"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Nuevo Proyecto</span>
-        </button>
-      </div>
-
-      {/* Barra de Filtro de Estado (Activos / Finalizados) y Selector de Proyectos */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="apple-segmented-group">
-          <button
-            onClick={() => setFiltroEstado('activos')}
-            className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${filtroEstado === 'activos' ? 'apple-segmented-active text-indigo-950' : 'text-slate-600'}`}
-          >
-            Activos ({proyectos.filter(p => p.activo !== false).length})
-          </button>
-          <button
-            onClick={() => setFiltroEstado('finalizados')}
-            className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${filtroEstado === 'finalizados' ? 'apple-segmented-active text-indigo-950' : 'text-slate-600'}`}
-          >
-            Finalizados ({proyectos.filter(p => p.activo === false).length})
-          </button>
-          <button
-            onClick={() => setFiltroEstado('todos')}
-            className={`apple-segmented-item px-3.5 py-1.5 text-xs font-semibold ${filtroEstado === 'todos' ? 'apple-segmented-active text-indigo-950' : 'text-slate-600'}`}
-          >
-            Todos ({proyectos.length})
-          </button>
-        </div>
-      </div>
-
-      {/* Selector de Proyecto Activo Apple Segmented Tabs */}
-      {proyectosFiltrados.length > 0 ? (
-        <div className="apple-segmented-group overflow-x-auto max-w-full">
-          {proyectosFiltrados.map((p) => (
+        {/* Derecha: Filtro de Estado Segmentado + Botón Nuevo Proyecto */}
+        <div className="flex items-center space-x-2 flex-shrink-0 self-start sm:self-auto">
+          <div className="apple-segmented-group">
             <button
-              key={p.id}
-              onClick={() => setProyectoActivoId(p.id)}
-              className={`apple-segmented-item px-4 py-2 text-xs font-bold whitespace-nowrap flex items-center space-x-1.5 ${
-                (proyectoSeleccionado?.id === p.id)
-                  ? 'apple-segmented-active text-indigo-950'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              onClick={() => setFiltroEstado('activos')}
+              className={`apple-segmented-item px-2.5 py-1 text-xs font-semibold ${filtroEstado === 'activos' ? 'apple-segmented-active text-slate-950' : 'text-slate-600'}`}
             >
-              <span>{p.nombre}</span>
-              {p.activo === false && (
-                <span className="text-[9px] uppercase px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold">
-                  Concluido
-                </span>
-              )}
+              Activos ({proyectos.filter(p => p.activo !== false).length})
             </button>
-          ))}
+            <button
+              onClick={() => setFiltroEstado('finalizados')}
+              className={`apple-segmented-item px-2.5 py-1 text-xs font-semibold ${filtroEstado === 'finalizados' ? 'apple-segmented-active text-slate-950' : 'text-slate-600'}`}
+            >
+              Finalizados ({proyectos.filter(p => p.activo === false).length})
+            </button>
+            <button
+              onClick={() => setFiltroEstado('todos')}
+              className={`apple-segmented-item px-2.5 py-1 text-xs font-semibold ${filtroEstado === 'todos' ? 'apple-segmented-active text-slate-950' : 'text-slate-600'}`}
+            >
+              Todos ({proyectos.length})
+            </button>
+          </div>
+
+          <button
+            onClick={() => setMostrarModalNuevoProyecto(true)}
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs shadow-blue-600/20"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nuevo Proyecto</span>
+          </button>
         </div>
-      ) : (
-        <div className="p-4 rounded-2xl bg-white text-center text-xs text-slate-500 border border-slate-200">
-          No hay proyectos en esta vista.
+      </div>
+
+      {/* Si no hay proyectos */}
+      {proyectosFiltrados.length === 0 && (
+        <div className="p-8 rounded-3xl bg-white border border-slate-200/80 text-center space-y-2">
+          <Landmark className="w-8 h-8 text-slate-300 mx-auto" />
+          <h3 className="text-sm font-bold text-slate-800">No hay proyectos en esta vista</h3>
+          <p className="text-xs text-slate-500">Crea un nuevo proyecto para comenzar a registrar participantes y aportes.</p>
+          <button
+            onClick={() => setMostrarModalNuevoProyecto(true)}
+            className="mt-2 inline-flex items-center space-x-1 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Crear Primer Proyecto</span>
+          </button>
         </div>
       )}
 
-      {/* Tarjeta de Progreso del Proyecto Seleccionado Apple HIG */}
+      {/* Vista Principal del Proyecto Activo */}
       {proyectoSeleccionado && (
-        <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-6 sm:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-6">
+        <div className="bg-white/95 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-4 sm:p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3.5">
           
-          {/* Encabezado y Acciones del Proyecto */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                  proyectoSeleccionado.activo !== false
-                    ? 'text-indigo-700 bg-indigo-50 border-indigo-200/60'
-                    : 'text-emerald-800 bg-emerald-50 border-emerald-200'
-                }`}>
-                  {proyectoSeleccionado.activo !== false ? 'Proyecto en Curso' : 'Proyecto Concluido'}
+          {/* Header del Proyecto Compacto e Inline (Apple HIG) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center space-x-2 flex-wrap">
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                proyectoSeleccionado.activo !== false
+                  ? 'text-blue-700 bg-blue-50 border border-blue-200/60'
+                  : 'text-emerald-700 bg-emerald-50 border border-emerald-200/60'
+              }`}>
+                {proyectoSeleccionado.activo !== false ? 'En Curso' : 'Concluido'}
+              </span>
+              <h2 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
+                {proyectoSeleccionado.nombre}
+              </h2>
+              {proyectoSeleccionado.fecha_fin && (
+                <span className="text-[11px] text-slate-400">
+                  (Concluido el {formatearFechaCorta(proyectoSeleccionado.fecha_fin)})
                 </span>
-                {proyectoSeleccionado.fecha_fin && (
-                  <span className="text-[11px] text-slate-400">
-                    Finalizado el {formatearFechaCorta(proyectoSeleccionado.fecha_fin)}
-                  </span>
-                )}
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-950 mt-1.5">{proyectoSeleccionado.nombre}</h3>
-              <p className="text-slate-500 text-xs sm:text-sm mt-0.5">{proyectoSeleccionado.descripcion}</p>
+              )}
             </div>
 
-            {/* Botones de Acción */}
-            <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+            {/* Botones de Acción Estilo Apple HIG Compactos */}
+            <div className="flex items-center space-x-1.5 flex-wrap self-start sm:self-auto">
               {proyectoSeleccionado.activo !== false ? (
                 <>
                   <button
                     onClick={() => setMostrarModalNuevoPacto(true)}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 text-xs font-bold transition-all shadow-md shadow-amber-500/20"
+                    className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs shadow-blue-600/20"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Registrar Pactante</span>
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Registrar Hermano</span>
                   </button>
 
                   <button
@@ -619,33 +657,33 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                       setConceptoAporteDiezmo(`Fondo institucional aportado de Diezmos a: ${proyectoSeleccionado.nombre}`);
                       setMostrarModalAporteDiezmo(true);
                     }}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 active:scale-[0.98] text-indigo-950 border border-indigo-200/80 text-xs font-bold transition-all shadow-sm"
-                    title="Tomar una cantidad de los diezmos para aplicarla a este proyecto"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 border border-slate-200 text-xs font-semibold transition-all"
+                    title="Tomar fondos de diezmos e ingresarlos al proyecto"
                   >
-                    <ArrowRightLeft className="w-4 h-4 text-indigo-600" />
-                    <span>Aportar desde Diezmos</span>
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Aportar de Diezmos</span>
                   </button>
 
                   <button
                     onClick={() => setMostrarModalFinalizar(true)}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-slate-900/10"
-                    title="Finalizar proyecto y mover resto no gastado a la ofrenda"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-600 hover:text-slate-900 border border-slate-200 text-xs font-medium transition-all"
+                    title="Finalizar proyecto y transferir remanente"
                   >
-                    <Coins className="w-4 h-4 text-emerald-400" />
-                    <span>Finalizar Proyecto / Mover Resto</span>
+                    <Coins className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Finalizar / Mover Resto</span>
                   </button>
                 </>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center space-x-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl flex items-center space-x-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Proyecto Concluido</span>
                   </span>
                   <button
                     onClick={() => handleReabrirProyecto(proyectoSeleccionado.id)}
-                    className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3 h-3" />
                     <span>Reabrir</span>
                   </button>
                 </div>
@@ -653,300 +691,525 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             </div>
           </div>
 
-          {/* Banner de Remanente si el proyecto está activo y no se gastó el 100% */}
-          {remanenteNoGastado > 0 && proyectoSeleccionado.activo !== false && (
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2.5">
-                <Coins className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                <div className="text-xs text-amber-950">
-                  <p className="font-bold">
-                    Remanente en caja: {formatearMoneda(remanenteNoGastado)} disponible
-                  </p>
-                  <p className="text-amber-800 text-[11px] mt-0.5">
-                    Al concluir el proyecto puedes transferir este sobrante a la Ofrenda General con el motivo <strong>"resto del proyecto"</strong>.
-                  </p>
+          {/* Tarjeta de Progreso & Cifras Clave Compacta Apple HIG */}
+          <div className="bg-slate-50/80 border border-slate-200/70 rounded-2xl p-3 sm:p-3.5 space-y-2">
+            {/* Avance y Barra en una sola línea */}
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-1.5 text-slate-600 font-semibold min-w-0">
+                <span className="text-xs font-bold text-slate-800">Avance</span>
+                <span className="text-[11px] text-slate-400">({pactosDelProyecto.length} participantes)</span>
+              </div>
+              <div className="flex items-center space-x-2.5 flex-1 max-w-sm">
+                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${porcentaje}%` }}
+                  />
                 </div>
+                <span className="text-blue-600 font-black text-xs tabular-nums whitespace-nowrap">
+                  {porcentaje}%
+                </span>
               </div>
-              <button
-                onClick={() => setMostrarModalFinalizar(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs whitespace-nowrap shadow-sm self-start sm:self-auto"
-              >
-                Mover Resto a Ofrenda
-              </button>
             </div>
-          )}
 
-          {/* Barra de Progreso y Métricas */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-slate-500">Avance de Recaudación:</span>
-              <span className="text-indigo-600 font-extrabold text-sm">{porcentaje}% alcanzado</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200/80">
-              <div 
-                className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                style={{ width: `${porcentaje}%` }}
-              />
+            {/* 4 Cifras Clave Compactas */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60">
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Meta Total</span>
+                <span className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
+                  {formatearMoneda(proyectoSeleccionado.meta_total)}
+                </span>
+              </div>
+
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Recaudado</span>
+                <span className="text-sm sm:text-base font-black text-emerald-700 tabular-nums">
+                  {formatearMoneda(recaudado)}
+                </span>
+              </div>
+
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <span className="text-[10px] uppercase font-bold text-rose-500 block tracking-wider">Gastado</span>
+                <span className="text-sm sm:text-base font-black text-rose-700 tabular-nums">
+                  {formatearMoneda(gastado)}
+                </span>
+              </div>
+
+              <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-blue-600 block tracking-wider">Remanente</span>
+                  {remanenteNoGastado > 0 && proyectoSeleccionado.activo !== false && (
+                    <button
+                      onClick={() => setMostrarModalFinalizar(true)}
+                      className="text-[10px] text-amber-700 font-bold hover:underline inline-flex items-center"
+                      title="Mover remanente a ofrenda general"
+                    >
+                      Mover →
+                    </button>
+                  )}
+                </div>
+                <span className="text-sm sm:text-base font-black text-slate-950 tabular-nums">
+                  {formatearMoneda(remanenteNoGastado)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Cifras Clave Apple Inset Grouped */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Meta Financiera:</span>
-              <span className="text-base sm:text-lg font-black text-slate-950 tabular-nums">{formatearMoneda(proyectoSeleccionado.meta_total)}</span>
-            </div>
+          {/* Segmented Control Interno Apple HIG: Pactantes vs Historial de Entregas */}
+          <div className="pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="apple-segmented-group">
+                <button
+                  type="button"
+                  onClick={() => setSubvistaProyecto('pactantes')}
+                  className={`apple-segmented-item px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 ${
+                    subvistaProyecto === 'pactantes'
+                      ? 'apple-segmented-active text-slate-950'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Hermanos en el Proyecto ({pactosDelProyecto.length})</span>
+                </button>
 
-            <div className="bg-emerald-50/60 border border-emerald-200/70 p-4 rounded-2xl">
-              <span className="text-[10px] uppercase font-bold text-emerald-700 block">Recaudado en Caja:</span>
-              <span className="text-base sm:text-lg font-black text-emerald-800 tabular-nums">{formatearMoneda(recaudado)}</span>
-            </div>
-
-            <div className="bg-rose-50/60 border border-rose-200/70 p-4 rounded-2xl">
-              <span className="text-[10px] uppercase font-bold text-rose-700 block">Gastado en Obra:</span>
-              <span className="text-base sm:text-lg font-black text-rose-900 tabular-nums">
-                {formatearMoneda(gastado)}
-              </span>
-            </div>
-
-            <div className="bg-indigo-50/60 border border-indigo-200/70 p-4 rounded-2xl">
-              <span className="text-[10px] uppercase font-bold text-indigo-700 block">Remanente No Gastado:</span>
-              <span className="text-base sm:text-lg font-black text-indigo-950 tabular-nums">
-                {formatearMoneda(remanenteNoGastado)}
-              </span>
-            </div>
-          </div>
-
-          {/* Tabla de Miembros con Pacto */}
-          <div className="pt-4 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-slate-500" />
-                <h4 className="font-bold text-slate-900 text-sm sm:text-base">
-                  Hermanos y Familias con Pacto ({pactosDelProyecto.length})
-                </h4>
+                <button
+                  type="button"
+                  onClick={() => setSubvistaProyecto('entregas')}
+                  className={`apple-segmented-item px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 ${
+                    subvistaProyecto === 'entregas'
+                      ? 'apple-segmented-active text-slate-950'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Historial de Entregas ({entregasDelProyecto.length})</span>
+                </button>
               </div>
+
+              {/* Búsqueda o filtros según la subvista activa */}
+              {subvistaProyecto === 'pactantes' ? (
+                pactosDelProyecto.length > 0 && (
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Buscar hermano o teléfono..."
+                      value={busquedaPactante}
+                      onChange={(e) => setBusquedaPactante(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    />
+                    {busquedaPactante && (
+                      <button
+                        onClick={() => setBusquedaPactante('')}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              ) : (
+                pactosDelProyecto.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <Filter className="w-3.5 h-3.5 text-slate-400" />
+                    <select
+                      value={filtroPactoHistorial}
+                      onChange={(e) => setFiltroPactoHistorial(e.target.value)}
+                      className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="todos">Todos los aportes ({entregasDelProyecto.length})</option>
+                      {pactosDelProyecto.map(p => {
+                        const count = entregasDelProyecto.filter(e => e.pacto_id === p.id).length;
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {p.miembro_nombre} ({count})
+                          </option>
+                        );
+                      })}
+                      <option value="sin_pacto">Aportes de Diezmos / Institucionales</option>
+                    </select>
+                  </div>
+                )
+              )}
             </div>
 
-            {pactosDelProyecto.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
-                <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">Aún no hay hermanos con pacto registrado en este proyecto.</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Haz clic en "Registrar Hermano Pactante" para comenzar.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#F9F9FB] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="py-2.5 px-3">Hermano / Familia</th>
-                      <th className="py-2.5 px-3">Pacto Total</th>
-                      <th className="py-2.5 px-3">Cuota Semanal</th>
-                      <th className="py-2.5 px-3">Total Aportado</th>
-                      <th className="py-2.5 px-3">Saldo Restante</th>
-                      <th className="py-2.5 px-3">Avance</th>
-                      <th className="py-2.5 px-3 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {pactosDelProyecto.map((p) => {
-                      const pctPacto = Math.min(100, Math.round((p.total_aportado / p.monto_total_pactado) * 100));
-                      return (
-                        <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-3">
-                            <span className="font-bold text-slate-900 block text-xs">{p.miembro_nombre}</span>
-                            {p.miembro_telefono && (
-                              <span className="text-[10px] text-slate-400">{p.miembro_telefono}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 font-semibold text-slate-800 text-xs tabular-nums">
-                            {formatearMoneda(p.monto_total_pactado)}
-                          </td>
-                          <td className="py-3 px-3 font-semibold text-indigo-700 text-xs tabular-nums">
-                            {formatearMoneda(p.cuota_semanal)}/sem
-                          </td>
-                          <td className="py-3 px-3 font-bold text-emerald-600 text-xs tabular-nums">
-                            {formatearMoneda(p.total_aportado)}
-                          </td>
-                          <td className="py-3 px-3 font-bold text-amber-800 text-xs tabular-nums">
-                            {formatearMoneda(p.saldo_pendiente)}
-                          </td>
-                          <td className="py-3 px-3">
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-semibold text-slate-600 block">
-                                {p.semanas_pagadas} de {p.semanas_estimadas} sem ({pctPacto}%)
+            {/* CONTENIDO SUBVISTA 1: PACTANTES */}
+            {subvistaProyecto === 'pactantes' && (
+              <div className="pt-2">
+                {pactosDelProyecto.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                    <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-bold text-slate-800">Aún no hay hermanos registrados en este proyecto</p>
+                    <p className="text-[11px] text-slate-400">Registra un hermano con su meta personal y cuota periódica.</p>
+                    <button
+                      onClick={() => setMostrarModalNuevoPacto(true)}
+                      className="mt-1 inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-sm"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Registrar Primer Hermano</span>
+                    </button>
+                  </div>
+                ) : pactosFiltradosPorBusqueda.length === 0 ? (
+                  <div className="text-center py-8 text-xs text-slate-500">
+                    No se encontraron hermanos con el término "{busquedaPactante}".
+                  </div>
+                ) : (
+                  <>
+                    {/* Tabla Desktop (md en adelante) - SIN MODIFICAR NADA EN DESKTOP */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-[#F8F9FA] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100">
+                          <tr>
+                            <th className="py-2.5 px-3">Hermano / Familia</th>
+                            <th className="py-2.5 px-3">Meta Asignada</th>
+                            <th className="py-2.5 px-3">Cuota</th>
+                            <th className="py-2.5 px-3">Aportado</th>
+                            <th className="py-2.5 px-3">Resta</th>
+                            <th className="py-2.5 px-3">Progreso</th>
+                            <th className="py-2.5 px-3 text-right">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100/80">
+                          {pactosFiltradosPorBusqueda.map((p) => {
+                            const pctPacto = Math.min(100, Math.round((p.total_aportado / p.monto_total_pactado) * 100));
+                            const entregasCount = entregasDelProyecto.filter(e => e.pacto_id === p.id).length;
+                            const iniciales = getInitials(p.miembro_nombre);
+
+                            return (
+                              <tr key={p.id} className="hover:bg-slate-50/70 transition-colors group">
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center space-x-2.5">
+                                    <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 font-black text-[11px] flex items-center justify-center flex-shrink-0">
+                                      {iniciales}
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-slate-900 block text-xs leading-snug">
+                                        {p.miembro_nombre}
+                                      </span>
+                                      {p.miembro_telefono && (
+                                        <span className="text-[10px] text-slate-400 block">
+                                          {p.miembro_telefono}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-800 text-xs tabular-nums">
+                                  {formatearMoneda(p.monto_total_pactado)}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600 text-xs tabular-nums">
+                                  <span className="font-semibold text-blue-700">{formatearMoneda(p.cuota_semanal)}</span>
+                                  <span className="text-[10px] text-slate-400">/sem</span>
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-emerald-600 text-xs tabular-nums">
+                                  {formatearMoneda(p.total_aportado)}
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-amber-700 text-xs tabular-nums">
+                                  {formatearMoneda(p.saldo_pendiente)}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="space-y-1 w-28">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                                      <span>{p.semanas_pagadas}/{p.semanas_estimadas} sem</span>
+                                      <span className="font-bold text-slate-700">{pctPacto}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                                      <div 
+                                        className={`h-full rounded-full ${p.estado === 'completado' ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                                        style={{ width: `${pctPacto}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <div className="flex items-center justify-end space-x-1">
+                                    {/* Botón rápido de Abonar */}
+                                    {onAbonarPacto && proyectoSeleccionado.activo !== false && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onAbonarPacto(p.proyecto_id, p.id)}
+                                        className="text-xs bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold px-2.5 py-1 rounded-lg transition-all inline-flex items-center space-x-1 shadow-sm shadow-emerald-600/20"
+                                        title="Registrar una entrega de cuota a este pacto"
+                                      >
+                                        <span>Abonar</span>
+                                        <ArrowRight className="w-3 h-3" />
+                                      </button>
+                                    )}
+
+                                    {/* Ver historial de entregas de este pacto */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setPactoParaVerHistorial(p)}
+                                      className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 font-medium px-2 py-1 rounded-lg transition-colors inline-flex items-center space-x-1"
+                                      title="Consultar fechas y recibos de este hermano"
+                                    >
+                                      <CalendarDays className="w-3 h-3 text-blue-600" />
+                                      <span>{entregasCount}</span>
+                                    </button>
+
+                                    {/* Editar datos del pacto */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirEditarPacto(p)}
+                                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                                      title="Editar datos del pactante"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Vista Móvil Nativa de Pactantes (md:hidden) */}
+                    <div className="md:hidden space-y-3">
+                      {pactosFiltradosPorBusqueda.map((p) => {
+                        const pctPacto = Math.min(100, Math.round((p.total_aportado / p.monto_total_pactado) * 100));
+                        const entregasCount = entregasDelProyecto.filter(e => e.pacto_id === p.id).length;
+                        const iniciales = getInitials(p.miembro_nombre);
+
+                        return (
+                          <div key={p.id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-2xl space-y-3 shadow-2xs">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center flex-shrink-0">
+                                  {iniciales}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-slate-900 block text-xs">
+                                    {p.miembro_nombre}
+                                  </span>
+                                  {p.miembro_telefono && (
+                                    <span className="text-[10px] text-slate-500 block">
+                                      {p.miembro_telefono}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full flex-shrink-0">
+                                {formatearMoneda(p.cuota_semanal)}/sem
                               </span>
-                              <div className="w-20 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="text-slate-500 font-medium">
+                                  {p.semanas_pagadas}/{p.semanas_estimadas} sem cubiertas
+                                </span>
+                                <span className="font-extrabold text-slate-900">{pctPacto}%</span>
+                              </div>
+                              <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden">
                                 <div 
-                                  className={`h-full rounded-full ${p.estado === 'completado' ? 'bg-emerald-500' : 'bg-indigo-600'}`}
+                                  className={`h-full rounded-full transition-all ${p.estado === 'completado' ? 'bg-emerald-500' : 'bg-blue-600'}`}
                                   style={{ width: `${pctPacto}%` }}
                                 />
                               </div>
                             </div>
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <div className="flex items-center justify-end space-x-1.5">
+
+                            <div className="grid grid-cols-3 gap-1.5 text-center bg-white p-2 rounded-xl border border-slate-200/60 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 block uppercase">Meta</span>
+                                <span className="font-bold text-slate-800 tabular-nums">{formatearMoneda(p.monto_total_pactado)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block uppercase">Aportado</span>
+                                <span className="font-bold text-emerald-600 tabular-nums">{formatearMoneda(p.total_aportado)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block uppercase">Resta</span>
+                                <span className="font-bold text-amber-700 tabular-nums">{formatearMoneda(p.saldo_pendiente)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
                               <button
                                 type="button"
                                 onClick={() => setPactoParaVerHistorial(p)}
-                                className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/80 font-bold px-2.5 py-1 rounded-xl transition-colors inline-flex items-center space-x-1"
-                                title="Ver fechas y entregas registradas para este hermano"
+                                className="inline-flex items-center space-x-1.5 text-xs text-slate-700 bg-white border border-slate-200/80 hover:bg-slate-50 px-2.5 py-1.5 rounded-xl min-h-[36px]"
                               >
-                                <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
-                                <span>Entregas ({entregasDelProyecto.filter(e => e.pacto_id === p.id).length})</span>
+                                <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+                                <span>{entregasCount} {entregasCount === 1 ? 'entrega' : 'entregas'}</span>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleAbrirEditarPacto(p)}
-                                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold px-2.5 py-1 rounded-xl transition-colors inline-flex items-center space-x-1"
-                                title="Editar datos del pactante"
-                              >
-                                <Pencil className="w-3 h-3 text-slate-500" />
-                                <span>Editar</span>
-                              </button>
-                              {onAbonarPacto && proyectoSeleccionado.activo !== false && (
+
+                              <div className="flex items-center space-x-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => onAbonarPacto(p.proyecto_id, p.id)}
-                                  className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold px-2.5 py-1 rounded-xl transition-colors inline-flex items-center space-x-1"
+                                  onClick={() => handleAbrirEditarPacto(p)}
+                                  aria-label="Editar pacto"
+                                  className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-slate-500 hover:text-slate-800 bg-white border border-slate-200/80 rounded-xl"
                                 >
-                                  <span>Abonar</span>
-                                  <ArrowRight className="w-3 h-3" />
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+
+                                {onAbonarPacto && proyectoSeleccionado.activo !== false && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onAbonarPacto(p.proyecto_id, p.id)}
+                                    className="inline-flex items-center space-x-1 text-xs bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs min-h-[36px]"
+                                  >
+                                    <span>+ Abonar</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             )}
-          </div>
 
-          {/* Historial Cronológico de Fechas y Entregas al Proyecto */}
-          <div className="pt-6 border-t border-slate-200/80 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700">
-                    <CalendarDays className="w-4 h-4" />
+            {/* CONTENIDO SUBVISTA 2: HISTORIAL DE ENTREGAS */}
+            {subvistaProyecto === 'entregas' && (
+              <div className="pt-2">
+                {entregasFiltradas.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                    <Calendar className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-slate-700">No hay entregas registradas para este filtro</p>
+                    <p className="text-[11px] text-slate-400">
+                      Al capturar ingresos o abonar al proyecto, aquí se listarán todas las entregas con fecha y recibo.
+                    </p>
                   </div>
-                  <h4 className="font-bold text-slate-950 text-sm sm:text-base">
-                    Fechas y Registro de Entregas ({entregasDelProyecto.length})
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Consulta cuándo se entregó cada aporte al proyecto, edita fechas/montos o elimina registros erróneos.
-                </p>
-              </div>
+                ) : (
+                  <>
+                    {/* Tabla Desktop (md en adelante) - SIN MODIFICAR NADA EN DESKTOP */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-[#F8F9FA] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-100">
+                          <tr>
+                            <th className="py-2.5 px-3">Fecha</th>
+                            <th className="py-2.5 px-3">Hermano / Aportante</th>
+                            <th className="py-2.5 px-3">Concepto</th>
+                            <th className="py-2.5 px-3">Método</th>
+                            <th className="py-2.5 px-3 text-right">Monto</th>
+                            <th className="py-2.5 px-3 text-right">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100/80">
+                          {entregasFiltradas.map((entrega) => (
+                            <tr key={entrega.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-slate-900 block text-xs">
+                                  {formatearFechaCorta(entrega.fecha)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 capitalize">
+                                  {entrega.dia_semana || 'Movimiento'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-semibold text-slate-800 text-xs block">
+                                  {entrega.miembro_nombre || 'Aporte General'}
+                                </span>
+                                {entrega.pacto_id ? (
+                                  <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200/60 px-1.5 py-0.2 rounded font-medium inline-block mt-0.5">
+                                    Pacto
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 block">
+                                    Institucional / Fondo
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs text-slate-600 max-w-[240px] truncate" title={entrega.concepto}>
+                                {entrega.concepto || '—'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md capitalize">
+                                  {entrega.metodo_pago}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-extrabold text-emerald-600 text-xs tabular-nums">
+                                {formatearMoneda(entrega.monto)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="flex items-center justify-end space-x-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbrirEditarEntrega(entrega)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                                    title="Editar entrega"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEntregaAEliminar(entrega)}
+                                    className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                    title="Eliminar entrega"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-              {/* Filtro por Hermano Pactante */}
-              {pactosDelProyecto.length > 0 && (
-                <div className="flex items-center space-x-2 self-start sm:self-auto">
-                  <Filter className="w-3.5 h-3.5 text-slate-400" />
-                  <select
-                    value={filtroPactoHistorial}
-                    onChange={(e) => setFiltroPactoHistorial(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500/20"
-                  >
-                    <option value="todos">Todos los aportes ({entregasDelProyecto.length})</option>
-                    {pactosDelProyecto.map(p => {
-                      const count = entregasDelProyecto.filter(e => e.pacto_id === p.id).length;
-                      return (
-                        <option key={p.id} value={p.id}>
-                          {p.miembro_nombre} ({count})
-                        </option>
-                      );
-                    })}
-                    <option value="sin_pacto">Aportes institucionales / Fondos Diezmo</option>
-                  </select>
-                </div>
-              )}
-            </div>
+                    {/* Vista Móvil Nativa de Entregas (md:hidden) */}
+                    <div className="md:hidden divide-y divide-slate-100">
+                      {entregasFiltradas.map((entrega) => (
+                        <div key={entrega.id} className="p-3.5 space-y-2 hover:bg-slate-50/70 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-slate-900 text-xs">
+                                {formatearFechaCorta(entrega.fecha)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 capitalize ml-1.5">
+                                ({entrega.dia_semana || 'Movimiento'})
+                              </span>
+                            </div>
+                            <span className="font-extrabold text-emerald-600 text-sm tabular-nums">
+                              +{formatearMoneda(entrega.monto)}
+                            </span>
+                          </div>
 
-            {entregasFiltradas.length === 0 ? (
-              <div className="text-center py-8 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
-                <Calendar className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">No hay entregas registradas para este criterio.</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Al capturar o abonar al proyecto, aquí se listarán todas las entregas con sus fechas para consulta, edición o borrado.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200/80 shadow-sm">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#F9F9FB] text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="py-2.5 px-3">Fecha de Entrega</th>
-                      <th className="py-2.5 px-3">Hermano / Aportante</th>
-                      <th className="py-2.5 px-3">Concepto / Motivo</th>
-                      <th className="py-2.5 px-3">Método</th>
-                      <th className="py-2.5 px-3 text-right">Monto Aportado</th>
-                      <th className="py-2.5 px-3 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {entregasFiltradas.map((entrega) => (
-                      <tr key={entrega.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-3">
-                          <span className="font-bold text-slate-900 block text-xs">
-                            {formatearFechaCorta(entrega.fecha)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 capitalize">
-                            {entrega.dia_semana || 'Movimiento'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-semibold text-slate-800 text-xs block">
-                            {entrega.miembro_nombre || 'Aporte General al Proyecto'}
-                          </span>
-                          {entrega.pacto_id ? (
-                            <span className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md font-medium inline-block mt-0.5">
-                              Pacto Vinculado
+                          <div className="flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-bold text-slate-800 block">
+                                {entrega.miembro_nombre || 'Aporte General'}
+                              </span>
+                              {entrega.concepto && (
+                                <p className="text-[11px] text-slate-500 line-clamp-1">{entrega.concepto}</p>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded capitalize">
+                              {entrega.metodo_pago}
                             </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 block mt-0.5">
-                              Aporte Institucional / Libre
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-xs text-slate-600 max-w-[240px] truncate" title={entrega.concepto}>
-                          {entrega.concepto}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg capitalize">
-                            {entrega.metodo_pago}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right font-extrabold text-emerald-600 text-xs tabular-nums">
-                          {formatearMoneda(entrega.monto)}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
+                          </div>
+
+                          <div className="flex items-center justify-end space-x-1.5 pt-1">
                             <button
                               type="button"
                               onClick={() => handleAbrirEditarEntrega(entrega)}
-                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                              title="Editar fecha, monto o concepto de esta entrega"
+                              className="px-2.5 py-1 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium inline-flex items-center space-x-1"
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              <Pencil className="w-3 h-3" />
+                              <span>Editar</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setEntregaAEliminar(entrega)}
-                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
-                              title="Borrar esta entrega del proyecto"
+                              className="px-2.5 py-1 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg font-medium inline-flex items-center space-x-1"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3 h-3" />
+                              <span>Eliminar</span>
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -970,7 +1233,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h3 id="modal-nuevo-proyecto-titulo" className="text-base font-black text-slate-950">Nuevo Proyecto Pactado</h3>
+              <div>
+                <h3 id="modal-nuevo-proyecto-titulo" className="text-base font-black text-slate-950">Nuevo Proyecto</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Define la meta global y el valor sugerido de la congregación.</p>
+              </div>
               <button 
                 type="button" 
                 onClick={() => setMostrarModalNuevoProyecto(false)} 
@@ -980,9 +1246,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-500">
-              Define la meta global y el valor semanal sugerido para este proyecto eclesiástico.
-            </p>
 
             <form onSubmit={handleCrearProyecto} className="space-y-4">
               <div>
@@ -993,7 +1256,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   value={nombreProyecto}
                   onChange={(e) => setNombreProyecto(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -1004,7 +1267,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   placeholder="Detalles del proyecto..."
                   value={descProyecto}
                   onChange={(e) => setDescProyecto(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -1018,7 +1281,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={metaProyecto}
                     onChange={(e) => setMetaProyecto(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -1030,7 +1293,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     placeholder="500"
                     value={valorSemanalSugerido}
                     onChange={(e) => setValorSemanalSugerido(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -1045,7 +1308,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 active:scale-[0.98] shadow-md shadow-indigo-600/20 transition-all"
+                  className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-500 active:scale-[0.98] shadow-sm shadow-blue-600/20 transition-all"
                 >
                   Guardar Proyecto
                 </button>
@@ -1072,7 +1335,12 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h3 id="modal-nuevo-pacto-titulo" className="text-base font-black text-slate-950">Registrar Hermano Pactante</h3>
+              <div>
+                <h3 id="modal-nuevo-pacto-titulo" className="text-base font-black text-slate-950">Registrar Hermano Pactante</h3>
+                <p className="text-xs text-slate-500">
+                  Para el proyecto: <strong className="text-blue-600">{proyectoSeleccionado.nombre}</strong>
+                </p>
+              </div>
               <button 
                 type="button" 
                 onClick={() => setMostrarModalNuevoPacto(false)} 
@@ -1082,20 +1350,29 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-500">
-              Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
-            </p>
 
             <form onSubmit={handleCrearPacto} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre del Hermano o Familia *</label>
-                <input
-                  type="text"
-                  placeholder="Ej. Familia Hernández, Samuel Castillo..."
-                  value={miembroPacto}
-                  onChange={(e) => setMiembroPacto(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                <SelectorHermano
+                  miembros={miembros}
+                  selectedNombre={miembroPacto}
+                  permitirAnonimo={false}
+                  requerido={true}
+                  label="Hermano de la Iglesia *"
+                  placeholder="Seleccionar hermano de la iglesia..."
+                  onSelect={(m, nombre) => {
+                    setMiembroPacto(nombre || '');
+                    if (m?.telefono) {
+                      setTelefonoPacto(m.telefono);
+                    }
+                  }}
+                  onNuevoMiembroCreado={(nuevo) => {
+                    setMiembros(prev => [nuevo, ...prev]);
+                    setMiembroPacto(nuevo.nombre);
+                    if (nuevo.telefono) {
+                      setTelefonoPacto(nuevo.telefono);
+                    }
+                  }}
                 />
               </div>
 
@@ -1106,7 +1383,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   placeholder="Ej. 55-1234-5678"
                   value={telefonoPacto}
                   onChange={(e) => setTelefonoPacto(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -1120,7 +1397,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={montoPactado}
                     onChange={(e) => setMontoPactado(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -1133,13 +1410,13 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={cuotaSemanalPacto}
                     onChange={(e) => setCuotaSemanalPacto(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
 
               {montoPactado && cuotaSemanalPacto && parseFloat(cuotaSemanalPacto) > 0 && (
-                <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-[11px] text-amber-900">
+                <div className="p-3 bg-blue-50/70 rounded-2xl border border-blue-200/60 text-[11px] text-blue-900">
                   🗓️ Duración estimada del pacto:{' '}
                   <strong>{Math.ceil(parseFloat(montoPactado) / parseFloat(cuotaSemanalPacto))} semanas</strong>.
                 </div>
@@ -1155,7 +1432,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold bg-amber-500 text-slate-950 rounded-xl hover:bg-amber-400 active:scale-[0.98] shadow-md shadow-amber-500/20 transition-all"
+                  className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-500 active:scale-[0.98] shadow-sm shadow-blue-600/20 transition-all"
                 >
                   Registrar Pacto
                 </button>
@@ -1184,7 +1461,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
                   <Pencil className="w-3.5 h-3.5" />
                 </div>
                 <div>
@@ -1195,7 +1472,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </div>
               </div>
               <button 
-                type="button"
+                type="button" 
                 onClick={() => { setMostrarModalEditarPacto(false); setPactoAEditar(null); }} 
                 aria-label="Cerrar modal"
                 className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
@@ -1212,7 +1489,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   value={editNombre}
                   onChange={(e) => setEditNombre(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -1223,7 +1500,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   placeholder="Ej. 55-1234-5678"
                   value={editTelefono}
                   onChange={(e) => setEditTelefono(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -1236,7 +1513,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={editMonto}
                     onChange={(e) => setEditMonto(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -1248,7 +1525,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={editCuota}
                     onChange={(e) => setEditCuota(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -1258,7 +1535,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <select
                   value={editEstado}
                   onChange={(e) => setEditEstado(e.target.value as any)}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
                   <option value="al_dia">🟢 Al Día (Activo)</option>
                   <option value="completado">✅ Completado (Meta Alcanzada)</option>
@@ -1266,8 +1543,8 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </select>
               </div>
 
-              {/* Resumen en vivo */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] space-y-1 text-slate-700">
+              {/* Resumen dinámico */}
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-[11px] space-y-1 text-slate-700">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Aportado acumulado:</span>
                   <span className="font-bold text-emerald-600">{formatearMoneda(pactoAEditar.total_aportado)}</span>
@@ -1304,7 +1581,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   <button
                     type="submit"
                     disabled={guardandoPacto}
-                    className="px-5 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 active:scale-[0.98] shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all"
+                    className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-500 active:scale-[0.98] shadow-sm shadow-blue-600/20 disabled:opacity-50 transition-all"
                   >
                     {guardandoPacto ? 'Guardando...' : 'Guardar'}
                   </button>
@@ -1333,7 +1610,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+                <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
                   <ArrowRightLeft className="w-5 h-5" />
                 </div>
                 <div>
@@ -1341,7 +1618,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     Aportar desde Diezmos al Proyecto
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                    Proyecto: <strong className="text-blue-600">{proyectoSeleccionado.nombre}</strong>
                   </p>
                 </div>
               </div>
@@ -1356,7 +1633,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             </div>
 
             <form onSubmit={handleGuardarAporteDiezmo} className="space-y-4 pt-1">
-              {/* Importe a Aportar */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Monto a tomar de Diezmos ($ MXN) *
@@ -1372,12 +1648,11 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     onChange={(e) => setMontoAporteDiezmo(e.target.value)}
                     required
                     autoFocus
-                    className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 tabular-nums"
+                    className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tabular-nums"
                   />
                 </div>
               </div>
 
-              {/* Fecha del Movimiento */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Fecha del Movimiento *
@@ -1387,11 +1662,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   value={fechaAporteDiezmo}
                   onChange={(e) => setFechaAporteDiezmo(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
-              {/* Asignar a un Pacto Específico (Opcional) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>Asignar a un Hermano con Pacto</span>
@@ -1400,7 +1674,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <select
                   value={pactoAporteDiezmoId}
                   onChange={(e) => setPactoAporteDiezmoId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
                   <option value="">Aporte institucional al proyecto (sin pacto individual)</option>
                   {pactosDelProyecto.map((p) => (
@@ -1414,7 +1688,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </p>
               </div>
 
-              {/* Concepto / Nota */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Concepto / Nota explicativa
@@ -1424,11 +1697,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   value={conceptoAporteDiezmo}
                   onChange={(e) => setConceptoAporteDiezmo(e.target.value)}
                   placeholder={`Fondo institucional de diezmos a: ${proyectoSeleccionado.nombre}`}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
-              {/* Switch de Egreso Contable en Caja General */}
               <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-start justify-between gap-3">
                 <div>
                   <span className="text-xs font-bold text-slate-900 block">
@@ -1445,11 +1717,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     onChange={(e) => setRegistrarEgresoCaja(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
+                  <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
                 </label>
               </div>
 
-              {/* Acciones */}
               <div className="pt-2 flex items-center justify-end space-x-2">
                 <button
                   type="button"
@@ -1461,7 +1732,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <button
                   type="submit"
                   disabled={guardandoAporteDiezmo}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-blue-600/20 disabled:opacity-50"
                 >
                   {guardandoAporteDiezmo ? 'Aplicando...' : 'Aplicar Aporte al Proyecto'}
                 </button>
@@ -1504,7 +1775,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+                <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
                   <Pencil className="w-5 h-5" />
                 </div>
                 <div>
@@ -1512,7 +1783,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     Editar Entrega al Proyecto
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                    Proyecto: <strong className="text-blue-600">{proyectoSeleccionado.nombre}</strong>
                   </p>
                 </div>
               </div>
@@ -1530,7 +1801,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             </div>
 
             <form onSubmit={handleGuardarEdicionEntrega} className="space-y-4 pt-1">
-              {/* Fecha y Monto */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -1541,7 +1811,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={formFechaEntrega}
                     onChange={(e) => setFormFechaEntrega(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
 
@@ -1556,12 +1826,11 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     value={formMontoEntrega}
                     onChange={(e) => setFormMontoEntrega(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 tabular-nums"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tabular-nums"
                   />
                 </div>
               </div>
 
-              {/* Hermano / Pacto Vinculado */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Pacto del Hermano Asignado
@@ -1569,7 +1838,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <select
                   value={formPactoIdEntrega}
                   onChange={(e) => setFormPactoIdEntrega(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
                   <option value="">Aporte general al proyecto (sin hermano específico)</option>
                   {pactosDelProyecto.map((p) => (
@@ -1580,7 +1849,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </select>
               </div>
 
-              {/* Concepto / Motivo */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Concepto / Motivo de la Entrega
@@ -1590,11 +1858,10 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   value={formConceptoEntrega}
                   onChange={(e) => setFormConceptoEntrega(e.target.value)}
                   placeholder="Ej. Aporte a pacto semanal"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
-              {/* Método de Pago */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Método de Entrega
@@ -1602,7 +1869,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <select
                   value={formMetodoPagoEntrega}
                   onChange={(e) => setFormMetodoPagoEntrega(e.target.value as MetodoPago)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 >
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia Bancaria / SPEI</option>
@@ -1611,7 +1878,6 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 </select>
               </div>
 
-              {/* Botones de Acción */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button
                   type="button"
@@ -1626,7 +1892,7 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                 <button
                   type="submit"
                   disabled={guardandoEntrega}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-sm shadow-blue-600/20 disabled:opacity-50"
                 >
                   {guardandoEntrega ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
@@ -1654,15 +1920,15 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700">
-                  <CalendarDays className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center">
+                  {getInitials(pactoParaVerHistorial.miembro_nombre)}
                 </div>
                 <div>
                   <h3 id="modal-historial-pacto-titulo" className="text-base font-black text-slate-950">
-                    Entregas de {pactoParaVerHistorial.miembro_nombre}
+                    {pactoParaVerHistorial.miembro_nombre}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                    Entregas registradas en: <strong className="text-blue-600">{proyectoSeleccionado.nombre}</strong>
                   </p>
                 </div>
               </div>
@@ -1677,18 +1943,18 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
             </div>
 
             {/* Resumen del Pacto */}
-            <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-2xl text-center">
+            <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-2xl text-center border border-slate-200/60">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Pacto Total:</span>
-                <span className="text-xs font-bold text-slate-900">{formatearMoneda(pactoParaVerHistorial.monto_total_pactado)}</span>
+                <span className="text-xs font-bold text-slate-900 tabular-nums">{formatearMoneda(pactoParaVerHistorial.monto_total_pactado)}</span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-emerald-700 block">Aportado:</span>
-                <span className="text-xs font-bold text-emerald-600">{formatearMoneda(pactoParaVerHistorial.total_aportado)}</span>
+                <span className="text-xs font-bold text-emerald-600 tabular-nums">{formatearMoneda(pactoParaVerHistorial.total_aportado)}</span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-amber-800 block">Saldo Restante:</span>
-                <span className="text-xs font-bold text-amber-800">{formatearMoneda(pactoParaVerHistorial.saldo_pendiente)}</span>
+                <span className="text-[10px] uppercase font-bold text-amber-800 block">Resta:</span>
+                <span className="text-xs font-bold text-amber-800 tabular-nums">{formatearMoneda(pactoParaVerHistorial.saldo_pendiente)}</span>
               </div>
             </div>
 
@@ -1701,18 +1967,18 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   <p className="text-[11px] text-slate-400 mt-0.5">Haz clic en "Abonar" para registrar una entrega de cuota.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {entregasDelProyecto.filter(e => e.pacto_id === pactoParaVerHistorial.id).map((entrega) => (
                     <div 
                       key={entrega.id}
-                      className="p-3.5 bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 transition-colors"
+                      className="p-3 bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/70 rounded-2xl flex items-center justify-between gap-3 transition-colors"
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center space-x-2">
                           <span className="text-xs font-bold text-slate-900">
                             {formatearFechaCorta(entrega.fecha)}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded-md capitalize">
+                          <span className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-200 px-1.5 py-0.2 rounded-md capitalize">
                             {entrega.metodo_pago}
                           </span>
                         </div>

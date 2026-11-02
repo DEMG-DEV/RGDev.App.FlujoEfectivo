@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 Preguntas Ministeriales y Discusiones"
+    url: "https://github.com/DEMG-DEV/RGDev.App.FlujoEfectivo/discussions"
+    about: "Para dudas generales, mejores prácticas de tesorería y consultas de uso."
+  - name: "🔒 Reporte de Seguridad Confidencial"
+    url: "https://github.com/DEMG-DEV/RGDev.App.FlujoEfectivo/blob/main/SECURITY.md"
+    about: "Para reportar vulnerabilidades de seguridad de forma privada y responsable."

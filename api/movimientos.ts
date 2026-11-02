@@ -49,6 +49,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const proyectoId = sanitizeUUID(data.proyecto_id);
         let pactoId = sanitizeUUID(data.pacto_id);
+        let miembroId = sanitizeUUID(data.miembro_id);
+
+        if (!miembroId && data.miembro_nombre && data.miembro_nombre.trim().toLowerCase() !== 'anónimo' && data.miembro_nombre.trim().toLowerCase() !== 'anonimo') {
+          const mMatch = await client.query(
+            'SELECT id FROM miembros WHERE LOWER(TRIM(nombre)) = LOWER(TRIM($1)) LIMIT 1;',
+            [data.miembro_nombre]
+          );
+          if (mMatch.rows.length > 0) {
+            miembroId = mMatch.rows[0].id;
+          }
+        }
 
         // Si no se proporcionó pacto_id pero sí proyecto, buscar el pacto registrado
         if (!pactoId && proyectoId) {
@@ -76,9 +87,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const query = `
           INSERT INTO transacciones (
             tipo, subtipo, categoria, monto, fecha, dia_semana, 
-            tipo_culto, concepto, miembro_nombre, proyecto_id, 
+            tipo_culto, concepto, miembro_id, miembro_nombre, proyecto_id, 
             pacto_id, metodo_pago, evidencia_url, evidencia_nombre
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING *;
         `;
         const values = [
@@ -90,6 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           data.dia_semana,
           data.tipo_culto || 'no_aplica',
           data.concepto,
+          miembroId,
           data.miembro_nombre || null,
           proyectoId,
           pactoId,
@@ -177,6 +189,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (data.evidencia_tipo !== undefined) {
           fields.push(`evidencia_tipo = $${idx++}`);
           values.push(data.evidencia_tipo || null);
+        }
+        if (data.miembro_id !== undefined) {
+          fields.push(`miembro_id = $${idx++}`);
+          values.push(sanitizeUUID(data.miembro_id));
         }
         if (data.miembro_nombre !== undefined) {
           fields.push(`miembro_nombre = $${idx++}`);

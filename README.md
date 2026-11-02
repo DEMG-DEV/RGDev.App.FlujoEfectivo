@@ -1,11 +1,58 @@
-# Sistema de Flujo de Efectivo Eclesiástico ⛪💰
+<div align="center">
 
-Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado con **React + TypeScript + Vite + Tailwind CSS**, preparado para desplegarse en **Vercel** o **Cloudflare**, con base de datos en **Aiven con PostgreSQL**, autenticación con **Auth.js** y almacenamiento de evidencias (recibos, facturas y tickets) en **Cloudflare R2 Bucket (gospel)**.
+# ⛪ Sistema de Flujo de Efectivo Eclesiástico 💰
 
-### Punto de Referencia de Versión
+### *Plataforma de Tesorería, Mayordomía Financiera y Rendición de Cuentas para Iglesias y Ministerios*
+
+[![Version](https://img.shields.io/badge/version-1.10.0-emerald.svg?style=for-the-badge&logo=semver&logoColor=white)](package.json)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.2-646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_(Aiven)-4169E1.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://aiven.io/)
+[![Cloudflare R2](https://img.shields.io/badge/Cloudflare_R2-Object_Storage-F38020.svg?style=for-the-badge&logo=cloudflare&logoColor=white)](https://www.cloudflare.com/products/r2/)
+[![Design Standard](https://img.shields.io/badge/Design-Apple_HIG-007AFF.svg?style=for-the-badge&logo=apple&logoColor=white)](https://developer.apple.com/design/human-interface-guidelines)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![CI Status](https://img.shields.io/badge/CI-Passing-brightgreen.svg?style=for-the-badge&logo=github-actions&logoColor=white)](.github/workflows/ci.yml)
+
+> *"Procurando hacer las cosas honradamente, no sólo delante del Señor sino también delante de los hombres."*  
+> — **2 Corintios 8:21**
+
+</div>
+
+---
+
+## 📑 Tabla de Contenidos
+
+- [Visión General & Resumen Ejecutivo](#-visión-general--resumen-ejecutivo)
+- [Arquitectura del Sistema](#-arquitectura-del-sistema)
+- [Módulos Principales](#-módulos-principales)
+  - [1. Dashboard Ejecutivo Apple HIG](#1-dashboard-ejecutivo-apple-hig)
+  - [2. Libro Diario de Caja & Auditoría Mensual](#2-libro-diario-de-caja--auditoría-mensual)
+  - [3. Captura Ágil de Entradas (Modo Sobres & Split Diezmo-Pacto)](#3-captura-ágil-de-entradas-modo-sobres--split-diezmo-pacto)
+  - [4. Registro de Egresos & Comprobantes en Cloudflare R2](#4-registro-de-egresos--comprobantes-en-cloudflare-r2)
+  - [5. Proyectos Pactados & Metas de Fe](#5-proyectos-pactados--metas-de-fe)
+  - [6. Directorio Integral de Hermanos](#6-directorio-integral-de-hermanos)
+  - [7. Generador Oficial de Informes con Auditoría Histórica](#7-generador-oficial-de-informes-con-auditoría-histórica)
+  - [8. Experiencia Móvil de Élite (iOS Tab Bar & Touch Targets)](#8-experiencia-móvil-de-élite-ios-tab-bar--touch-targets)
+- [Stack Tecnológico](#-stack-tecnológico)
+- [Instalación y Despliegue](#-instalación-y-despliegue)
+  - [Prerrequisitos](#prerrequisitos)
+  - [Configuración de Variables de Entorno](#configuración-de-variables-de-entorno)
+  - [Desarrollo Local Aislado con Docker](#desarrollo-local-aislado-con-docker)
+  - [Scripts Disponibles](#scripts-disponibles)
+- [Esquema de Base de Datos Relacional](#-esquema-de-base-de-datos-relacional)
+- [Seguridad, Confidencialidad y Respaldos](#-seguridad-confidencialidad-y-respaldos)
+- [Estándares Comunitarios](#-estándares-comunitarios)
+- [Licencia](#-licencia)
+
+---
+
+### 📌 Punto de Referencia de Versión
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.10.0** | 2026-11-02 00:35:00 | David Méndez | Producción / Estable |
 | **v1.9.0** | 2026-11-01 22:15:00 | David Méndez | Producción / Estable |
 | **v1.8.2** | 2026-10-13 11:15:00 | David Méndez | Producción / Estable |
 | **v1.8.1** | 2026-10-11 10:51:00 | David Méndez | Producción / Estable |
@@ -15,199 +62,241 @@ Sistema moderno de tesorería y mayordomía financiera para iglesias, diseñado 
 | **v1.5.0** | 2026-09-29 13:14:00 | David Méndez | Producción / Estable |
 | **v1.4.1** | 2026-09-29 12:16:00 | David Méndez | Producción / Estable |
 | **v1.4.0** | 2026-09-29 12:10:00 | David Méndez | Producción / Estable |
-| **v1.3.0** | 2026-09-29 11:54:00 | David Méndez | Producción / Estable |
-| **v1.2.0** | 2026-09-29 11:25:00 | David Méndez | Producción / Estable |
-| **v1.1.0** | 2026-09-29 09:44:00 | David Méndez | Producción / Estable |
 
 ---
 
-## 🌟 Características Principales
+## 📖 Visión General & Resumen Ejecutivo
 
-### 1. Split Diezmo a Pacto, Fechas de Entregas con Edición/Borrado y Auto-vinculación de Fondos
-- **Desglose de Diezmo a Pacto (Split)**: Posibilidad de tomar un importe determinado de un sobre de diezmo y asignarlo como abono al compromiso de un proyecto pactado directamente en `CapturaIngresosView`. Genera automáticamente dos transacciones limpias y trazables (Diezmo General en Caja y Aporte a Pacto en Proyecto) con vinculación del donante y proyecto.
-- **Historial Completo de Fechas de Entregas y Gestión de Abonos**: Nueva tabla de *"Fechas y Registro de Entregas"* y botón *"📅 Entregas (N)"* por pactante en `ProyectosPactadosView` para visualizar con exactitud en qué fecha se entregó cada aportación, con modales intuitivos para editar montos, fechas, comprobantes o eliminar entregas recalculando saldos al instante.
-- **Auto-vinculación Inteligente (*Self-Healing*)**: Mecanismo que asocia transacciones huérfanas al pacto correspondiente en proyectos de un solo pactante (como *"Iglesia"*) o coincidencia por nombre de miembro, tanto en el frontend como en endpoints de PostgreSQL.
-- **Blindaje Contable de Remanentes de Proyecto**: Exclusión de transferencias y egresos de Caja General del cómputo de `total_gastado`, evitando que los fondeos se resten incorrectamente como dinero gastado en materiales de obra.
-- **Blindaje contra Pantalla en Blanco**: Corrección del error de tiempo inválido (`RangeError: Invalid time value`) al editar movimientos en Caja General o gastos en `ModalEditarGasto`, garantizando que respuestas de PostgreSQL con marcas de tiempo ISO o strings numéricos se procesen de forma transparente.
-- **Normalización Universal de Transacciones (`extraerFechaYYYYMMDD` y `normalizarTransaccion`)**: Extracción limpia del formato `YYYY-MM-DD` y conversión a float numérico tanto en cliente como en APIs serverless (`api/movimientos.ts`) y dev server (`vite.config.ts`), auto-reparando registros antiguos en `localStorage`.
-- **Componente de Resiliencia `ErrorBoundary` Global**: Envoltura de nivel raíz en `main.tsx` que previene cualquier pantalla blanca ante excepciones de renderizado imprevistas, ofreciendo botones de recuperación y recarga segura.
+El **Sistema de Flujo de Efectivo Eclesiástico** es una solución full-stack creada para transformar y dignificar la administración de recursos en iglesias cristianas, misiones y congregaciones. Combina el rigor contable de la partida doble y la mayordomía con una experiencia visual de élite inspirada en las **Human Interface Guidelines (HIG) de Apple**.
 
-### 2. Gestión Integral de Comprobantes, Anexo Documental en Reportes y Mover Fecha de Movimientos
-- **Mover Fecha al Editar Movimientos en Caja General**: Nueva función integral en el Libro de Caja para modificar o mover la fecha de cualquier movimiento (ingresos y gastos) con un selector de fecha interactivo, indicador reactivo del día de culto (`Miércoles`, `Domingo`, `Otro`) y accesos rápidos de 1 clic (`Hoy`, `Último Miércoles`, `Último Domingo`). Al hacer clic en la fecha dentro de la tabla se abre directamente el editor.
-- **Edición Completa de Gastos y Comprobantes (`ModalEditarGasto`)**: Módulo para modificar montos, conceptos, categorías, fechas y métodos de pago de gastos, con soporte completo para subir, visualizar miniatura, reemplazar o eliminar comprobantes digitales (imágenes JPG, PNG, WebP o documentos PDF) respaldados en Cloudflare R2 con compresión automática y barra de progreso.
-- **Anexo Documental de Comprobantes en Reporte Oficial**: Sección en el informe financiero oficial que compila todas las facturas y comprobantes del período como un anexo documental numerado (`Anexo #1`, `Anexo #2`...), con ficha descriptiva (fecha, categoría, concepto, método de pago, nombre de archivo, importe en rojo) y referencia cruzada directa en la columna de Evidencia de la tabla de egresos.
-- **Sincronización Total en Backend y Base de Datos**: Recálculo automático de `dia_semana` y `tipo_culto` al mover fechas tanto en `storageService.ts` como en la API serverless `api/movimientos.ts` y en el servidor local de `vite.config.ts`, manteniendo consistencia con Aiven PostgreSQL.
-
-### 2. Analítica Visual Interactiva en Resumen, Entorno Docker Aislado y Libro de Caja Compacto
-- **Analítica Visual Interactiva y Gráficos Dinámicos**: Implementación en el Dashboard de gráfico donut interactivo para distribución de aportes (Ofrendas, Diezmos y Proyectos), barra comparativa mensual interactiva con visualización al hover/toque y desglose comparativo por culto (Miércoles vs Domingo).
-- **Entorno de Pruebas y Desarrollo Local con Docker**: Infraestructura contenerizada con PostgreSQL local en puerto `5433` sin tocar jamás datos de producción de Aiven, scripts automáticos de copia de seguridad en modo solo lectura (`pnpm docker:backup`) y restauración local (`pnpm docker:restore`), además de comandos `pnpm dev:local` y `pnpm docker:up`.
-- **Adaptabilidad de Conexión de Base de Datos (Cloud vs Local)**: Detección inteligente de SSL en `api/db.ts` y en el plugin dev de `vite.config.ts`, permitiendo conexión sin SSL en local/Docker y con SSL estricto en Aiven Cloud.
-- **Diseño Compacto Apple HIG en Saldos por Mes y Libro de Caja**: Rediseño de la sección de Saldos y Balances por Mes para optimizar el espacio vertical, incorporando tarjetas de mes compactas con conteo de movimientos y barra de estado de filtros slim con píldoras financieras de entradas, gastos y balance.
-
-### 2. Navegación Móvil Apple HIG (Bottom Tab Bar), A11y Integral y Micro-Feedback Reactivo
-- **Barra de Pestañas Inferior Nativa (iOS Bottom Tab Bar)**: Implementación de la barra de navegación principal fija en la zona del pulgar (`bottom-0`) para móviles con acabado `backdrop-blur-xl bg-slate-900/95` y soporte para safe-area (`pb-[env(safe-area-inset-bottom)]`), permitiendo alternar entre Resumen, Caja General, Entradas, Gastos y Pactos con 1 toque.
-- **Dock Flotante Anticolisión y Touch Target 56x56**: Reubicación adaptativa del botón flotante por encima de la barra móvil (`bottom-[calc(4.5rem+env(safe-area-inset-bottom))]`) y elevación de dimensiones a `w-14 h-14` (56x56px) para un toque ergonómico impecable.
-- **Micro-Loader en Reclasificación Inline**: Indicador visual giratorio (`Loader2`) directo en la fila del Libro de Caja al cambiar de categoría, deshabilitando el selector durante la persistencia en Aiven PostgreSQL para evitar peticiones duplicadas.
-- **Empty State Ilustrado de Búsqueda**: Tarjeta estilizada con botón directo *"Restablecer todos los filtros"* cuando ninguna transacción coincide con los criterios de búsqueda.
-- **Teclado Numérico Decimal Nativo en Móviles**: Integración de `inputMode="decimal"` en los campos principales de captura de ingresos y registro de gastos para desplegar el teclado numérico de iOS/Android con punto decimal.
-- **Accesibilidad y Touch Targets Estándar Apple HIG**: Incorporación de atributos ARIA (`aria-label`, `aria-expanded`, `aria-haspopup="menu"`, roles ARIA) y botones interactivos de fila ampliados a mínimo 36x36px y 44x44px.
-
-### 2. Cambio Rápido de Categorías, Dock Flotante, Confidencialidad en Diezmos y Auditoría Mes a Mes
-- **Persistencia y Cambio Ágil de Categorías**: Selector desplegable inline directo en el Libro de Caja para reclasificar cualquier movimiento con 1 clic, con actualización optimista y persistencia en base de datos Aiven PostgreSQL (soporte para endpoints `PATCH` y `DELETE` en producción y desarrollo local).
-- **Navbar Limpio y Dock de Acciones Flotante**: Reorganización ergonómica del encabezado con reducción de saturación visual; las acciones rápidas de registro e informes se centralizaron en un dock flotante interactivo y accesible.
-- **Modos de Reporte Flexible (Por Mes y Total General)**: Selector rápido que permite alternar entre el desglose de un mes específico o el consolidado histórico general.
-- **Confidencialidad en Diezmos Eclesiásticos**: Protección de datos y privacidad congregacional en el reporte oficial en PDF y CSV, reemplazando automáticamente el nombre de los diezmantistas por "Confidencial".
-- **Firma del Secretario General**: Integración del Secretario General en el bloque ministerial de firmas oficiales a cuatro columnas (Pastor Principal, Secretario General, Tesorero General y Comité de Auditoría).
-- **Reporte Consolidado Mes a Mes y Detalle Cronológico Continuo**: Tabla ejecutiva comparativa mensual para el Total General y listado de detalle estrictamente ordenado por fecha de forma continua.
-
-### 2. Sincronización Contable, Reportes PDF Formateados y Visibilidad de Credenciales
-- **Sincronización Total de Saldos**: Armonización exacta del balance contable entre el **Libro de Caja General**, el tablero principal (**Fondo en Caja General**) y el distintivo del **Navbar** (`CAJA`), deduciendo gastos únicamente de entradas operativas e independizando los fondos de proyectos pactados.
-- **Cuadratura Matemática Miércoles vs Domingo**: Regla estricta de exclusión mutua que elimina duplicidades cruzadas en la comparativa de cultos, asegurando que la sumatoria de aportes coincida al 100% con los totales registrados.
-- **Reportes PDF de Alta Fidelidad Vectorial**: Aislamiento total del informe ministerial en impresión (`@media print`), iniciando en la primera página sin elementos web residuales, con membrete oficial indestructible a dos columnas fijas y sin corte horizontal en tablas.
-- **Impresión Directa y Membrete en Libro de Caja**: Botón de impresión rápida con encabezado institucional formal, totales consolidados y bloque de tres firmas oficiales (Pastor Principal, Tesorero General y Comité de Auditoría).
-- **Visibilidad de Contraseña (Eye Toggle)**: Botón con icono interactivo (`Eye` / `EyeOff`) en el acceso al sistema con navegación por teclado accesible.
-
-### 2. Libro de Caja General y Saldos por Mes (Auditoría Integral)
-- **Saldos por Mes y Cierres Contables**: Módulo de auditoría periódica que calcula con rigor cronológico para cada mes: **Saldo Inicial**, **Entradas (+)**, **Gastos (-)**, **Flujo Neto (+/-)** y **Saldo al Cierre**.
-- **Carrusel / Grid de Meses**: Tarjetas interactivas estilo Apple Inset Grouped para cada período mensual con desglose y filtrado instantáneo con un solo clic.
-- **Saldo Acumulado en Cada Movimiento**: Columna **Saldo en Caja** directamente en la tabla contable, que refleja el balance disponible después de cada ingreso o egreso histórico.
-- **Separación Contable Operativa**: El Libro de Caja General opera por defecto en modo *"Solo Caja General"*, excluyendo fondos comprometidos de proyectos pactados para representar fielmente la liquidez operativa diaria (con opción de alternar a consolidado).
-- **Exportación Adaptativa a CSV**: Descarga el detalle diario con saldos individuales o la sábana consolidada de auditoría mensual.
-
-### 2. Desglose Independiente de Ofrendas, Diezmos y Proyectos
-- **Tarjetas Separadas en el Resumen General**: Visualización nítida y diferenciada de **Fondo en Caja / Bancos**, **Ofrendas**, **Diezmos**, **Proyectos Pactados** y **Total Egresos**, eliminando ambigüedades.
-- **Barra de Distribución Proporcional**: Gráfico segmentado en tiempo real con porcentajes y montos acumulados por tipo de aporte.
-- **Desglose en Comparativa de Cultos**: Detalle exacto de cuánto ingresó por ofrendas, diezmos y proyectos en los cultos de Miércoles vs. Domingo.
-
-### 3. Reporte Financiero Oficial en PDF Vectorial (Impresión de Alta Fidelidad)
-- **Generador de Estados de Cuenta Oficiales**: Generación directa de reportes impresos o descargables en PDF en tamaño Carta (*Letter*) mediante CSS `@media print` vectorizado sin dependencias externas.
-- **Secciones Detalladas**:
-  - **Entradas Detalladas**: Fecha, culto correspondiente, clasificación, tipo de aporte, ofrendante / miembro, concepto y monto.
-  - **Egresos y Gastos Operativos**: Fecha, categoría eclesiástica, concepto/beneficiario, estado de comprobante fiscal en Cloudflare R2 y monto.
-  - **Proyectos Pactados y Cumplimiento de Pactantes**: Metas generales, recaudación acumulada, saldo no ejecutado y desglose individual por hermano (cuota acordada, semanas aportadas, deuda restante y porcentaje de avance).
-  - **Firmas Ministeriales Oficiales**: Bloque de validación con rúbricas para Pastor Principal, Tesorero General y Comité de Auditoría / Revisor Fiscal.
-- **Filtros Flexibles de Período**: Selección rápida por Mes Actual, Mes Anterior, Año en Curso, Rango Personalizado o Histórico Completo, con exportación complementaria a CSV.
-
-### 2. Gestión de Proyectos, Gastos y Remanente a Ofrenda
-- **Asignación de Gastos a Proyectos**: Permite asociar cualquier compra o desembolso directamente a un proyecto de fe activo para llevar el balance en tiempo real entre lo recaudado y lo gastado.
-- **Mecanismo de Liquidación y Traspaso de Sobrante**: Cuando una meta o construcción concluye sin agotar el 100% de los fondos pactados, el sistema permite cerrar el proyecto y transferir el remanente no utilizado a la **Ofrenda General** con el concepto oficial *"Resto del proyecto: [Nombre del Proyecto]"*. Esto preserva la cuadratura contable exacta con balance neto neutral ($0.00 de discrepancia).
-- **Control de Estado de Proyectos**: Pestañas para visualizar proyectos activos, proyectos finalizados o el histórico completo, con posibilidad de reapertura si es necesario.
-
-### 3. Rediseño de Experiencia de Usuario Apple HIG (Human Interface Guidelines)
-- **Barra Superior Minimalista**: Reducción de altura a una sola línea ultra-compacta (~48px) con selectores segmentados, indicador de balance en vivo, badge de usuario y accesos de alta frecuencia.
-- **Finanzas Inset Grouped**: Tablero principal y libro de caja con tarjetas redondeadas continuas, tipografía con números tabulares (`tabular-nums`) para alineación contable perfecta y comparativas visuales entre cultos de Miércoles y Domingo.
-- **Captura Ágil Apple Pay Style**: Campo de monto hero de gran formato con botones rápidos para sumas frecuentes (+$50, +$100, +$200, +$500, +$1000, +$2000) y selección ágil de cultos.
-- **Depuración de Seguridad**: Eliminación de interfaces de configuración de credenciales en el cliente; ahora las llaves de base de datos y Cloudflare R2 se administran de manera estricta y segura vía variables de entorno.
-
-### 4. Autenticación Segura y Control de Usuarios (Auth.js)
-- **Autenticación con Auth.js (`@auth/core`)**: Integración robusta basada en credenciales (email + contraseña) con sesiones seguras vía JWT / Cookies HTTP-Only.
-- **Roles Eclesiásticos**:
-  - 👑 **Administrador (`admin`)**: Acceso total al sistema y gestión de usuarios. El primer usuario registrado es promovido automáticamente a Super Admin.
-  - ✝️ **Pastor (`pastor`)**: Acceso a libros de caja, reportes pastorales oficiales y visión ejecutiva.
-  - 💼 **Tesorero (`tesorero`)**: Registro continuo de ofrendas, diezmos, pactos y gastos con comprobantes.
-  - 📋 **Operador (`operador`)**: Captura ágil de cultos y sobres en tiempo real.
-- **Gestión Interna de Usuarios**: Los pastores y administradores pueden crear, activar/desactivar o editar información de usuarios directamente desde el sistema con contraseñas encriptadas mediante `bcrypt`.
-
-### 5. Captura Rápida de Entradas (Ingresos)
-- **Atajos para Días Clave de Culto**:
-  - 🟡 **Culto de Miércoles** (Reunión de oración y doctrina).
-  - 🟢 **Culto de Domingo - Mañana** (Servicio matutino).
-  - 🟢 **Culto de Domingo - Noche** (Servicio vespertino).
-  - 📅 **Fecha Libre** (Eventos extraordinarios).
-- **Modo Continuo de Sobres**: Los tesoreros pueden registrar decenas de sobres consecutivos sin que se reinicie el culto ni la fecha.
-- **Tipos de Entrada**:
-  - **Ofrendas**: General, Misionera, Niños/Escuela Dominical, Jóvenes, Pro-Templo, Acción de Gracias.
-  - **Diezmos**: Registro rápido con autocompletado de miembros frecuentes.
-  - **Aportes a Proyectos Pactados**: Vinculación directa con el pacto del hermano, con cálculo en vivo de cuotas semanales cubiertas y saldo restante.
-
-### 6. Registro de Gastos y Salidas con Evidencia en Cloudflare R2
-- Selección de la fecha exacta del gasto y categoría eclesiástica.
-- Concepto, proveedor beneficiario y asignación presupuestaria a proyecto (opcional).
-- **Subida de Evidencia al Bucket `gospel` de Cloudflare R2**:
-  - Admite fotos de recibos/tickets tomadas con el teléfono y archivos PDF.
-  - Compresión automática previa en el navegador para optimizar la carga.
-  - Almacenamiento seguro en Cloudflare R2 con visor Lightbox integrado.
-
-### 7. Libro de Caja y Reportes Pastorales
-- Historial completo con filtros por fecha, tipo (+/-), día de culto (Miércoles / Domingo) y buscador textual.
-- **Informe Pastoral Imprimible en PDF**: Formato listo para imprimir con firmas oficiales de supervisión.
-- **Exportación a CSV**: Para abrir en Microsoft Excel o Google Sheets.
+### Pilares Fundamentales:
+- **Separación Fiel de Fondos:** Distinción matemática estricta entre la **Caja General Operativa** (diezmos y ofrendas para gastos corrientes del templo) y los **Fondos Comprometidos de Proyectos Pactados** (fondos etiquetados para templos, bocinas o misiones), impidiendo que se mezclen o gasten indebidamente.
+- **Trazabilidad & Comprobantes en la Nube:** Cada egreso se respalda con su comprobante digital fiscal (JPG, PNG o PDF) almacenado en **Cloudflare R2 Bucket (`gospel`)**, visualizable al instante con Lightbox y anexo documental numerado.
+- **Auditoría e Inmutabilidad Histórica:** Registro de informes oficiales en *snapshots* inmutables con folios serializados. Si algún movimiento pasado sufre una modificación posterior, el sistema detecta y expone la diferencia en un panel de auditoría.
+- **Confidencialidad Congregacional:** Protección estricta de la privacidad de los hermanos diezmantes, presentándolos de forma anónima/confidencial en reportes ministeriales públicos.
 
 ---
 
-## 🚀 Despliegue en Vercel (Paso a Paso)
+## 🏗️ Arquitectura del Sistema
 
-El proyecto ya incluye [`vercel.json`](file:///Users/davidmendez/RGDev/RGDev.App.FlujoEfectivo/vercel.json) y los serverless endpoints en [`api/`](file:///Users/davidmendez/RGDev/RGDev.App.FlujoEfectivo/api/) listos para Vercel.
+La arquitectura está construida con desacoplamiento total, alta disponibilidad en la nube y resiliencia offline/local:
 
-1. Sube tu repositorio a **GitHub**.
-2. Entra a [vercel.com](https://vercel.com) y haz clic en **"Add New Project"**.
-3. Importa tu repositorio. Vercel detectará automáticamente **Vite**.
-4. En la sección **Environment Variables**, agrega las siguientes 8 variables:
+```mermaid
+graph TD
+    subgraph Cliente ["Frontend (Apple HIG + Responsive PWA)"]
+        UI["React 18 + Vite 6 + Tailwind CSS"]
+        DASH["Dashboard Ejecutivo & Gráficos"]
+        LIBRO["Libro de Caja & Auditoría"]
+        REP["Generador de Informes Vectoriales"]
+        STORE["Storage Service + Cache Local"]
+        UI --> DASH
+        UI --> LIBRO
+        UI --> REP
+        UI --> STORE
+    end
 
-| Variable | Valor |
+    subgraph Serverless ["Capa de Backend (Vercel Serverless / Vite Dev Server)"]
+        API_AUTH["/api/auth (Auth.js + Bcrypt)"]
+        API_MOV["/api/movimientos (Transacciones)"]
+        API_PROJ["/api/proyectos (Pactos y Metas)"]
+        API_MIEM["/api/miembros (Directorio)"]
+        API_REP["/api/reportes (Snapshots)"]
+        API_R2["/api/r2 (S3 Cloudflare R2 Upload)"]
+    end
+
+    subgraph Persistencia ["Almacenamiento Cloud & Local"]
+        AIVEN[("Aiven PostgreSQL 16 Cloud (SSL Strict)")]
+        LOCAL_DOCKER[("Docker PostgreSQL Local :5433 (Dev Aislado)")]
+        R2_BUCKET[("Cloudflare R2 Bucket 'gospel' (Recibos / PDF)")]
+    end
+
+    STORE <--> Serverless
+    API_MOV <--> AIVEN
+    API_PROJ <--> AIVEN
+    API_MIEM <--> AIVEN
+    API_REP <--> AIVEN
+    API_R2 <--> R2_BUCKET
+    API_MOV -.-> LOCAL_DOCKER
+```
+
+---
+
+## 💎 Módulos Principales
+
+### 1. Dashboard Ejecutivo Apple HIG
+- **4 Pilares Financieros Clave:** Tarjetas unificadas para **Caja Operativa Corriente**, **Ingresos Totales Recaudados**, **Egresos Totales** y **Fondo Restringido de Proyectos**.
+- **Gráfica de Barras Mensual (Entradas vs Gastos):** Representación tipo cápsula mensual interactiva con cálculo de solvencia y tooltips de cristal líquido (*Glassmorphism*).
+- **Anillo Donut Dinámico de Aportes:** Gráfico circular con arcos graduados en gradientes Apple (`Indigo` para Diezmos, `Emerald` para Ofrendas, `Amber` para Proyectos) y espaciado de seguridad sin colisiones de trazo. Incluye barra de proporción continua y lista agrupada interactiva.
+- **Rendimiento por Día de Culto:** Comparativa simétrica y visual entre cultos de **Miércoles** y **Domingo** con desglose por tipo de aporte y porcentaje de captación.
+- **Proyectos en Curso:** Monitoreo visual de avance de metas con cálculo de porcentaje y valor semanal sugerido.
+
+### 2. Libro Diario de Caja & Auditoría Mensual
+- **Auditoría Cronológica Continua:** Visualización de cada transacción con su saldo acumulado en caja posterior a cada movimiento.
+- **Reclasificación Inline de Categorías:** Selector desplegable directo en la tabla con micro-loader reactivo para actualizar categorías de gastos o ingresos con persistencia inmediata en PostgreSQL.
+- **Mover Fecha en Movimientos:** Selector de fecha con detección de día de culto y accesos de 1 toque (`Hoy`, `Último Domingo`, `Último Miércoles`).
+- **Vista de Tarjetas Táctiles en Móviles:** En pantallas pequeñas, la tabla de 9 columnas se transforma automáticamente en tarjetas agrupadas estilo Apple Wallet sin alterar la vista de escritorio.
+- **Cierres Mensuales y Saldos por Mes:** Módulo de auditoría periódica que calcula **Saldo Inicial**, **Entradas (+)**, **Gastos (-)**, **Flujo Neto (+/-)** y **Saldo Final al Cierre** de cada mes con exportación a CSV.
+
+### 3. Captura Ágil de Entradas (Modo Sobres & Split Diezmo-Pacto)
+- **Hero Amount Display:** Entrada numérica de gran formato estilo Apple Cash con botones discretos para montos rápidos (`+$50`, `+$100`, `+$200`, `+$500`, `+$1000`).
+- **Modo Continuo de Sobres:** Permite contar y procesar decenas de sobres de fidelidad de manera ágil sin salir del formulario.
+- **Mecanismo de Split Diezmo a Pacto:** Permite al tesorero tomar una porción de un sobre de diezmo para abonar al compromiso de fe de un proyecto pactado. El sistema genera de forma balanceada:
+  1. El Diezmo en Caja General por el importe neto.
+  2. El Aporte al Proyecto Pactado con vinculación al miembro.
+
+### 4. Registro de Egresos & Comprobantes en Cloudflare R2
+- **Carga Directa a Object Storage:** Arrastra o selecciona recibos de luz, agua, mantenimiento o viáticos (JPG, PNG, WebP o PDF).
+- **Compresión y Seguridad:** Carga asíncrona a Cloudflare R2 con cálculo de peso en KB y previsualización Lightbox en pantalla completa.
+- **Asignación Opcional a Proyectos:** Permite que un gasto se aplique directamente a los fondos de una obra específica.
+
+### 5. Proyectos Pactados & Metas de Fe
+- **Gestión Integral de Proyectos:** Creación de obras (ej. *"Adquisición de Bocinas"*, *"Construcción Templo"*) con meta financiera y cuota sugerida.
+- **Registro de Hermanos Pactantes:** Ficha por creyente con cuota acordada, semanas pagadas, semanas estimadas y saldo restante.
+- **Historial Completo de Entregas:** Subvista dedicada de entregas por fecha con capacidad de editar montos, recibos o eliminar entregas recalculando balances al instante.
+- **Liquidación con Traspaso Contable Neutral:** Al concluir una meta con remanente no utilizado, el sistema permite transferir el saldo sobrante a la Ofrenda General con balance neto neutral ($0.00 de discrepancia contable).
+
+### 6. Directorio Integral de Hermanos
+- **Ficha Ministerial:** Base de datos de feligreses con número de teléfono, notas pastorales y estado activo/inactivo.
+- **Métricas de Fidelidad:** Conteo total histórico de diezmos aportados y aportes a proyectos pactados.
+- **Integración con WhatsApp:** Botón directo (`wa.me`) para enviar confirmaciones o recibos de fidelidad con 1 clic.
+- **Selector Inteligente con Portal React:** Autocompletado rápido al capturar diezmos o registrar pactos.
+
+### 7. Generador Oficial de Informes con Auditoría Histórica
+- **Formato Carta Vectorizado (`@media print`):** Estado de cuenta imprimible o exportable a PDF con membrete eclesiástico indestructible, tablas a ancho fijo y bloque ministerial para 4 firmas (Pastor Principal, Secretario General, Tesorero General y Comité de Auditoría).
+- **Snapshots Inmutables:** Guarda la fotografía exacta de lo que se presentó a la asamblea en una tabla relacional histórica con folio único serializado (`TES-YYYYMM-XXXX`).
+- **Detección de Cambios Posteriores:** Si después de generar un reporte alguien modifica un movimiento del período, el visor histórico alerta de forma destacada los cambios posteriores detectados.
+- **Anexo Documental de Evidencias:** Compila y numera todas las facturas y recibos del período con referencia cruzada en la tabla de egresos.
+
+### 8. Experiencia Móvil de Élite (iOS Tab Bar & Touch Targets)
+- **Barra de Pestañas Inferior Fija (iOS Bottom Tab Bar):** Navegación ergonómica al alcance del pulgar con efecto vidrio esmerilado y respeto de safe-area (`env(safe-area-inset-bottom)`).
+- **Dock Flotante Anticolisión:** El botón de acciones rápidas flota por encima de la barra móvil de navegación sin solaparse.
+- **Áreas Táctiles Estándar:** Todos los botones interactivos cumplen con el estándar mínimo de 44x44px.
+
+---
+
+## 💻 Stack Tecnológico
+
+| Capa | Tecnologías |
 | :--- | :--- |
-| `DATABASE_URL` | `postgres://avnadmin:<TU_PASSWORD>@<TU_HOST_AIVEN>:21083/defaultdb?sslmode=require` |
-| `AIVEN_PG_URL` | `postgres://avnadmin:<TU_PASSWORD>@<TU_HOST_AIVEN>:21083/defaultdb?sslmode=require` |
-| `VITE_AIVEN_PG_URL` | `postgres://avnadmin:<TU_PASSWORD>@<TU_HOST_AIVEN>:21083/defaultdb?sslmode=require` |
-| `AUTH_SECRET` | `cadena-secreta-aleatoria-de-minimo-32-caracteres` |
-| `R2_ACCOUNT_ID` | `tu_cloudflare_account_id` |
-| `R2_BUCKET_NAME` | `gospel` |
-| `R2_ACCESS_KEY_ID` | `tu_r2_access_key_id` |
-| `R2_SECRET_ACCESS_KEY` | `tu_r2_secret_access_key` |
-
-5. Haz clic en **"Deploy"**. ¡Tu sistema estará en línea con su propio dominio `.vercel.app`!
+| **Frontend Framework** | [React 18.3](https://react.dev/) + [TypeScript 5.8](https://www.typescriptlang.org/) |
+| **Bundler & Tooling** | [Vite 6.2](https://vitejs.dev/) |
+| **Estilos & UI** | [Tailwind CSS 3.4](https://tailwindcss.com/) + Apple Human Interface Guidelines (HIG) |
+| **Iconografía** | [Lucide React](https://lucide.dev/) (Iconos limpios y optimizados) |
+| **Backend & APIs** | Vercel Serverless Functions (`@vercel/node`) / Dev Middleware en Vite |
+| **Base de Datos** | [PostgreSQL 16](https://www.postgresql.org/) hospedado en [Aiven Cloud](https://aiven.io/) con SSL |
+| **Object Storage** | [Cloudflare R2](https://www.cloudflare.com/products/r2/) con API compatible con S3 (`@aws-sdk/client-s3`) |
+| **Autenticación** | [Auth.js (@auth/core)](https://authjs.dev/) + [Bcryptjs](https://www.npmjs.com/package/bcryptjs) |
+| **Contenerización** | [Docker](https://www.docker.com/) & Docker Compose para base local de pruebas |
 
 ---
 
-## 🛠️ Comandos de Desarrollo Local y Pruebas con Docker
+## 🚀 Instalación y Despliegue
 
-### Opción 1: Entorno Completo con Docker (App + Base de Datos Aislada)
-Levanta la aplicación en el puerto `5174` y la base de datos local PostgreSQL con el respaldo de producción ya cargado en el puerto `5433` (sin afectar jamás los datos de producción en Aiven):
+### Prerrequisitos
+- **Node.js**: `v18.0.0` o superior (Recomendado `v20 LTS`).
+- **pnpm**: `v9.0.0` o superior (o `npm`).
+- **Docker**: (Opcional, para desarrollo con PostgreSQL local).
+
+### Configuración de Variables de Entorno
+1. Clona el repositorio:
+   ```bash
+   git clone https://github.com/DEMG-DEV/RGDev.App.FlujoEfectivo.git
+   cd RGDev.App.FlujoEfectivo
+   ```
+2. Crea tu archivo de variables a partir de la plantilla:
+   ```bash
+   cp .env.example .env
+   ```
+3. Configura las credenciales requeridas en `.env` (Base de datos PostgreSQL, Auth.js y Cloudflare R2).
+
+### Desarrollo Local Aislado con Docker
+Para programar sin afectar la base de datos de producción de Aiven, utiliza la infraestructura Docker incluida:
 
 ```bash
-# Iniciar servicios en segundo plano
-pnpm docker:up     # o: npm run docker:up
+# 1. Levantar contenedor de PostgreSQL local en puerto 5433
+pnpm docker:up
 
-# Ver registros de ejecución
-pnpm docker:logs   # o: npm run docker:logs
+# 2. Iniciar el servidor local apuntando al contenedor
+pnpm dev:local
 
-# Detener los servicios
-pnpm docker:down   # o: npm run docker:down
+# 3. (Opcional) Respaldar producción y restaurar en tu base local:
+pnpm docker:backup   # Descarga copia de lectura desde Aiven
+pnpm docker:restore  # Restaura la copia en tu PostgreSQL local
 ```
-Acceso a la aplicación: [http://localhost:5174](http://localhost:5174)
 
----
-
-### Opción 2: Híbrido Rápido (Base de Datos en Docker + Vite en Host)
-Si prefieres tener recarga ultrarrápida (HMR) ejecutando Vite directamente en tu terminal:
-
-```bash
-# 1. Levantar únicamente la base de datos local en Docker (puerto 5433)
-pnpm docker:db     # o: npm run docker:db
-
-# 2. Iniciar Vite en tu máquina host apuntando a la base de datos local
-pnpm dev:local     # o: npm run dev:local
-```
-Acceso a la aplicación: [http://localhost:5173](http://localhost:5173)
-
----
-
-### Gestión de Respaldos de Producción
+### Scripts Disponibles
 
 | Comando | Descripción |
 | :--- | :--- |
-| `pnpm docker:backup` | Realiza una copia de seguridad en modo **solo lectura** desde la base de datos de Aiven hacia `docker/backup_prod.sql`. |
-| `pnpm docker:restore` | Reinicia y restaura la base de datos local de Docker con el respaldo de `docker/backup_prod.sql`. |
+| `pnpm dev` | Inicia el servidor de desarrollo de Vite con recarga rápida (HMR). |
+| `pnpm dev:local` | Inicia Vite configurado para conectar a PostgreSQL en Docker local (`:5433`). |
+| `pnpm build` | Ejecuta la verificación estricta de TypeScript (`tsc -b`) y compila para producción. |
+| `pnpm preview` | Previsualiza localmente la compilación de producción de `dist/`. |
+| `pnpm docker:up` | Inicia el contenedor PostgreSQL de desarrollo local en segundo plano. |
+| `pnpm docker:down` | Detiene y remueve los contenedores de desarrollo local. |
+| `pnpm docker:backup` | Genera un dump SQL de solo lectura de la base de datos de producción. |
+| `pnpm docker:restore` | Aplica el dump de respaldo sobre el PostgreSQL local en Docker. |
+| `pnpm backup:r2` | Ejecuta el script automatizado para respaldar la base de datos directamente en Cloudflare R2. |
 
 ---
 
-### Comandos Generales
+## 🗄️ Esquema de Base de Datos Relacional
 
-```bash
-# Iniciar servidor local conectado a producción (Aiven)
-pnpm dev
+El modelo de datos relacional garantiza la integridad referencial y auditoría estricta:
 
-# Compilar para producción
-pnpm build
+```
+┌─────────────────────────────────┐       ┌─────────────────────────────────┐
+│        miembros_iglesia         │       │       proyectos_pactados        │
+├─────────────────────────────────┤       ├─────────────────────────────────┤
+│ id (UUID, PK)                   │◄──┐   │ id (UUID, PK)                   │◄──┐
+│ nombre (VARCHAR)                │   │   │ nombre (VARCHAR)                │   │
+│ telefono (VARCHAR)              │   │   │ meta_total (NUMERIC)            │   │
+│ total_diezmos (NUMERIC)         │   │   │ total_recaudado (NUMERIC)       │   │
+│ activo (BOOLEAN)                │   │   │ activo (BOOLEAN)                │   │
+└─────────────────────────────────┘   │   └─────────────────────────────────┘   │
+                                      │                                         │
+┌─────────────────────────────────┐   │   ┌─────────────────────────────────┐   │
+│         pactos_miembros         │   │   │          transacciones          │   │
+├─────────────────────────────────┤   │   ├─────────────────────────────────┤   │
+│ id (UUID, PK)                   │   │   │ id (UUID, PK)                   │   │
+│ proyecto_id (UUID, FK) ─────────┼───┼───┼─► proyecto_id                   │   │
+│ miembro_id (UUID, FK) ──────────┼───┘   │ tipo (ingreso / gasto)          │   │
+│ miembro_nombre (VARCHAR)        │       │ subtipo (ofrenda, diezmo, pacto)│   │
+│ monto_total_pactado (NUMERIC)   │       │ monto (NUMERIC)                 │   │
+│ total_aportado (NUMERIC)        │       │ fecha (DATE)                    │   │
+│ cuota_semanal (NUMERIC)         │       │ dia_semana / tipo_culto         │   │
+└─────────────────────────────────┘       │ evidencia_url (Cloudflare R2)   │   │
+                                          │ pacto_id (UUID, FK) ────────────┼───┘
+                                          └─────────────────────────────────┘
 ```
 
+---
+
+## 🔒 Seguridad, Confidencialidad y Respaldos
+
+- **Hashing Criptográfico:** Contraseñas hasheadas irreversiblemente con `bcryptjs`.
+- **Inyección SQL Mitigada:** Todas las consultas SQL en `api/` emplean parámetros ligados (`$1, $2...`) mediante el pool de conexiones de `pg`.
+- **SSL Forzado en la Nube:** Conexiones seguras TLS/SSL (`rejectUnauthorized: false` / `sslmode=require`) para Aiven Cloud.
+- **Respaldos Automatizados a R2:** Script con temporizador en `scripts/backup-db-to-r2.js` que emite copias de seguridad de la base de datos hacia el bucket seguro de Cloudflare R2.
+- Para más información sobre divulgación responsable de vulnerabilidades, consulta nuestra [Política de Seguridad (SECURITY.md)](SECURITY.md).
+
+---
+
+## 🤝 Estándares Comunitarios
+
+Agradecemos a todos los que contribuyen a la excelencia y edificación de este proyecto:
+
+- 📜 **Código de Conducta:** Revisa nuestro compromiso ético en [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- 🛠️ **Guía de Contribución:** Aprende a configurar el entorno y enviar tus cambios en [CONTRIBUTING.md](CONTRIBUTING.md).
+- 📋 **Plantilla de Pull Request:** Utiliza la estructura definida en [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md).
+- 🐛 **Reporte de Problemas:** Abre un reporte con las plantillas en [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE/).
+
+---
+
+## 📄 Licencia
+
+Este proyecto se distribuye bajo la licencia **MIT**. Para conocer los términos completos, consulta el archivo [LICENSE](LICENSE).
+
+<div align="center">
+  <sub>Desarrollado con excelencia por <strong>David Méndez (DEMG-DEV)</strong> para la edificación de la obra de Dios.</sub>
+</div>

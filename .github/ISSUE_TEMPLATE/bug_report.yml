@@ -1,0 +1,70 @@
+name: "🐛 Reporte de Error (Bug Report)"
+description: "Reporta un problema o anomalía en el sistema de flujo de efectivo"
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tomarte el tiempo de reportar este problema. Completa los siguientes campos para ayudarnos a identificarlo y corregirlo con rapidez.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descripción del Error"
+      description: "Explica de forma clara qué ocurrió y cómo difiere del comportamiento esperado."
+      placeholder: "Al registrar una entrega en el proyecto pactado..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Pasos para Reproducir"
+      description: "Indica paso a paso cómo recrear el comportamiento anómalo."
+      placeholder: |
+        1. Ir a la pestaña 'Caja General'
+        2. Hacer clic en 'Filtrar por Miércoles'
+        3. Editar el monto del movimiento...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: "Dispositivo y Plataforma Afectada"
+      options:
+        - "Móvil (iOS / iPhone)"
+        - "Móvil (Android)"
+        - "Escritorio (macOS)"
+        - "Escritorio (Windows)"
+        - "Escritorio (Linux)"
+        - "Impresión / Generación PDF"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: "Navegador Web"
+      options:
+        - "Safari (macOS / iOS)"
+        - "Google Chrome"
+        - "Mozilla Firefox"
+        - "Microsoft Edge"
+        - "Otro"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Versión de la Aplicación"
+      description: "Versión mostrada en el pie o package.json (ej. v1.9.0)"
+      placeholder: "v1.9.0"
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Capturas de Pantalla o Logs de Consola"
+      description: "Arrastra imágenes o pega logs de la consola del navegador si aplican."

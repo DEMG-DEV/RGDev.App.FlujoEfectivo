@@ -5,6 +5,54 @@
 
 ---
 
+## feat(release): release v1.10.0 - rediseño dashboard apple hig, experiencia móvil nativa, snapshots históricos de reportes y github community standards
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 00:35:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Feature Release & Architecture Upgrade |
+
+### Archivos Modificados y Creados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `src/components/DashboardView.tsx` | Modificado | Rediseño integral bajo Apple HIG: 4 pilares financieros unificados, eliminación de tabla redundante "Últimos Movimientos", nuevo Donut dinámico de aportes con gradientes lineales y separación nítida sin colisión de trazos, barra continua de proporción estilo macOS y cuadrícula 2x2 en móviles |
+| `src/components/LibroCajaView.tsx` | Modificado | Implementación de tarjetas de movimientos táctiles nativas Apple HIG para móviles (`md:hidden`), tarjetas de balances mensuales (`sm:hidden`) y preservación 100% intacta de la tabla de 9 columnas en desktop |
+| `src/components/ProyectosPactadosView.tsx` | Modificado | Tarjetas táctiles individuales para pactantes con barra de progreso interactiva y entregas en móviles (`md:hidden`) conservando tablas completas en desktop |
+| `src/components/HermanosView.tsx` | Creado | Vista integral de directorio de hermanos con cálculo de fidelidad, notas pastorales, enlace directo a WhatsApp (`wa.me`) y control segmentado horizontalmente deslizable (`overflow-x-auto no-scrollbar`) |
+| `src/components/SelectorHermano.tsx` | Creado | Componente de autocompletado y selección de miembros con React Portal para captura de diezmos y pactos |
+| `src/components/ReporteFinancieroModal.tsx` | Modificado | Sistema de snapshots históricos de reportes con folios serializados inmutables, detección reactiva de diferencias posteriores de auditoría y barra de herramientas responsive en móviles |
+| `api/reportes.ts` | Creado | Endpoints REST serverless (`GET`, `POST`, `DELETE`) para persistir snapshots inmutables de estados financieros y auditoría en PostgreSQL |
+| `api/miembros.ts` | Creado | Endpoints REST serverless (`GET`, `POST`, `PUT`, `DELETE`) para la administración de la base de datos de miembros |
+| `api/movimientos.ts` | Modificado | Soporte ampliado para filtros de auditoría, sincronización de cultos y consistencia relacional |
+| `src/services/storageService.ts` | Modificado | Métodos de persistencia remota y local para reportes históricos, membresía y sincronización con Aiven Cloud |
+| `README.md` | Modificado | Renovación de documentación con badges oficiales, lema bíblico (2 Corintios 8:21), diagrama de arquitectura en Mermaid, guía Docker y especificaciones técnicas |
+| `package.json` | Modificado | Incremento a versión `1.10.0` y enriquecimiento de metadatos (descripción, autor, repositorio, keywords, licencia) |
+| `LICENSE` | Creado | Licencia permisiva de software de código abierto MIT a nombre de David Méndez |
+| `SECURITY.md` | Creado | Política formal de seguridad, divulgación responsable de vulnerabilidades y confidencialidad eclesiástica |
+| `CODE_OF_CONDUCT.md` | Creado | Código de conducta de la comunidad basado en Contributor Covenant v2.1 |
+| `CONTRIBUTING.md` | Creado | Guía exhaustiva de contribución, flujo de PRs, guías de estilo Apple HIG y pruebas locales con Docker |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Creado | Plantilla estandarizada de Pull Requests con verificación de vistas desktop/móvil |
+| `.github/ISSUE_TEMPLATE/*` | Creado | Formularios modernos de GitHub Issues para reporte de bugs y sugerencia de funciones |
+| `.github/workflows/ci.yml` | Creado | Pipeline automatizado de CI con GitHub Actions para validación estricta de compilación y tipos |
+| `.env.example` | Creado | Plantilla documentada de variables de entorno para PostgreSQL, Auth.js y Cloudflare R2 |
+
+### Detalle Técnico
+1. **Rediseño Apple HIG del Dashboard & Eliminación de Redundancia**:
+   - Se eliminó la tabla inferior de "Últimos Movimientos" que duplicaba información del Libro de Caja, concentrando el Dashboard en los 4 pilares financieros ejecutivos, la comparativa mensual de solvencia y el avance de proyectos.
+   - Gráfico circular de distribución de aportes reconstruido con gradientes lineales y matemática de arcos separados por 9px de gap para eliminar la superposición tosca de extremos redondeados en SVG.
+2. **Arquitectura Móvil-First con Preservación Absoluta de Desktop**:
+   - Cada vista densa (`LibroCajaView`, `ProyectosPactadosView`, `SaldosMensuales`) fue dotada de una capa de tarjetas táctiles dedicadas para móviles (`md:hidden` / `sm:hidden`) respetando touch targets mínimos de 44px, mientras que en pantallas de escritorio se preservó exactamente la vista tabular existente bajo `hidden md:block`.
+3. **Persistencia Histórica de Reportes Financieros y Auditoría Diferencial**:
+   - Al emitir un informe oficial, el sistema ahora puede archivar un snapshot JSON completo e inmutable en PostgreSQL (`reportes_historicos`).
+   - Al consultar o reimprimir un reporte histórico anterior, el motor de auditoría compara el snapshot contra las transacciones actuales y alerta si hubo transacciones modificadas, agregadas o eliminadas con posterioridad a la emisión.
+4. **Gobierno y Estándares de Repositorio de Nivel GitHub Community**:
+   - Incorporación de la suite completa de estándares comunitarios (LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, PR/Issue Templates y CI de verificación con TypeScript y Vite).
+
+---
+
 ## feat(pactos): release v1.9.0 - split diezmo a pactos, historial de fechas de entregas con edicion y borrado, y auto-vinculacion contable
 
 | Campo | Detalle |

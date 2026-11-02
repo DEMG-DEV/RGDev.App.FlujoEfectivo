@@ -418,24 +418,32 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-28 md:pb-8">
+    <div className="space-y-3 pb-28 md:pb-8">
       
       {/* Membrete Oficial Exclusivo para Impresión PDF / Papel */}
       <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-4 print-break-inside-avoid break-inside-avoid">
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
-              <Church className="w-5 h-5 text-amber-400" />
-            </div>
+            {localStorage.getItem('rgdev_logo_iglesia') ? (
+              <img
+                src={localStorage.getItem('rgdev_logo_iglesia')!}
+                alt="Logo Iglesia"
+                className="w-10 h-10 object-contain rounded-xl border border-slate-200 p-0.5 bg-white flex-shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
+                <Church className="w-5 h-5 text-amber-400" />
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-black uppercase tracking-tight text-slate-950">
-                Iglesia Cristiana Evangélica
+                {localStorage.getItem('rgdev_nombre_iglesia') || 'Iglesia Cristiana Evangélica'}
               </h1>
               <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Libro de Caja General — Auditoría Contable y Control de Fondos
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                {!incluirPactos ? 'Caja Operativa (Excluye Proyectos Pactados)' : 'Consolidado General (Incluye Proyectos)'}
+                {!incluirPactos ? 'Caja Operativa (Excluye Proyectos)' : 'Consolidado General (Incluye Proyectos)'}
               </p>
             </div>
           </div>
@@ -465,29 +473,34 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
         </div>
       </div>
 
-      {/* Encabezado Apple HIG (no-print) */}
-      {/* 1. ENCABEZADO MINIMALISTA APPLE HIG */}
-      <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <Receipt className="w-4 h-4" />
-            <span>Auditoría & Mayordomía</span>
+      {/* 1. ENCABEZADO APPLE HIG COMPACTO (no-print) */}
+      <div className="no-print bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-2xl px-4 py-2.5 sm:px-5 sm:py-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60 flex-shrink-0 shadow-2xs">
+            <Receipt className="w-4 h-4 stroke-[2]" />
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-slate-950">
-            Libro de Caja General
-          </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 max-w-xl">
-            Historial de entradas operativas y egresos con saldo acumulado en cada movimiento.
-          </p>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 leading-tight">
+                Libro de Caja General
+              </h2>
+              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50/90 border border-blue-200/60 px-1.5 py-0.2 rounded uppercase tracking-wider">
+                Auditoría
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-slate-500 leading-none mt-0.5">
+              Historial de entradas operativas y egresos con saldo acumulado.
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
           {/* Segmented Control de Modo: Movimientos vs Saldos por Mes */}
-          <div className="apple-segmented-group">
+          <div className="apple-segmented-group p-0.5">
             <button
               type="button"
               onClick={() => setVistaModo('movimientos')}
-              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'movimientos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`apple-segmented-item px-2.5 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'movimientos' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
             >
               <Receipt className="w-3.5 h-3.5 inline mr-1" />
               Movimientos
@@ -495,7 +508,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             <button
               type="button"
               onClick={() => setVistaModo('mensual')}
-              className={`apple-segmented-item px-3 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'mensual' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`apple-segmented-item px-2.5 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${vistaModo === 'mensual' ? 'apple-segmented-active' : 'text-slate-600 hover:text-slate-900'}`}
             >
               <CalendarDays className="w-3.5 h-3.5 inline mr-1" />
               Saldos por Mes
@@ -505,7 +518,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           <button
             type="button"
             onClick={handleExportar}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-semibold transition-all border border-slate-200/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Exportar a CSV"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -515,7 +528,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-bold transition-all border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-semibold transition-all border border-slate-200/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Imprimir vista actual de caja"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
@@ -525,7 +538,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           <button
             type="button"
             onClick={onAbrirReportePDF || (() => window.print())}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white text-xs font-semibold transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Abrir Reporte Financiero Oficial en PDF"
           >
             <FileText className="w-3.5 h-3.5" />
@@ -678,7 +691,8 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Vista Tabla Desktop (sm en adelante) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#F9F9FB] text-slate-500 text-[11px] uppercase font-bold tracking-wider border-b border-slate-200">
                 <tr>
@@ -739,6 +753,59 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Vista Móvil Nativa Apple (sm:hidden) */}
+          <div className="sm:hidden divide-y divide-slate-100">
+            {resumenesMensuales.map((m) => (
+              <div key={m.claveMes} className="p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-slate-900 text-sm">{m.nombreMes}</span>
+                  <span className={`text-base font-black tabular-nums ${m.saldoFinal >= 0 ? 'text-slate-950' : 'text-rose-600'}`}>
+                    {formatearMoneda(m.saldoFinal)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Saldo Inicial</span>
+                    <span className="font-semibold text-slate-700 tabular-nums">{formatearMoneda(m.saldoInicial)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Flujo Neto</span>
+                    <span className={`font-bold tabular-nums ${m.flujoNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {m.flujoNeto >= 0 ? '+' : ''}{formatearMoneda(m.flujoNeto)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Entradas (+)</span>
+                    <span className="font-bold text-emerald-700 tabular-nums">+{formatearMoneda(m.totalIngresos)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-medium">Gastos (-)</span>
+                    <span className="font-bold text-rose-700 tabular-nums">-{formatearMoneda(m.totalGastos)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {m.cantidadMovimientos} {m.cantidadMovimientos === 1 ? 'movimiento' : 'movimientos'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFechaDesde(m.fechaInicio);
+                      setFechaHasta(m.fechaFin);
+                      setVistaModo('movimientos');
+                    }}
+                    className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200/80 active:scale-95 transition-all"
+                  >
+                    <span>Ver Movimientos</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -746,27 +813,27 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
       {vistaModo === 'movimientos' && (
         <>
           {/* Barra de Filtros Apple HIG Compact Toolbar */}
-          <div className="no-print bg-white/95 backdrop-blur-xl border border-black/[0.06] rounded-2xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
+          <div className="no-print bg-white/95 backdrop-blur-xl border border-black/[0.06] rounded-2xl p-2.5 sm:p-3 shadow-xs space-y-2">
             
-            {/* Fila 1: Buscador Spotlight + Segmented Controls */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            {/* Fila 1: Buscador Spotlight macOS + Segmented Controls */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
               
               {/* Buscador macOS Style Compacto */}
-              <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                 <input
                   type="text"
                   placeholder="Buscar por hermano, concepto o categoría..."
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-8 pr-8 py-1.5 bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
+                  className="w-full pl-8 pr-7 py-1 bg-slate-100/90 hover:bg-slate-100 focus:bg-white border border-slate-200/70 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none transition-all outline-none"
                 />
                 {busqueda && (
                   <button
                     type="button"
                     onClick={() => setBusqueda('')}
                     aria-label="Limpiar texto de búsqueda"
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                    className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -774,9 +841,9 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
               </div>
 
               {/* Segmented Controls Apple HIG */}
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
                 {/* Segmented Control de Ámbito: Caja General vs Todos */}
-                <div className="apple-segmented-group">
+                <div className="apple-segmented-group p-0.5">
                   <button
                     type="button"
                     onClick={() => setIncluirPactos(false)}
@@ -796,7 +863,7 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                 </div>
 
                 {/* Segmented Control de Tipo */}
-                <div className="apple-segmented-group">
+                <div className="apple-segmented-group p-0.5">
                   <button
                     type="button"
                     onClick={() => setFiltroTipo('todos')}
@@ -823,103 +890,97 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
 
             </div>
 
-            {/* Fila 2: Filtros Compactos en Línea (Culto, Clasificación, Fechas) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
+            {/* Fila 2: Filtros Compactos en Línea + Balances Financieros Integrados */}
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2 pt-1.5 border-t border-slate-100/90 text-xs">
               
-              {/* Filtro Culto */}
-              <div className="relative">
+              {/* Filtros Contextuales (Culto, Clasificación, Fechas) */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                
+                {/* Filtro Culto */}
                 <select
                   value={filtroCulto}
                   onChange={(e) => setFiltroCulto(e.target.value)}
                   aria-label="Filtrar por tipo de culto"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
+                  className="px-2.5 py-1 bg-slate-100/80 hover:bg-slate-100 border border-slate-200/70 rounded-lg text-xs font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none transition-all outline-none"
                 >
                   <option value="todos">Todos los Cultos</option>
                   <option value="miercoles">Cultos de Miércoles</option>
                   <option value="domingo">Cultos de Domingo</option>
                 </select>
-              </div>
 
-              {/* Filtro Clasificación */}
-              <div className="relative">
+                {/* Filtro Clasificación */}
                 <select
                   value={filtroSubtipo}
                   onChange={(e) => setFiltroSubtipo(e.target.value)}
                   aria-label="Filtrar por clasificación de aporte"
-                  className="w-full px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all outline-none"
+                  className="px-2.5 py-1 bg-slate-100/80 hover:bg-slate-100 border border-slate-200/70 rounded-lg text-xs font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus-visible:outline-none transition-all outline-none"
                 >
                   <option value="todos">Todas las Clasificaciones</option>
                   <option value="ofrenda">Ofrendas Generales</option>
                   <option value="diezmo">Diezmos de Miembros</option>
-                  {incluirPactos && <option value="pacto">Proyectos Pactados</option>}
+                  {incluirPactos && <option value="pacto">Proyectos</option>}
                 </select>
+
+                {/* Rango de Fechas Integrado */}
+                <div className="flex items-center space-x-1 bg-slate-100/80 border border-slate-200/70 rounded-lg px-2 py-0.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Del:</span>
+                  <input
+                    type="date"
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                    aria-label="Filtrar desde fecha"
+                    className="bg-transparent text-xs font-medium text-slate-700 outline-none focus-visible:outline-none w-[112px]"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Al:</span>
+                  <input
+                    type="date"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                    aria-label="Filtrar hasta fecha"
+                    className="bg-transparent text-xs font-medium text-slate-700 outline-none focus-visible:outline-none w-[112px]"
+                  />
+                </div>
+
+                {/* Contador y Limpiar filtros */}
+                <div className="flex items-center space-x-1.5 pl-1 text-[11px] text-slate-500">
+                  <span className="tabular-nums font-medium"><strong>{transaccionesFiltradas.length}</strong> movs</span>
+                  {!incluirPactos && (
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                      Solo Caja
+                    </span>
+                  )}
+                  {(fechaDesde || fechaHasta || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || busqueda) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBusqueda('');
+                        setFiltroCulto('todos');
+                        setFiltroSubtipo('todos');
+                        setFechaDesde('');
+                        setFechaHasta('');
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded ml-1"
+                    >
+                      Restablecer
+                    </button>
+                  )}
+                </div>
+
               </div>
 
-              {/* Fecha Desde */}
-              <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Del:</span>
-                <input
-                  type="date"
-                  value={fechaDesde}
-                  onChange={(e) => setFechaDesde(e.target.value)}
-                  aria-label="Filtrar desde fecha"
-                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none focus-visible:outline-none"
-                />
-              </div>
-
-              {/* Fecha Hasta */}
-              <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200/80 rounded-lg px-2 py-1 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Al:</span>
-                <input
-                  type="date"
-                  value={fechaHasta}
-                  onChange={(e) => setFechaHasta(e.target.value)}
-                  aria-label="Filtrar hasta fecha"
-                  className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none focus-visible:outline-none"
-                />
-              </div>
-
-            </div>
-
-            {/* Fila 3: Barra de Estado y Balance Financiero (Slim Status Bar) */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-              <div className="text-slate-500 font-medium flex items-center space-x-2 text-[11px]">
-                <span>Mostrando <strong>{transaccionesFiltradas.length}</strong> movs</span>
-                {!incluirPactos && (
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
-                    Solo Caja
-                  </span>
-                )}
-                {(fechaDesde || fechaHasta || filtroCulto !== 'todos' || filtroSubtipo !== 'todos' || busqueda) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBusqueda('');
-                      setFiltroCulto('todos');
-                      setFiltroSubtipo('todos');
-                      setFechaDesde('');
-                      setFechaHasta('');
-                    }}
-                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-                  >
-                    Restablecer filtros
-                  </button>
-                )}
-              </div>
-
-              {/* Pills Financieras Compactas */}
-              <div className="flex items-center space-x-2 text-xs">
-                <span className="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-800 border border-emerald-200/70 px-2 py-0.5 rounded-lg font-bold text-[11px]">
+              {/* Pills Financieras Compactas Apple HIG */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs w-full sm:w-auto self-start sm:self-end xl:self-auto justify-between sm:justify-end">
+                <span className="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-800 border border-emerald-200/70 px-2 py-0.5 rounded-lg text-[11px]">
                   <span className="text-slate-500 font-normal">Entradas:</span>
-                  <span className="tabular-nums">+{formatearMoneda(totalIngresosFiltrados)}</span>
+                  <span className="font-bold tabular-nums">+{formatearMoneda(totalIngresosFiltrados)}</span>
                 </span>
 
-                <span className="inline-flex items-center space-x-1 bg-rose-50 text-rose-800 border border-rose-200/70 px-2 py-0.5 rounded-lg font-bold text-[11px]">
+                <span className="inline-flex items-center space-x-1 bg-rose-50 text-rose-800 border border-rose-200/70 px-2 py-0.5 rounded-lg text-[11px]">
                   <span className="text-slate-500 font-normal">Gastos:</span>
-                  <span className="tabular-nums">-{formatearMoneda(totalGastosFiltrados)}</span>
+                  <span className="font-bold tabular-nums">-{formatearMoneda(totalGastosFiltrados)}</span>
                 </span>
 
-                <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-lg font-black text-xs ${
+                <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-lg font-bold text-xs ${
                   flujoNetoFiltrado >= 0 
                     ? 'bg-emerald-600 text-white shadow-2xs' 
                     : 'bg-rose-600 text-white shadow-2xs'
@@ -928,13 +989,15 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
                   <span className="tabular-nums">{formatearMoneda(flujoNetoFiltrado)}</span>
                 </span>
               </div>
+
             </div>
 
           </div>
 
       {/* Tabla Apple HIG Inset Grouped */}
-      <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white/90 backdrop-blur-xl border border-black/[0.06] rounded-2xl shadow-xs overflow-hidden">
+        {/* Tabla Desktop (md en adelante) - SIN MODIFICAR NADA EN DESKTOP */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#F9F9FB] text-slate-500 text-[11px] uppercase font-bold tracking-wider border-b border-slate-200">
               <tr>
@@ -1208,6 +1271,168 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
             </tfoot>
           </table>
         </div>
+
+        {/* Vista Móvil Nativa Apple HIG (md:hidden) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {transaccionesFiltradas.length === 0 ? (
+            <div className="py-12 px-4 text-center">
+              <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shadow-xs">
+                  <Filter className="w-7 h-7 stroke-[1.75]" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  No se encontraron movimientos
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Ajusta los filtros o limpia la búsqueda para visualizar transacciones.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusqueda('');
+                    setFiltroTipo('todos');
+                    setFiltroCulto('todos');
+                    setFiltroSubtipo('todos');
+                    setFechaDesde('');
+                    setFechaHasta('');
+                    setIncluirPactos(false);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {transaccionesFiltradas.map((t) => {
+                const saldoMovimiento = mapaSaldos.get(t.id) ?? 0;
+                return (
+                  <div key={t.id} className="p-3.5 space-y-2.5 hover:bg-slate-50/70 transition-colors">
+                    {/* Fila 1: Fecha, día, tipo y monto */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center space-x-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirEdicion(t)}
+                          className="flex items-center space-x-1 text-left"
+                        >
+                          <span className="font-bold text-slate-900 text-xs">
+                            {formatearFechaCorta(t.fecha)}
+                          </span>
+                          <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                            t.dia_semana === 'miercoles' 
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                              : t.dia_semana === 'domingo' 
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                                : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {t.dia_semana}
+                          </span>
+                        </button>
+                        <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          t.tipo === 'ingreso'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}>
+                          {t.tipo === 'ingreso' ? '+ Entrada' : '- Gasto'}
+                        </span>
+                      </div>
+
+                      <div className={`font-black text-sm sm:text-base tabular-nums whitespace-nowrap ${
+                        t.tipo === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {t.tipo === 'ingreso' ? '+' : '-'}{formatearMoneda(t.monto)}
+                      </div>
+                    </div>
+
+                    {/* Fila 2: Categoría y Concepto */}
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {t.categoria}
+                        </span>
+                        {t.proyecto_nombre && (
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                            🏛️ {t.proyecto_nombre}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-700 leading-snug">{t.concepto}</p>
+                      <div className="text-[11px] text-slate-500 flex items-center space-x-2 pt-0.5">
+                        <span>👤 {t.miembro_nombre || <span className="italic text-slate-400">Ofrenda Colectiva</span>}</span>
+                        <span>•</span>
+                        <span className="capitalize">{t.metodo_pago}</span>
+                      </div>
+                    </div>
+
+                    {/* Fila 3: Saldo en caja acumulado + Evidencia + Acciones */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Saldo:</span>
+                        <span className={`font-black text-xs tabular-nums ${saldoMovimiento >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                          {formatearMoneda(saldoMovimiento)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-1">
+                        {t.evidencia_url ? (
+                          <button
+                            type="button"
+                            onClick={() => onVerEvidencia(t.evidencia_url!, t.evidencia_nombre)}
+                            className="inline-flex items-center space-x-1 text-[11px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-lg min-h-[34px] active:scale-95 transition-all"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Recibo</span>
+                          </button>
+                        ) : t.tipo === 'gasto' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirEdicion(t)}
+                            className="inline-flex items-center space-x-1 text-[10px] font-semibold text-slate-500 bg-slate-50 border border-dashed border-slate-300 px-2 py-1 rounded-lg min-h-[34px] active:scale-95 transition-all"
+                          >
+                            <UploadCloud className="w-3 h-3" />
+                            <span>+ Recibo</span>
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirEdicion(t)}
+                          aria-label="Editar"
+                          className="p-2 min-w-[34px] min-h-[34px] flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleEliminar(t.id, t.concepto)}
+                          aria-label="Eliminar"
+                          className="p-2 min-w-[34px] min-h-[34px] flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Barra de Resumen al pie en Móvil */}
+              <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-bold">{transaccionesFiltradas.length} movs</span>
+                <div className="flex items-center space-x-2 text-right">
+                  <span className="text-emerald-700 font-bold text-[11px]">+{formatearMoneda(totalIngresosFiltrados)}</span>
+                  <span className="text-rose-700 font-bold text-[11px]">-{formatearMoneda(totalGastosFiltrados)}</span>
+                  <span className={`font-black text-xs ${flujoNetoFiltrado >= 0 ? 'text-slate-950' : 'text-rose-600'}`}>
+                    {formatearMoneda(flujoNetoFiltrado)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Firmas Oficiales de Certificación para Impresión */}
@@ -1223,13 +1448,13 @@ export const LibroCajaView: React.FC<LibroCajaProps> = ({
           </div>
           <div className="space-y-1">
             <div className="border-t border-slate-900 w-36 mx-auto mb-2" />
-            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Tesorero General</p>
-            <p className="text-[9px] text-slate-500">Elaboración & Control de Fondos</p>
+            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Secretario General</p>
+            <p className="text-[9px] text-slate-500">Fe Pública & Actas</p>
           </div>
           <div className="space-y-1">
             <div className="border-t border-slate-900 w-36 mx-auto mb-2" />
-            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Comité de Auditoría</p>
-            <p className="text-[9px] text-slate-500">Revisor Fiscal</p>
+            <p className="text-[11px] font-bold text-slate-950 uppercase tracking-tight">Tesorero General</p>
+            <p className="text-[9px] text-slate-500">Elaboración & Control de Fondos</p>
           </div>
         </div>
       </div>

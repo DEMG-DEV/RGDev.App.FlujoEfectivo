@@ -52,7 +52,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'libro_caja', label: 'Caja General', icon: Receipt },
     { id: 'ingresos', label: 'Entradas', icon: ArrowDownLeft },
     { id: 'gastos', label: 'Gastos', icon: ArrowUpRight },
-    { id: 'pactos', label: 'Pactos', icon: Landmark },
+    { id: 'pactos', label: 'Proyectos', icon: Landmark },
+    { id: 'hermanos', label: 'Hermanos', icon: Users },
   ];
 
   return (
