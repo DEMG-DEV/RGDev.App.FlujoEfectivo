@@ -10,7 +10,10 @@ import {
   Sparkles,
   Zap,
   ArrowDownLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowRightLeft,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { SubtipoIngreso, TipoCulto, MetodoPago, ProyectoPactado, PactoMiembro, MiembroFrecuente } from '../types';
 import { storageService } from '../services/storageService';
@@ -53,6 +56,12 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
   const [proyectoSeleccionadoId, setProyectoSeleccionadoId] = useState<string>(proyectoIdInicial || '');
   const [pactos, setPactos] = useState<PactoMiembro[]>(() => storageService.getPactos());
   const [pactoSeleccionadoId, setPactoSeleccionadoId] = useState<string>(pactoIdInicial || '');
+
+  // Función: Tomar una cantidad del diezmo para aplicarla a un pacto
+  const [aplicarAPactoDesdeDiezmo, setAplicarAPactoDesdeDiezmo] = useState<boolean>(false);
+  const [proyectoPactoDiezmoId, setProyectoPactoDiezmoId] = useState<string>('');
+  const [pactoDiezmoId, setPactoDiezmoId] = useState<string>('');
+  const [montoAPacto, setMontoAPacto] = useState<string>('');
 
   // Miembros frecuentes para autocompletado
   const [miembrosFrecuentes, setMiembrosFrecuentes] = useState<MiembroFrecuente[]>(() => storageService.getMiembros());
@@ -130,6 +139,41 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
   const pactoActivo = pactos.find(p => p.id === pactoSeleccionadoId);
   const proyectoActivo = proyectos.find(p => p.id === proyectoSeleccionadoId);
 
+  // Pactos y proyecto para la aplicación de diezmo a pacto
+  const pactosDelProyectoDiezmo = pactos.filter(p => p.proyecto_id === proyectoPactoDiezmoId);
+  const proyectoDiezmoActivo = proyectos.find(p => p.id === proyectoPactoDiezmoId);
+  const pactoDiezmoActivo = pactos.find(p => p.id === pactoDiezmoId);
+
+  // Inicializar proyecto de destino al activar el split de diezmo si está vacío
+  useEffect(() => {
+    if (aplicarAPactoDesdeDiezmo && !proyectoPactoDiezmoId && proyectos.length > 0) {
+      setProyectoPactoDiezmoId(proyectos[0].id);
+    }
+  }, [aplicarAPactoDesdeDiezmo, proyectos, proyectoPactoDiezmoId]);
+
+  // Autovincular si el miembroNombre coincide con algún pacto del proyecto seleccionado
+  useEffect(() => {
+    if (subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo && miembroNombre.trim()) {
+      const cleanNombre = miembroNombre.trim().toLowerCase();
+      const pactoCoincidente = pactos.find(
+        p => p.proyecto_id === (proyectoPactoDiezmoId || proyectos[0]?.id) && 
+             p.miembro_nombre.trim().toLowerCase() === cleanNombre
+      );
+      if (pactoCoincidente) {
+        setPactoDiezmoId(pactoCoincidente.id);
+        if (!montoAPacto && pactoCoincidente.cuota_semanal > 0) {
+          setMontoAPacto(String(pactoCoincidente.cuota_semanal));
+        }
+      }
+    }
+  }, [miembroNombre, proyectoPactoDiezmoId, aplicarAPactoDesdeDiezmo, pactos, proyectos]);
+
+  // Cálculos para la vista previa del desglose de diezmo a pacto
+  const montoTotalNum = parseFloat(monto) || 0;
+  const montoPactoNum = parseFloat(montoAPacto) || 0;
+  const montoDiezmoNeto = Math.max(0, montoTotalNum - montoPactoNum);
+  const esSplitInvalido = aplicarAPactoDesdeDiezmo && subtipo === 'diezmo' && (montoPactoNum <= 0 || montoPactoNum >= montoTotalNum);
+
   // Manejar selector rápido de Miércoles y Domingo
   const seleccionarCultoRapido = (tipo: TipoCulto) => {
     setTipoCulto(tipo);
@@ -202,6 +246,86 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
     if (subtipo === 'pacto' && !proyectoSeleccionadoId) {
       alert('Debe seleccionar el proyecto pactado al que corresponde el aporte');
+      return;
+    }
+
+    // CASO ESPECIAL: Tomar una cantidad del diezmo para aplicarla en los pactos (Split)
+    if (subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo) {
+      const montoTotalNum = montoNumerico;
+      const montoPactoNum = parseFloat(montoAPacto);
+
+      if (isNaN(montoPactoNum) || montoPactoNum <= 0) {
+        alert('Por favor ingrese una cantidad válida a destinar al pacto mayor a $0');
+        return;
+      }
+
+      if (montoPactoNum >= montoTotalNum) {
+        alert(`La cantidad para el pacto (${formatearMoneda(montoPactoNum)}) debe ser estrictamente menor al importe total del sobre (${formatearMoneda(montoTotalNum)}) para que quede saldo en Diezmo General.`);
+        return;
+      }
+
+      if (!proyectoPactoDiezmoId) {
+        alert('Debe seleccionar el proyecto pactado de destino para aplicar el fondo');
+        return;
+      }
+
+      const montoDiezmoNeto = montoTotalNum - montoPactoNum;
+      const projDestino = proyectos.find(p => p.id === proyectoPactoDiezmoId);
+      const pactoDestino = pactos.find(p => p.id === pactoDiezmoId);
+      const nombreMiembroFinal = miembroNombre.trim() || undefined;
+
+      // 1. Guardar Transacción de Diezmo Neto (Caja General)
+      await storageService.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'diezmo',
+        categoria: 'Diezmo General',
+        monto: montoDiezmoNeto,
+        fecha,
+        tipo_culto: tipoCulto,
+        concepto: concepto.trim()
+          ? `${concepto.trim()} (Sobre: ${formatearMoneda(montoTotalNum)} - Aplicado a pacto: ${formatearMoneda(montoPactoNum)})`
+          : `Diezmo General (Sobre: ${formatearMoneda(montoTotalNum)} - Aplicado a pacto: ${formatearMoneda(montoPactoNum)})`,
+        miembro_nombre: nombreMiembroFinal,
+        metodo_pago: metodoPago
+      });
+
+      // 2. Guardar Transacción de Aporte a Pacto (Proyecto Pactado)
+      await storageService.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'pacto',
+        categoria: 'Aporte a Proyecto Pactado',
+        monto: montoPactoNum,
+        fecha,
+        tipo_culto: tipoCulto,
+        concepto: `Aporte a pacto desde diezmo de ${nombreMiembroFinal || 'hermano'} (${projDestino?.nombre || 'Proyecto'})`,
+        miembro_nombre: pactoDestino?.miembro_nombre || nombreMiembroFinal,
+        proyecto_id: proyectoPactoDiezmoId,
+        proyecto_nombre: projDestino?.nombre,
+        pacto_id: pactoDiezmoId || undefined,
+        metodo_pago: metodoPago
+      });
+
+      // Mensaje de éxito
+      setMensajeExito(`¡Sobre procesado! ${formatearMoneda(montoDiezmoNeto)} en DIEZMO y ${formatearMoneda(montoPactoNum)} en PACTO (${projDestino?.nombre || 'Proyecto'}).`);
+      setTimeout(() => setMensajeExito(null), 4000);
+
+      // Recargar datos internos
+      cargarDatosLocales();
+      onIngresoGuardado?.();
+
+      // Limpiar para el siguiente sobre si está en modo continuo
+      if (modoSobresContinuo) {
+        setMonto('');
+        setMiembroNombre('');
+        setMontoAPacto('');
+        setPactoDiezmoId('');
+      } else {
+        setMonto('');
+        setMiembroNombre('');
+        setMontoAPacto('');
+        setPactoDiezmoId('');
+        setAplicarAPactoDesdeDiezmo(false);
+      }
       return;
     }
 
@@ -374,7 +498,9 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
           {/* HERO AMOUNT INPUT (ESTILO APPLE PAY) */}
           <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-6 text-center space-y-3">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Importe de la Entrada ($ MXN)
+              {subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo
+                ? 'Importe Total del Sobre ($ MXN)'
+                : 'Importe de la Entrada ($ MXN)'}
             </span>
             <div className="flex items-center justify-center space-x-2">
               <span className="text-3xl font-extrabold text-slate-400">$</span>
@@ -515,6 +641,205 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* SECCIÓN / SWITCH APPLE HIG: TOMAR CANTIDAD PARA PACTO */}
+              <div className="pt-2 border-t border-indigo-100/80">
+                <div className="bg-white/95 border border-indigo-200/80 rounded-2xl p-4 shadow-sm space-y-3.5 transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start space-x-2.5">
+                      <div className={`p-2 rounded-xl transition-colors ${aplicarAPactoDesdeDiezmo ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100/70 text-indigo-700'}`}>
+                        <ArrowRightLeft className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-900">
+                            ¿Tomar cantidad para aplicar a un pacto?
+                          </span>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            Split
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                          Divide el sobre de diezmo para acreditar una cantidad como aporte al compromiso de un proyecto pactado.
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 pt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={aplicarAPactoDesdeDiezmo}
+                        onChange={(e) => {
+                          const activado = e.target.checked;
+                          setAplicarAPactoDesdeDiezmo(activado);
+                          if (activado && !proyectoPactoDiezmoId && proyectos.length > 0) {
+                            setProyectoPactoDiezmoId(proyectos[0].id);
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
+                    </label>
+                  </div>
+
+                  {/* CAMPOS CONDICIONALES SI EL SPLIT ESTÁ ACTIVADO */}
+                  {aplicarAPactoDesdeDiezmo && (
+                    <div className="pt-3 border-t border-slate-100 space-y-3.5 animate-in fade-in duration-200">
+                      {proyectos.length === 0 ? (
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center space-x-2">
+                          <Info className="w-4 h-4 flex-shrink-0" />
+                          <span>No hay proyectos pactados activos disponibles en este momento.</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* 1. Proyecto Pactado Destino */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                              Proyecto Pactado de Destino *
+                            </label>
+                            <select
+                              value={proyectoPactoDiezmoId}
+                              onChange={(e) => {
+                                setProyectoPactoDiezmoId(e.target.value);
+                                setPactoDiezmoId('');
+                              }}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            >
+                              {proyectos.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nombre} (Meta: {formatearMoneda(p.meta_total)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* 2. Hermano / Pacto Registrado */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                              <span>Pacto Específico del Hermano</span>
+                              <span className="text-[10px] font-normal text-slate-400">Opcional para descontar saldo</span>
+                            </label>
+                            <select
+                              value={pactoDiezmoId}
+                              onChange={(e) => {
+                                const pId = e.target.value;
+                                setPactoDiezmoId(pId);
+                                const sel = pactos.find(item => item.id === pId);
+                                if (sel && sel.cuota_semanal > 0 && (!montoAPacto || parseFloat(montoAPacto) === 0)) {
+                                  setMontoAPacto(String(sel.cuota_semanal));
+                                }
+                              }}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            >
+                              <option value="">Aporte general al proyecto (sin pacto individual)</option>
+                              {pactosDelProyectoDiezmo.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.miembro_nombre} - Cuota: {formatearMoneda(p.cuota_semanal)}/sem (Resta: {formatearMoneda(p.saldo_pendiente)})
+                                </option>
+                              ))}
+                            </select>
+                            {pactoDiezmoActivo && (
+                              <div className="mt-1.5 flex items-center space-x-2 text-[11px] text-indigo-700 bg-indigo-50/70 px-2.5 py-1 rounded-lg">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                                <span>
+                                  Pacto de <strong>{pactoDiezmoActivo.miembro_nombre}</strong>: Saldo pendiente actual {formatearMoneda(pactoDiezmoActivo.saldo_pendiente)} | Cuota sugerida: {formatearMoneda(pactoDiezmoActivo.cuota_semanal)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 3. Cantidad a Destinar al Pacto */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                              <span>Cantidad a tomar para el pacto ($ MXN) *</span>
+                              {montoTotalNum > 0 && (
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  Sobre total: {formatearMoneda(montoTotalNum)}
+                                </span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-400">$</span>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.50"
+                                min="1"
+                                placeholder="0.00"
+                                value={montoAPacto}
+                                onChange={(e) => setMontoAPacto(e.target.value)}
+                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 tabular-nums"
+                              />
+                            </div>
+
+                            {/* Botones de sugerencia rápida para el monto del pacto */}
+                            {montoTotalNum > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                {pactoDiezmoActivo && pactoDiezmoActivo.cuota_semanal > 0 && pactoDiezmoActivo.cuota_semanal < montoTotalNum && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setMontoAPacto(String(pactoDiezmoActivo.cuota_semanal))}
+                                    className="text-[10px] font-bold px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg transition-colors"
+                                  >
+                                    Cuota pactada ({formatearMoneda(pactoDiezmoActivo.cuota_semanal)})
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setMontoAPacto(String(Math.round(montoTotalNum * 0.25)))}
+                                  className="text-[10px] font-semibold px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                                >
+                                  25% ({formatearMoneda(montoTotalNum * 0.25)})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMontoAPacto(String(Math.round(montoTotalNum * 0.5)))}
+                                  className="text-[10px] font-semibold px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                                >
+                                  50% ({formatearMoneda(montoTotalNum * 0.5)})
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 4. Tarjeta de Desglose en Vivo (Live Summary) */}
+                          {montoTotalNum > 0 && montoPactoNum > 0 && (
+                            <div className={`p-3.5 rounded-xl border transition-all ${montoPactoNum >= montoTotalNum ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-gradient-to-br from-slate-50 to-indigo-50/40 border-indigo-200/70'}`}>
+                              {montoPactoNum >= montoTotalNum ? (
+                                <div className="flex items-center space-x-2 text-xs font-bold text-rose-700">
+                                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                                  <span>La cantidad para el pacto debe ser menor que el total del sobre ({formatearMoneda(montoTotalNum)}).</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-2 text-xs">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-200/60">
+                                    <span>Desglose Contable del Sobre</span>
+                                    <span>Total: {formatearMoneda(montoTotalNum)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between font-semibold">
+                                    <span className="flex items-center space-x-1.5 text-indigo-900">
+                                      <span className="w-2 h-2 rounded-full bg-indigo-600 inline-block"></span>
+                                      <span>Diezmo General (Caja General):</span>
+                                    </span>
+                                    <span className="font-extrabold text-indigo-950 tabular-nums">{formatearMoneda(montoDiezmoNeto)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between font-semibold">
+                                    <span className="flex items-center space-x-1.5 text-amber-900">
+                                      <span className="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
+                                      <span>Aporte a Pacto ({proyectoDiezmoActivo?.nombre || 'Proyecto'}):</span>
+                                    </span>
+                                    <span className="font-extrabold text-amber-950 tabular-nums">{formatearMoneda(montoPactoNum)}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -637,10 +962,21 @@ export const CapturaIngresosView: React.FC<CapturaIngresosProps> = ({
 
             <button
               type="submit"
-              className="w-full sm:w-auto px-7 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center space-x-2"
+              disabled={esSplitInvalido}
+              className={`w-full sm:w-auto px-7 py-3 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 ${
+                esSplitInvalido
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo
+                    ? 'bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white shadow-indigo-600/20'
+                    : 'bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-emerald-600/20'
+              }`}
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Registrar Entrada</span>
+              <span>
+                {subtipo === 'diezmo' && aplicarAPactoDesdeDiezmo
+                  ? 'Registrar Sobre (Diezmo + Pacto)'
+                  : 'Registrar Entrada'}
+              </span>
             </button>
           </div>
 

@@ -16,7 +16,8 @@ import {
   Trash2,
   X,
   Coins,
-  RotateCcw
+  RotateCcw,
+  ArrowRightLeft
 } from 'lucide-react';
 import { ProyectoPactado, PactoMiembro } from '../types';
 import { storageService } from '../services/storageService';
@@ -43,6 +44,14 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
   const [mostrarModalNuevoPacto, setMostrarModalNuevoPacto] = useState(false);
   const [mostrarModalEditarPacto, setMostrarModalEditarPacto] = useState(false);
   const [mostrarModalFinalizar, setMostrarModalFinalizar] = useState(false);
+  const [mostrarModalAporteDiezmo, setMostrarModalAporteDiezmo] = useState(false);
+
+  // Formulario Aportar desde Diezmos
+  const [montoAporteDiezmo, setMontoAporteDiezmo] = useState('');
+  const [pactoAporteDiezmoId, setPactoAporteDiezmoId] = useState('');
+  const [conceptoAporteDiezmo, setConceptoAporteDiezmo] = useState('');
+  const [registrarEgresoCaja, setRegistrarEgresoCaja] = useState(true);
+  const [fechaAporteDiezmo, setFechaAporteDiezmo] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Formulario Nuevo Proyecto
   const [nombreProyecto, setNombreProyecto] = useState('');
@@ -295,6 +304,67 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
     }
   };
 
+  // Aportar fondos desde Diezmos a Proyecto
+  const [guardandoAporteDiezmo, setGuardandoAporteDiezmo] = useState(false);
+
+  const handleGuardarAporteDiezmo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!proyectoSeleccionado) return;
+    const montoNum = parseFloat(montoAporteDiezmo);
+    if (isNaN(montoNum) || montoNum <= 0) {
+      alert('Por favor ingrese un monto válido mayor a $0');
+      return;
+    }
+
+    setGuardandoAporteDiezmo(true);
+    try {
+      const pactoSel = pactos.find(p => p.id === pactoAporteDiezmoId);
+      const conceptoFinal = conceptoAporteDiezmo.trim() || `Fondo de Diezmos asignado a: ${proyectoSeleccionado.nombre}`;
+
+      // 1. Ingreso al Proyecto Pactado
+      await storageService.guardarTransaccion({
+        tipo: 'ingreso',
+        subtipo: 'pacto',
+        categoria: 'Aporte a Proyecto Pactado',
+        monto: montoNum,
+        fecha: fechaAporteDiezmo,
+        tipo_culto: 'no_aplica',
+        concepto: conceptoFinal,
+        miembro_nombre: pactoSel?.miembro_nombre || 'Fondo General de Diezmos',
+        proyecto_id: proyectoSeleccionado.id,
+        proyecto_nombre: proyectoSeleccionado.nombre,
+        pacto_id: pactoAporteDiezmoId || undefined,
+        metodo_pago: 'efectivo'
+      });
+
+      // 2. Egreso compensatorio opcional de Caja General
+      if (registrarEgresoCaja) {
+        await storageService.guardarTransaccion({
+          tipo: 'gasto',
+          categoria: 'Aporte de Diezmo a Proyecto',
+          monto: montoNum,
+          fecha: fechaAporteDiezmo,
+          tipo_culto: 'no_aplica',
+          concepto: `Egreso de Caja General por aporte a proyecto: ${proyectoSeleccionado.nombre}`,
+          proyecto_id: proyectoSeleccionado.id,
+          proyecto_nombre: proyectoSeleccionado.nombre,
+          metodo_pago: 'efectivo'
+        });
+      }
+
+      await recargar();
+      setMostrarModalAporteDiezmo(false);
+      setMontoAporteDiezmo('');
+      setPactoAporteDiezmoId('');
+      setConceptoAporteDiezmo('');
+      alert(`¡Aporte de ${formatearMoneda(montoNum)} registrado con éxito para "${proyectoSeleccionado.nombre}"!`);
+    } catch (err) {
+      alert('Error al registrar el aporte desde diezmos.');
+    } finally {
+      setGuardandoAporteDiezmo(false);
+    }
+  };
+
   // Cálculos del proyecto activo
   const meta = proyectoSeleccionado?.meta_total || 1;
   const totalAportadoPactos = pactosDelProyecto.reduce((acc, p) => acc + (p.total_aportado || 0), 0);
@@ -417,6 +487,20 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>Registrar Pactante</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMontoAporteDiezmo('');
+                      setPactoAporteDiezmoId('');
+                      setConceptoAporteDiezmo(`Fondo institucional aportado de Diezmos a: ${proyectoSeleccionado.nombre}`);
+                      setMostrarModalAporteDiezmo(true);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 active:scale-[0.98] text-indigo-950 border border-indigo-200/80 text-xs font-bold transition-all shadow-sm"
+                    title="Tomar una cantidad de los diezmos para aplicarla a este proyecto"
+                  >
+                    <ArrowRightLeft className="w-4 h-4 text-indigo-600" />
+                    <span>Aportar desde Diezmos</span>
                   </button>
 
                   <button
@@ -967,6 +1051,162 @@ export const ProyectosPactadosView: React.FC<ProyectosPactadosProps> = ({
                     {guardandoPacto ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Aportar desde Diezmos a Proyecto Apple HIG */}
+      {mostrarModalAporteDiezmo && proyectoSeleccionado && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setMostrarModalAporteDiezmo(false);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-aporte-diezmo-titulo"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200/80 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+                  <ArrowRightLeft className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="modal-aporte-diezmo-titulo" className="text-base font-black text-slate-950">
+                    Aportar desde Diezmos al Proyecto
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proyecto: <strong className="text-indigo-600">{proyectoSeleccionado.nombre}</strong>
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setMostrarModalAporteDiezmo(false)} 
+                aria-label="Cerrar modal"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarAporteDiezmo} className="space-y-4 pt-1">
+              {/* Importe a Aportar */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Monto a tomar de Diezmos ($ MXN) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-400">$</span>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="1"
+                    placeholder="0.00"
+                    value={montoAporteDiezmo}
+                    onChange={(e) => setMontoAporteDiezmo(e.target.value)}
+                    required
+                    autoFocus
+                    className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 tabular-nums"
+                  />
+                </div>
+              </div>
+
+              {/* Fecha del Movimiento */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Fecha del Movimiento *
+                </label>
+                <input
+                  type="date"
+                  value={fechaAporteDiezmo}
+                  onChange={(e) => setFechaAporteDiezmo(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Asignar a un Pacto Específico (Opcional) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Asignar a un Hermano con Pacto</span>
+                  <span className="text-[10px] font-normal text-slate-400">Opcional</span>
+                </label>
+                <select
+                  value={pactoAporteDiezmoId}
+                  onChange={(e) => setPactoAporteDiezmoId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                >
+                  <option value="">Aporte institucional al proyecto (sin pacto individual)</option>
+                  {pactosDelProyecto.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.miembro_nombre} - Saldo pendiente: {formatearMoneda(p.saldo_pendiente)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Si seleccionas un hermano, este importe amortizará su saldo pactado pendiente.
+                </p>
+              </div>
+
+              {/* Concepto / Nota */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Concepto / Nota explicativa
+                </label>
+                <input
+                  type="text"
+                  value={conceptoAporteDiezmo}
+                  onChange={(e) => setConceptoAporteDiezmo(e.target.value)}
+                  placeholder={`Fondo institucional de diezmos a: ${proyectoSeleccionado.nombre}`}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Switch de Egreso Contable en Caja General */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block">
+                    Registrar egreso contable en Caja General
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block leading-relaxed">
+                    Disminuye el saldo disponible de Caja General para reflejar que el dinero físico pasa al fondo del proyecto.
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 pt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={registrarEgresoCaja}
+                    onChange={(e) => setRegistrarEgresoCaja(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 shadow-inner"></div>
+                </label>
+              </div>
+
+              {/* Acciones */}
+              <div className="pt-2 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalAporteDiezmo(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoAporteDiezmo}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                >
+                  {guardandoAporteDiezmo ? 'Aplicando...' : 'Aplicar Aporte al Proyecto'}
+                </button>
               </div>
             </form>
           </div>
