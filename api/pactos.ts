@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDbPool } from './_lib/db.js';
+import { normalizarNombreMiembro } from './_lib/standardizeMembers.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -108,6 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Faltan campos obligatorios: proyecto_id, miembro_nombre, monto_total_pactado, cuota_semanal' });
       }
 
+      data.miembro_nombre = normalizarNombreMiembro(data.miembro_nombre);
+
       const client = await pool.connect();
       try {
         const id = sanitizeUUID(data.id);
@@ -194,7 +197,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `;
         const values = [
           pactoId,
-          data.miembro_nombre !== undefined ? data.miembro_nombre : null,
+          data.miembro_nombre !== undefined ? (data.miembro_nombre ? normalizarNombreMiembro(data.miembro_nombre) : null) : null,
           data.miembro_telefono !== undefined ? data.miembro_telefono : null,
           data.monto_total_pactado !== undefined ? parseFloat(data.monto_total_pactado) : null,
           data.cuota_semanal !== undefined ? parseFloat(data.cuota_semanal) : null,

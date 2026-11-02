@@ -4,7 +4,7 @@
 
 ### *Plataforma de Tesorería, Mayordomía Financiera y Rendición de Cuentas para Iglesias y Ministerios*
 
-[![Version](https://img.shields.io/badge/version-1.11.0-emerald.svg?style=for-the-badge&logo=semver&logoColor=white)](package.json)
+[![Version](https://img.shields.io/badge/version-1.11.1-emerald.svg?style=for-the-badge&logo=semver&logoColor=white)](package.json)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.2-646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -52,6 +52,7 @@
 
 | Versión | Fecha y Hora (UTC-6) | Responsable | Estado |
 | :--- | :--- | :--- | :--- |
+| **v1.11.1** | 2026-11-02 09:25:00 | David Méndez | Producción / Estable |
 | **v1.11.0** | 2026-11-02 08:47:00 | David Méndez | Producción / Estable |
 | **v1.10.0** | 2026-11-02 00:35:00 | David Méndez | Producción / Estable |
 | **v1.9.0** | 2026-11-01 22:15:00 | David Méndez | Producción / Estable |

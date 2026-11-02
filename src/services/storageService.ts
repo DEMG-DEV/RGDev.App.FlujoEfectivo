@@ -33,6 +33,53 @@ function purgarSeedAntiguo() {
 }
 purgarSeedAntiguo();
 
+export const NOMBRES_CANONICOS_MAP: Record<string, string> = {
+  // Cristal
+  'crystal': 'Cristal',
+  'cristal': 'Cristal',
+  // Laura de Hernandez
+  'laura de hernandez': 'Laura de Hernandez',
+  'laura de hernández': 'Laura de Hernandez',
+  'laura hernandez': 'Laura de Hernandez',
+  'laura hernández': 'Laura de Hernandez',
+  'laura hdz': 'Laura de Hernandez',
+  'laura de hdz': 'Laura de Hernandez',
+  // Ma de Jesus
+  'ma de jesus': 'Ma de Jesus',
+  'ma. de jesus': 'Ma de Jesus',
+  'ma de jesús': 'Ma de Jesus',
+  'ma. de jesús': 'Ma de Jesus',
+  'maria de jesus': 'Ma de Jesus',
+  'maría de jesús': 'Ma de Jesus',
+  'maría de jesus': 'Ma de Jesus',
+  // Jesus Hernandez
+  'jesus hernandez': 'Jesus Hernandez',
+  'jesús hernández': 'Jesus Hernandez',
+  'jesus hernández': 'Jesus Hernandez',
+  'jesús hernandez': 'Jesus Hernandez',
+  'pastor jesus': 'Jesus Hernandez',
+  'pastor jesús': 'Jesus Hernandez',
+  'pastor jesus hernandez': 'Jesus Hernandez',
+  'pastor jesús hernández': 'Jesus Hernandez',
+  'jesus hdz': 'Jesus Hernandez',
+  // Nancy Hernandez
+  'nancy hernandez': 'Nancy Hernandez',
+  'nancy hernández': 'Nancy Hernandez',
+  'nancy hdz': 'Nancy Hernandez',
+  // David Mendez
+  'david mendez': 'David Mendez',
+  'david méndez': 'David Mendez',
+  // Juan
+  'juan': 'Juan'
+};
+
+export function normalizarNombreMiembro(nombre?: string | null): string {
+  if (!nombre || typeof nombre !== 'string') return '';
+  const trimmed = nombre.trim();
+  const lower = trimmed.toLowerCase();
+  return NOMBRES_CANONICOS_MAP[lower] || trimmed;
+}
+
 /**
  * Normaliza y sanea cualquier registro de transacción proveniente de PostgreSQL,
  * localStorage o respuestas HTTP para garantizar tipado numérico y fechas válidas YYYY-MM-DD
@@ -41,6 +88,7 @@ export function normalizarTransaccion(row: any): Transaccion {
   if (!row) return {} as Transaccion;
   const fechaLimpia = extraerFechaYYYYMMDD(row.fecha);
   const montoNum = typeof row.monto === 'number' ? row.monto : (parseFloat(String(row.monto)) || 0);
+  const nombreLimpio = row.miembro_nombre ? normalizarNombreMiembro(row.miembro_nombre) : undefined;
   return {
     id: String(row.id || ''),
     tipo: row.tipo === 'gasto' ? 'gasto' : 'ingreso',
@@ -52,7 +100,7 @@ export function normalizarTransaccion(row: any): Transaccion {
     tipo_culto: row.tipo_culto || 'no_aplica',
     concepto: String(row.concepto || ''),
     miembro_id: row.miembro_id || undefined,
-    miembro_nombre: row.miembro_nombre || undefined,
+    miembro_nombre: nombreLimpio,
     proyecto_id: row.proyecto_id || undefined,
     proyecto_nombre: row.proyecto_nombre || undefined,
     pacto_id: row.pacto_id || undefined,
@@ -114,6 +162,26 @@ export const storageService = {
     const pactos = this.getPactos();
     const proyectos = this.getProyectos();
     let huboCambios = false;
+
+    // 0. Estandarizar nombres en transacciones y pactos a su formato canónico
+    for (const t of txs) {
+      if (t.miembro_nombre) {
+        const norm = normalizarNombreMiembro(t.miembro_nombre);
+        if (norm !== t.miembro_nombre) {
+          t.miembro_nombre = norm;
+          huboCambios = true;
+        }
+      }
+    }
+    for (const p of pactos) {
+      if (p.miembro_nombre) {
+        const norm = normalizarNombreMiembro(p.miembro_nombre);
+        if (norm !== p.miembro_nombre) {
+          p.miembro_nombre = norm;
+          huboCambios = true;
+        }
+      }
+    }
 
     for (const t of txs) {
       // 1. Vincular aportes de pacto huérfanos que tengan proyecto_id pero no pacto_id
@@ -181,6 +249,39 @@ export const storageService = {
         proj.total_gastado = gastado;
         huboCambios = true;
       }
+    }
+
+    // 5. Recalcular métricas de hermanos en localStorage
+    const rawMiembros = localStorage.getItem(STORAGE_KEYS.MIEMBROS);
+    if (rawMiembros) {
+      try {
+        let miembros: MiembroIglesia[] = JSON.parse(rawMiembros);
+        let miembrosCambiaron = false;
+        for (const m of miembros) {
+          const norm = normalizarNombreMiembro(m.nombre);
+          if (norm !== m.nombre) {
+            m.nombre = norm;
+            miembrosCambiaron = true;
+          }
+          const mLower = m.nombre.toLowerCase().trim();
+          const aportes = txs.filter(t => t.tipo === 'ingreso' && (t.miembro_id === m.id || (t.miembro_nombre && t.miembro_nombre.toLowerCase().trim() === mLower)));
+          const diezmos = aportes.filter(t => t.subtipo === 'diezmo').reduce((sum, t) => sum + t.monto, 0);
+          const pactosAportados = aportes.filter(t => t.subtipo === 'pacto').reduce((sum, t) => sum + t.monto, 0);
+          const totalAportado = diezmos + pactosAportados;
+          const totalAportaciones = aportes.length;
+
+          if (m.total_aportaciones !== totalAportaciones || m.total_aportado !== totalAportado || m.total_diezmos !== diezmos || m.total_pactos !== pactosAportados) {
+            m.total_aportaciones = totalAportaciones;
+            m.total_aportado = totalAportado;
+            m.total_diezmos = diezmos;
+            m.total_pactos = pactosAportados;
+            miembrosCambiaron = true;
+          }
+        }
+        if (miembrosCambiaron) {
+          localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(miembros));
+        }
+      } catch {}
     }
 
     if (huboCambios) {
@@ -862,9 +963,10 @@ export const storageService = {
   async guardarMiembro(datos: { nombre: string; telefono?: string; email?: string; notas?: string; activo?: boolean }): Promise<MiembroIglesia> {
     const lista = this.getMiembros();
     const tempId = 'm-' + Date.now();
+    const nombreCanónico = normalizarNombreMiembro(datos.nombre);
     const nuevo: MiembroIglesia = {
       id: tempId,
-      nombre: datos.nombre.trim(),
+      nombre: nombreCanónico,
       telefono: datos.telefono?.trim() || undefined,
       email: datos.email?.trim() || undefined,
       notas: datos.notas?.trim() || undefined,
@@ -883,7 +985,7 @@ export const storageService = {
       const res = await fetch('/api/miembros', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
+        body: JSON.stringify({ ...datos, nombre: nombreCanónico }),
       });
       if (res.ok) {
         const json = await res.json();
@@ -909,9 +1011,14 @@ export const storageService = {
     const idx = lista.findIndex(m => m.id === id);
     if (idx < 0) return null;
 
+    const datosLimpios = { ...datos };
+    if (datosLimpios.nombre) {
+      datosLimpios.nombre = normalizarNombreMiembro(datosLimpios.nombre);
+    }
+
     const actualizado: MiembroIglesia = {
       ...lista[idx],
-      ...datos
+      ...datosLimpios
     };
     lista[idx] = actualizado;
     localStorage.setItem(STORAGE_KEYS.MIEMBROS, JSON.stringify(lista));
@@ -920,13 +1027,33 @@ export const storageService = {
       await fetch('/api/miembros', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...datos }),
+        body: JSON.stringify({ id, ...datosLimpios }),
       });
     } catch (err) {
       console.warn('Error al editar hermano en backend:', err);
     }
 
     return actualizado;
+  },
+
+  async estandarizarNombresHermanos(): Promise<{ success: boolean; data: MiembroIglesia[] }> {
+    this.repararYVincularPactos();
+    try {
+      const res = await fetch('/api/miembros?action=estandarizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'estandarizar' })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        console.log('Estandarización remota finalizada:', json);
+      }
+    } catch (e) {
+      console.warn('Estandarización ejecutada localmente:', e);
+    }
+    const remotos = await this.cargarMiembrosRemotos();
+    this.repararYVincularPactos();
+    return { success: true, data: remotos };
   },
 
   async eliminarMiembro(id: string): Promise<boolean> {

@@ -5,6 +5,32 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.11.1: Estandarización de nombres de hermanos y recuperación de historial completo de aportaciones
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 09:25:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Unificación Canónica de Nombres en el Directorio**: Se estandarizaron los nombres de los hermanos en todo el sistema para que coincidan con la lista oficial (Cristal, David Mendez, Jesus Hernandez, Juan, Laura de Hernandez, Ma de Jesus y Nancy Hernandez).
+2. **Recuperación del Historial de Cristal**: Se corrigieron las aportaciones que habían sido capturadas con variaciones en el nombre (como "Crystal" con "y"). Ahora la hermana Cristal refleja correctamente sus 3 aportaciones ($340.00 en total entre diezmos y proyectos).
+3. **Vinculación del Proyecto de Laura de Hernandez**: Se unificaron los compromisos y registros de "Laura Hernandez" hacia "Laura de Hernandez", permitiendo que su pacto en el proyecto de bocinas aparezca vinculado en su perfil.
+4. **Prevención Automática en Nuevos Registros**: El sistema ahora detecta automáticamente cualquier variación, tilde o abreviatura al capturar diezmos o pactos y la guarda con el nombre oficial del hermano sin requerir corrección manual.
+5. **Botón "Estandarizar Nombres" en el Directorio**: Se agregó un botón rápido en la pantalla de Hermanos para que el tesorero o pastor pueda volver a sincronizar y validar que todos los aportes coincidan con cada hermano con un solo toque.
+
+### ¿Qué significa para el proyecto?
+- **Justicia y Transparencia en la Rendición de Cuentas**: Cada hermano ve reflejado el 100% de su historial de diezmos y pactos sin que se pierdan o queden huérfanas aportaciones por errores de dedo o diferencias de ortografía.
+- **Cero Duplicados**: La base de datos se mantiene limpia y organizada de manera automática, sin hermanos duplicados.
+
+### ¿Qué va a notar el usuario/cliente?
+- El perfil de **Cristal** ahora muestra sus 3 aportaciones y $340.00 aportados en lugar de aparecer en ceros.
+- El perfil de **Laura de Hernandez** tiene vinculado su compromiso del proyecto *Poder para Bocinas*.
+- Nuevo botón **"Estandarizar Nombres"** con ícono de destello en la cabecera de la sección *Hermanos*.
+- Notificación verde de confirmación al terminar la estandarización.
+
+---
+
 ## ✅ Lanzamiento de Versión v1.11.0: Compras en parcialidades, registro de pagos directos a proveedores y control de deuda en proyectos
 
 | Campo | Detalle |

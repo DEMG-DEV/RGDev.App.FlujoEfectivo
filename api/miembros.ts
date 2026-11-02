@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDbPool } from './_lib/db.js';
+import { standardizeMemberRecords, normalizarNombreMiembro } from './_lib/standardizeMembers.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -16,7 +17,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const client = await pool.connect();
       try {
-        const { id, aportaciones } = req.query;
+        const { id, aportaciones, action } = req.query;
+
+        // Estandarización automática e idempotente en cada petición o explícita
+        const syncResult = await standardizeMemberRecords(client);
+
+        if (action === 'estandarizar') {
+          return res.status(200).json({
+            success: true,
+            message: 'Nombres estandarizados e historial contable vinculado con éxito.',
+            stats: syncResult
+          });
+        }
 
         // Caso 1: Obtener detalle y todas las aportaciones de un hermano específico
         if (id && aportaciones === 'true') {
@@ -151,10 +163,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'POST') {
     try {
-      const { nombre, telefono, email, notas, activo = true } = req.body || {};
+      const { nombre, telefono, email, notas, activo = true, action } = req.body || {};
+
+      if (action === 'estandarizar') {
+        const client = await pool.connect();
+        try {
+          const syncResult = await standardizeMemberRecords(client);
+          return res.status(200).json({
+            success: true,
+            message: 'Nombres estandarizados e historial contable vinculado con éxito.',
+            stats: syncResult
+          });
+        } finally {
+          client.release();
+        }
+      }
+
       if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
         return res.status(400).json({ error: 'El nombre del hermano es obligatorio.' });
       }
+
+      const nombreLimpio = normalizarNombreMiembro(nombre);
 
       const client = await pool.connect();
       try {
@@ -164,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           RETURNING *;
         `;
         const values = [
-          nombre.trim(),
+          nombreLimpio,
           telefono?.trim() || null,
           email?.trim() || null,
           notas?.trim() || null,
@@ -233,8 +262,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let idx = 1;
 
         if (nombre !== undefined && typeof nombre === 'string') {
+          const nombreLimpio = normalizarNombreMiembro(nombre);
           fields.push(`nombre = $${idx++}`);
-          values.push(nombre.trim());
+          values.push(nombreLimpio);
         }
         if (telefono !== undefined) {
           fields.push(`telefono = $${idx++}`);

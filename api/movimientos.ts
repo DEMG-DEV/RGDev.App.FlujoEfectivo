@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDbPool } from './_lib/db.js';
+import { normalizarNombreMiembro } from './_lib/standardizeMembers.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,6 +51,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const proyectoId = sanitizeUUID(data.proyecto_id);
         let pactoId = sanitizeUUID(data.pacto_id);
         let miembroId = sanitizeUUID(data.miembro_id);
+
+        if (data.miembro_nombre) {
+          data.miembro_nombre = normalizarNombreMiembro(data.miembro_nombre);
+        }
 
         if (!miembroId && data.miembro_nombre && data.miembro_nombre.trim().toLowerCase() !== 'anónimo' && data.miembro_nombre.trim().toLowerCase() !== 'anonimo') {
           const mMatch = await client.query(
@@ -195,8 +200,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           values.push(sanitizeUUID(data.miembro_id));
         }
         if (data.miembro_nombre !== undefined) {
+          const mNombreNorm = data.miembro_nombre ? normalizarNombreMiembro(data.miembro_nombre) : null;
           fields.push(`miembro_nombre = $${idx++}`);
-          values.push(data.miembro_nombre || null);
+          values.push(mNombreNorm);
         }
         if (data.proyecto_id !== undefined) {
           fields.push(`proyecto_id = $${idx++}`);

@@ -65,6 +65,25 @@ export const HermanosView: React.FC<HermanosViewProps> = ({
   // Modal Confirmación Eliminar
   const [miembroAEliminar, setMiembroAEliminar] = useState<MiembroIglesia | null>(null);
 
+  // Estandarización de nombres
+  const [estandarizando, setEstandarizando] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+
+  const handleEstandarizar = async () => {
+    setEstandarizando(true);
+    setMensajeExito(null);
+    try {
+      const res = await storageService.estandarizarNombresHermanos();
+      setMiembros(res.data);
+      setMensajeExito('¡Nombres e historial estandarizados exitosamente!');
+      setTimeout(() => setMensajeExito(null), 4000);
+    } catch (e) {
+      console.error('Error al estandarizar:', e);
+    } finally {
+      setEstandarizando(false);
+    }
+  };
+
   const recargar = async () => {
     setCargando(true);
     try {
@@ -243,14 +262,39 @@ export const HermanosView: React.FC<HermanosViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleAbrirCrear}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Registrar Hermano</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleEstandarizar}
+            disabled={estandarizando}
+            title="Estandariza los nombres con base en el directorio canónico y vincula todo el historial contable"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-60"
+          >
+            <Sparkles className={`w-3.5 h-3.5 text-amber-500 ${estandarizando ? 'animate-spin' : ''}`} />
+            <span>{estandarizando ? 'Estandarizando...' : 'Estandarizar Nombres'}</span>
+          </button>
+
+          <button
+            onClick={handleAbrirCrear}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Registrar Hermano</span>
+          </button>
+        </div>
       </div>
+
+      {/* Banner de confirmación de estandarización */}
+      {mensajeExito && (
+        <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl text-emerald-800 text-xs font-medium animate-in fade-in slide-in-from-top-1 duration-200 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>{mensajeExito}</span>
+          </div>
+          <button onClick={() => setMensajeExito(null)} className="text-emerald-600 hover:text-emerald-900">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* 2. BARRA DE MÉTRICAS INSET GROUPED (Estilo Apple macOS / iOS Settings) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">

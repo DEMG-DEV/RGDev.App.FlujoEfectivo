@@ -5,6 +5,36 @@
 
 ---
 
+## fix(release): release v1.11.1 - estandarización canónica de nombres de hermanos, sincronización sql e integridad histórica de aportaciones
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 09:25:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Bug Fix & Data Integrity Release (Patch) |
+
+### Archivos Modificados y Creados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `api/_lib/standardizeMembers.ts` | Agregado | Catálogo canónico de los 7 hermanos oficiales (`Cristal`, `David Mendez`, `Jesus Hernandez`, `Juan`, `Laura de Hernandez`, `Ma de Jesus`, `Nancy Hernandez`), función `normalizarNombreMiembro` con soporte de aliases fonéticos y ortográficos, y rutina SQL idempotente `standardizeMemberRecords` para actualizar transacciones, pactos y tabla miembros |
+| `api/miembros.ts` | Modificado | Invocación automática de `standardizeMemberRecords` en consultas `GET`, soporte para endpoint administrativo explícito `action=estandarizar` y normalización de nombres en altas y ediciones (`POST`, `PUT`, `PATCH`) |
+| `api/movimientos.ts` | Modificado | Normalización canónica de `miembro_nombre` antes de inserción o actualización de transacciones y resolución de `miembro_id` en base de datos |
+| `api/pactos.ts` | Modificado | Normalización canónica de `miembro_nombre` en altas y modificaciones de compromisos pactados |
+| `src/services/storageService.ts` | Modificado | Diccionario canónico en cliente, normalización de transacciones en `normalizarTransaccion`, fase 0 y 5 en `repararYVincularPactos` para estandarizar `localStorage` y recalcular métricas de hermanos, y método `estandarizarNombresHermanos` |
+| `src/components/HermanosView.tsx` | Modificado | Botón de acción rápida "Estandarizar Nombres" con ícono `Sparkles`, feedback visual animado de éxito y actualización en tiempo real de aportaciones y métricas |
+| `package.json` | Modificado | Incremento de versión semántica a `1.11.1` |
+| `README.md` | Modificado | Actualización de badge a `v1.11.1` y registro en la tabla de puntos de referencia |
+
+### Detalle Técnico
+- **Resolución de Inconsistencia Fonética y Tipográfica**: Las transacciones históricas registradas bajo la variante anglosajona `Crystal` no coincidían con el registro canónico de `Cristal` en el directorio de miembros, ocasionando que los $340.00 acumulados (2 diezmos y 1 aporte a proyecto) figuraran con 0 aportaciones. De manera homóloga, compromisos de fe registrados bajo `Laura Hernandez` no se vinculaban al perfil oficial de `Laura de Hernandez`.
+- **Rutina de Estandarización SQL Idempotente**: Se implementó una función transaccional en `api/_lib/standardizeMembers.ts` que barre las tablas `transacciones`, `pactos_miembros` y `miembros` actualizando los nombres a su representación canónica, deduplicando hermanos redundantes y asignando la clave foránea `transacciones.miembro_id` hacia el identificador único del hermano correspondiente.
+- **Blindaje en la Capa de Entrada de Datos**: Tanto las API serverless (`api/movimientos.ts`, `api/pactos.ts`, `api/miembros.ts`) como el servicio frontend (`storageService.ts`) interceptan y sanean cualquier entrada de texto para asegurar que cualquier captura futura persista exclusivamente el nombre canónico.
+- **Sincronización de Estado y Caché Offline**: `storageService.repararYVincularPactos` procesa el histórico almacenado en `localStorage`, corrigiendo discrepancias locales de forma transparente para clientes ya autenticados sin requerir limpieza manual de almacenamiento de navegador.
+
+---
+
 ## feat(release): release v1.11.0 - compras en parcialidades, registro directo de pagos a proveedores y gestión inteligente de gastos en proyectos
 
 | Campo | Detalle |
