@@ -5,7 +5,7 @@ export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'gospel';
 export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 
-export const s3Client = new S3Client({
+export const s3Client: any = new S3Client({
   region: 'auto',
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {

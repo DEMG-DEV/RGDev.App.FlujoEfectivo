@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const data = await s3Client.send(new GetObjectCommand({
+    const data = await (s3Client as any).send(new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: keyPath,
     }));

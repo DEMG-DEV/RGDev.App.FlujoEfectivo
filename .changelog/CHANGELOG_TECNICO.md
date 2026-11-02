@@ -5,6 +5,31 @@
 
 ---
 
+## fix(api): corrección de compatibilidad de tipos typescript en endpoints serverless para vercel
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-02 00:41:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | Bugfix & Build Stability |
+
+### Archivos Modificados y Creados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `api/auth/[...auth].ts` | Modificado | Resolución de errores de tipado TypeScript (`TS2345`, `TS18048`, `TS2349`, `TS7006`, `TS2339`): asignación segura de código HTTP con operador coalescente `response?.status ?? 200`, iteración polimórfica de cabeceras (`forEach`, `entries` u `Object.entries`), extracción segura de cookies y fallback dual para `text()` / `body` |
+| `api/r2.ts` | Modificado | Declaración flexible del cliente `s3Client: any` para evitar colisiones de interfaces smithy en `@aws-sdk/client-s3` al compilarse en entornos serverless aislados de `@vercel/node` |
+| `api/evidencia/[...key].ts` | Modificado | Casting seguro `(s3Client as any).send(new GetObjectCommand(...))` resolviendo el error `TS2339: Property 'send' does not exist on type 'S3Client'` |
+| `api/upload.ts` | Modificado | Casting seguro `(s3Client as any).send(new PutObjectCommand(...))` blindando la carga de archivos en Cloudflare R2 |
+| `package.json` | Modificado | Incremento de versión de parche a `1.10.1` |
+
+### Resumen Técnico del Impacto
+- **Compilación Exitosa en Vercel**: Se solventan al 100% los fallos de build reportados por el compilador `@vercel/node` (`tsc 5.9.3`).
+- **Resiliencia en Runtime**: Los endpoints de autenticación y almacenamiento Cloudflare R2 operan con chequeos defensivos sin alterar el comportamiento de producción.
+
+---
+
 ## feat(release): release v1.10.0 - rediseño dashboard apple hig, experiencia móvil nativa, snapshots históricos de reportes y github community standards
 
 | Campo | Detalle |

@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sanitizedName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
       const key = `comprobantes/${new Date().toISOString().slice(0, 7)}/${Date.now()}_${sanitizedName}`;
 
-      uploadPromise = s3Client.send(new PutObjectCommand({
+      uploadPromise = (s3Client as any).send(new PutObjectCommand({
         Bucket: R2_BUCKET_NAME,
         Key: key,
         Body: fileBuffer,

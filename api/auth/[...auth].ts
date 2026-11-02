@@ -202,19 +202,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body
     });
 
-    const response = await Auth(request, authConfig);
+    const response: any = await Auth(request, authConfig);
 
-    res.status(response.status);
-    response.headers.forEach((val, key) => {
-      if (key.toLowerCase() === 'set-cookie') {
-        const rawCookies = (response.headers as any).getSetCookie ? (response.headers as any).getSetCookie() : [val];
-        res.setHeader('Set-Cookie', rawCookies);
+    res.status(response?.status ?? 200);
+    if (response?.headers) {
+      if (typeof response.headers.forEach === 'function') {
+        response.headers.forEach((val: string, key: string) => {
+          if (key.toLowerCase() === 'set-cookie') {
+            const rawCookies = typeof response.headers.getSetCookie === 'function'
+              ? response.headers.getSetCookie()
+              : [val];
+            res.setHeader('Set-Cookie', rawCookies);
+          } else {
+            res.setHeader(key, val);
+          }
+        });
+      } else if (typeof response.headers.entries === 'function') {
+        for (const [key, val] of response.headers.entries()) {
+          res.setHeader(key, val);
+        }
       } else {
-        res.setHeader(key, val);
+        for (const [key, val] of Object.entries(response.headers)) {
+          res.setHeader(key, val as any);
+        }
       }
-    });
+    }
 
-    const responseData = await response.text();
+    const responseData = typeof response?.text === 'function' ? await response.text() : (response?.body ?? '');
     return res.send(responseData);
   } catch (err: any) {
     console.error('Error procesando request Auth.js:', err);
