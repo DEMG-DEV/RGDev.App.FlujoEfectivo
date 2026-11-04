@@ -5,6 +5,28 @@
 
 ---
 
+## ✅ Lanzamiento de Versión v1.11.2: Ordenamiento inteligente por diezmos y proyectos y simplificación visual del directorio
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-04 10:18:00 |
+| **Responsable** | David Méndez |
+
+### ¿Qué se realizó?
+1. **Ordenamiento de Hermanos por Contribución**: Ahora la lista de hermanos se organiza automáticamente priorizando a quienes tienen mayor aportación a diezmos y, en caso de empate, por mayor aportación a proyectos y obras.
+2. **Interfaz Más Limpia y Despejada**: Se retiró el botón temporal de "Estandarizar Nombres", dejando la pantalla con un diseño más limpio y directo enfocado únicamente en registrar y consultar hermanos.
+3. **Estandarización Totalmente Automática**: La corrección de nombres y vinculación de historial contable ahora trabaja silenciosamente en segundo plano, sin requerir clics ni acciones manuales del usuario.
+
+### ¿Qué significa para el proyecto?
+- **Visibilidad Inmediata de Mayordomía**: El liderazgo pastoral y la tesorería pueden identificar de forma instantánea a los principales diezmantes y participantes de proyectos de la congregación sin tener que ordenar manualmente o filtrar tablas.
+- **Experiencia de Usuario Más Sencilla**: La pantalla luce más despejada y libre de botones de mantenimiento técnico.
+
+### ¿Qué va a notar el usuario/cliente?
+- En el Directorio de Hermanos, las tarjetas aparecen ordenadas de mayor a menor aportación en diezmos (y luego por proyectos).
+- La cabecera superior ahora sólo muestra el botón principal "+ Registrar Hermano".
+
+---
+
 ## ✅ Lanzamiento de Versión v1.11.1: Estandarización de nombres de hermanos y recuperación de historial completo de aportaciones
 
 | Campo | Detalle |

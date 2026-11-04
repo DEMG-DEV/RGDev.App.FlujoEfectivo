@@ -135,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 AND t.tipo = 'ingreso' AND t.subtipo = 'pacto'
             ), 0)::numeric as total_pactos
           FROM miembros m
-          ORDER BY m.nombre ASC;
+          ORDER BY total_diezmos DESC, total_pactos DESC, total_aportado DESC, m.nombre ASC;
         `;
         const result = await client.query(query);
 

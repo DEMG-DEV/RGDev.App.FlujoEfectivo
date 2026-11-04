@@ -5,6 +5,30 @@
 
 ---
 
+## fix(release): release v1.11.2 - ordenamiento jerárquico por diezmos y pactos y depuración de interfaz en directorio de hermanos
+
+| Campo | Detalle |
+|-------|---------|
+| **Fecha** | 2026-11-04 10:18:00 |
+| **Autor** | David Méndez (demg@outlook.com) |
+| **Branch** | main |
+| **Tipo** | UI/UX Refinement & Query Sorting Release (Patch) |
+
+### Archivos Modificados
+
+| Archivo | Estado | Descripción del Cambio |
+|---------|--------|----------------------|
+| `src/components/HermanosView.tsx` | Modificado | Eliminación del botón redundante "Estandarizar Nombres" y su banner asociado; implementación del ordenamiento reactivo multinivel en `miembrosFiltrados` por diezmos descendentes, pactos descendentes y total general |
+| `api/miembros.ts` | Modificado | Actualización de la cláusula SQL `ORDER BY` para ordenar por `total_diezmos DESC, total_pactos DESC, total_aportado DESC, m.nombre ASC` en el endpoint de consulta |
+| `package.json` | Modificado | Incremento de versión semántica a `1.11.2` |
+| `README.md` | Modificado | Actualización de badge a `v1.11.2` y registro en la tabla de puntos de referencia |
+
+### Detalle Técnico
+- **Ordenamiento Multinivel en Interfaz y Base de Datos**: Anteriormente, el listado de hermanos se ordenaba únicamente por nombre alfabético (`ORDER BY m.nombre ASC`). Se actualizó tanto la consulta SQL en `api/miembros.ts` como la función `useMemo` de `miembrosFiltrados` en `HermanosView.tsx` para ordenar jerárquicamente por: (1) mayor aportación a diezmos (`total_diezmos DESC`), (2) mayor aportación a proyectos (`total_pactos DESC`), (3) mayor aportación total acumulada (`total_aportado DESC`), y (4) orden alfabético como criterio de desempate final.
+- **Depuración de Interfaz Apple HIG**: Una vez confirmada y automatizada la estandarización canónica en el backend y el almacenamiento local, se retiró el botón temporal de "Estandarizar Nombres" de la cabecera, preservando un diseño minimalista enfocado en la acción clave "Registrar Hermano".
+
+---
+
 ## fix(release): release v1.11.1 - estandarización canónica de nombres de hermanos, sincronización sql e integridad histórica de aportaciones
 
 | Campo | Detalle |
